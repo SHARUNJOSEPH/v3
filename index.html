@@ -576,9 +576,37 @@
             border-radius: 0.5rem;
         }
 
+        /* PDF Preview Container Styles */
+        .pdf-preview-container {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            min-height: 400px;
+            display: flex;
+            align-items: stretch; /* Stretch children to fill height so iframe can size to 100% */
+            justify-content: center;
+            background-color: var(--input-bg);
+            transition: border-color 0.3s;
+        }
+
+        /* Ensure the content wrapper can grow to fill the preview container */
+        #pdfPreviewContent {
+            flex: 1 1 auto;
+            display: block;
+        }
+
+        /* Placeholder should span full width when visible */
+        #pdfPreviewPlaceholder {
+            width: 100%;
+        }
+
+        .pdf-preview-container:hover {
+            border-color: var(--accent-color);
+        }
+
     </style>
 </head>
-<body>
+<body class="dark-mode">
     <div class="dropdown" style="position: absolute; top: 20px; right: 30px; z-index: 1050;">
         <a href="#" title="Profile" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16" style="color: var(--accent-color);">
@@ -603,6 +631,9 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="canvasmap-tab" data-bs-toggle="tab" data-bs-target="#canvasmap-pane" type="button" role="tab" aria-controls="canvasmap-pane" aria-selected="false">CanvasMap</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pdfsettings-tab" data-bs-toggle="tab" data-bs-target="#pdfsettings-pane" type="button" role="tab" aria-controls="pdfsettings-pane" aria-selected="false">PDF Settings</button>
                     </li>
                 </ul>
                 <div class="tab-content border-start border-end border-bottom p-4 rounded-bottom" id="myTabContent" style="border-color: var(--border-color) !important;">
@@ -681,6 +712,7 @@
                                             <button id="saveProjectBtnModal" class="btn btn-primary w-100">Save Project</button>
                                             <button id="loadProjectBtnModal" class="btn btn-primary w-100 mt-2">Load Project</button>
                                             <input type="file" id="loadProjectInputModal" class="d-none" accept=".pixl,application/json">
+                                            <button id="resetAllBtnModal" class="btn btn-secondary w-100 mt-3">Reset All</button>
                                         </div>
                                     </div>
                                     
@@ -852,8 +884,8 @@
                                                     <div class="mb-2">
                                                         <label for="numberingPosition" class="form-label">Position</label>
                                                         <select id="numberingPosition" class="form-select">
+                                                            <option value="top-left" selected>Top Left</option>
                                                             <option value="center">Center</option>
-                                                            <option value="top-left">Top Left</option>
                                                             <option value="top-right">Top Right</option>
                                                         </select>
                                                     </div>
@@ -874,7 +906,7 @@
                                                     <button id="customTextToggle" class="btn btn-secondary w-100 mb-2">Off</button>
                                                     <div class="mb-2">
                                                         <label for="customTextInput" class="form-label">Text</label>
-                                                        <input type="text" id="customTextInput" class="form-control" value="Custom Text">
+                                                        <input type="text" id="customTextInput" class="form-control" value="Led Screen">
                                                     </div>
                                                     <div class="two-column-row">
                                                         <div>
@@ -891,7 +923,11 @@
                                                             <label for="customTextBgColorInput" class="form-label">Background</label>
                                                             <input type="color" id="customTextBgColorInput" class="form-control form-control-color p-0" value="#ffffff">
                                                         </div>
-                                                        <button id="customTextBgToggle" class="btn btn-secondary">BG On</button>
+                                                        <button id="customTextBgTogg le" class="btn btn-secondary">BG On</button>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <label for="customTextBgOpacityInput" class="form-label">Background Opacity: <span id="customTextBgOpacityValue">50</span>%</label>
+                                                        <input type="range" id="customTextBgOpacityInput" class="form-range" value="50" min="0" max="100" step="1">
                                                     </div>
                                                     <div class="mt-2">
                                                         <label for="customTextXInput" class="form-label">X Pos (px): <span id="customTextXValue">0</span></label>
@@ -1066,67 +1102,6 @@
                                         
                                         <hr class="my-4" style="border-color: var(--border-color);">
 
-                                        <button class="collapse-header" type="button" data-bs-toggle="collapse" data-bs-target="#pdfSettingsCollapse" aria-expanded="true" aria-controls="pdfSettingsCollapse">
-                                            PDF Settings
-                                            <span class="toggle-icon">+</span>
-                                        </button>
-                                        <div class="collapse show" id="pdfSettingsCollapse">
-                                            <div class="d-flex flex-column gap-3">
-                                                <div>
-                                                    <label for="mediaServerSelect" class="form-label fw-bold">Media Server</label>
-                                                    <select id="mediaServerSelect" class="form-select">
-                                                        <option value="resolume">Resolume</option>
-                                                        <option value="watchout7">Watchout 7</option>
-                                                        <option value="disguised3">Disguise d3</option>
-                                                        <option value="watchout6">Watchout 6</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label for="pdfFilenameInput" class="form-label fw-bold">PDF File Name</label>
-                                                    <input type="text" id="pdfFilenameInput" class="form-control" value="canvasmap_details">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfProjectNameInput" class="form-label fw-bold">Project Name</label>
-                                                    <input type="text" id="pdfProjectNameInput" class="form-control" placeholder="e.g., Corporate Conference 2025">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfVenueInput" class="form-label fw-bold">Venue</label>
-                                                    <input type="text" id="pdfVenueInput" class="form-control" placeholder="e.g., Grand Ballroom">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfDrawnByInput" class="form-label fw-bold">Drawn By</label>
-                                                    <input type="text" id="pdfDrawnByInput" class="form-control" placeholder="e.g., John Doe">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfSalesInput" class="form-label fw-bold">Sales</label>
-                                                    <input type="text" id="pdfSalesInput" class="form-control" placeholder="e.g., Sales Person Name">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfClientInput" class="form-label fw-bold">Client</label>
-                                                    <input type="text" id="pdfClientInput" class="form-control" placeholder="e.g., Client Name">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfUnitInput" class="form-label fw-bold">Unit</label>
-                                                    <input type="text" id="pdfUnitInput" class="form-control" placeholder="Enter unit">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfEmailInput" class="form-label fw-bold">Validation Email</label>
-                                                    <input type="email" id="pdfEmailInput" class="form-control" placeholder="Enter E Mail">
-                                                </div>
-                                                <div>
-                                                    <label for="pdfIncludeCanvasSnapshotToggle" class="form-label fw-bold">Include Canvas Snapshot Page</label>
-                                                    <button id="pdfIncludeCanvasSnapshotToggle" class="btn btn-secondary w-100">On</button>
-                                                </div>
-                                                <div>
-                                                    <label for="logoUpload" class="form-label fw-bold">Company Logo</label>
-                                                    <input type="file" id="logoUpload" class="form-control" accept="image/png, image/jpeg">
-                                                    <img id="logoPreview" src="#" alt="Logo Preview" class="d-none">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <hr class="my-4" style="border-color: var(--border-color);">
-
                                         <button class="collapse-header" type="button" data-bs-toggle="collapse" data-bs-target="#viewOptionsCollapse" aria-expanded="true" aria-controls="viewOptionsCollapse">
                                             View Options
                                             <span class="toggle-icon">+</span>
@@ -1190,13 +1165,8 @@
                                         <button id="canvasMapZoomOutBtn" class="btn btn-secondary">Zoom Out</button>
                                         <button id="canvasMapFitToScreenBtn" class="btn btn-secondary">Fit to Screen</button>
                                         <button id="canvasMapActualSizeBtn" class="btn btn-secondary">Actual Size</button>
-                                    </div>
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                        <button id="exportCanvasPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportCanvasJpgBtn" class="btn btn-primary">Export JPEG</button>
-                                        <button id="exportCanvasPdfBtn" class="btn btn-primary">Export PDF</button>
-                                        <button id="exportCanvasPdfBtnNew" class="btn btn-primary">Export Multi-Canvas PDF</button>
-                                        <button id="exportCanvasXmlBtn" class="btn btn-primary">Export XML</button>
+                                        <button id="exportPngBtn" class="btn btn-primary">Export PNG</button>
+                                        <button id="exportJpgBtn" class="btn btn-primary">Export JPEG</button>
                                     </div>
                                     <div class="ruler-container flex-grow-1" id="rulerContainer">
                                         <div class="ruler-corner"></div>
@@ -1204,6 +1174,86 @@
                                         <div class="ruler-vertical" id="rulerVertical"></div>
                                         <div class="canvas-container" id="canvasMapContainer">
                                             <canvas id="canvasMapCanvas"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="pdfsettings-pane" role="tabpanel" aria-labelledby="pdfsettings-tab" tabindex="0">
+                        <div class="row g-4">
+                            <div class="col-12 col-md-2">
+                                <div class="card p-3 h-100">
+                                    <div class="d-flex flex-column gap-3">
+                                        <div>
+                                            <label for="mediaServerSelect" class="form-label fw-bold">Media Server</label>
+                                            <select id="mediaServerSelect" class="form-select">
+                                                <option value="resolume">Resolume</option>
+                                                <option value="watchout7">Watchout 7</option>
+                                                <option value="disguised3">Disguise d3</option>
+                                                <option value="watchout6">Watchout 6</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="pdfFilenameInput" class="form-label fw-bold">PDF File Name</label>
+                                            <input type="text" id="pdfFilenameInput" class="form-control" value="canvasmap_details">
+                                        </div>
+                                        <div>
+                                            <label for="pdfProjectNameInput" class="form-label fw-bold">Project Name</label>
+                                            <input type="text" id="pdfProjectNameInput" class="form-control" placeholder="e.g., Corporate Conference 2025">
+                                        </div>
+                                        <div>
+                                            <label for="pdfVenueInput" class="form-label fw-bold">Venue</label>
+                                            <input type="text" id="pdfVenueInput" class="form-control" placeholder="e.g., Grand Ballroom">
+                                        </div>
+                                        <div>
+                                            <label for="pdfDrawnByInput" class="form-label fw-bold">Drawn By</label>
+                                            <input type="text" id="pdfDrawnByInput" class="form-control" placeholder="e.g., John Doe">
+                                        </div>
+                                        <div>
+                                            <label for="pdfSalesInput" class="form-label fw-bold">Sales</label>
+                                            <input type="text" id="pdfSalesInput" class="form-control" placeholder="e.g., Sales Person Name">
+                                        </div>
+                                        <div>
+                                            <label for="pdfClientInput" class="form-label fw-bold">Client</label>
+                                            <input type="text" id="pdfClientInput" class="form-control" placeholder="e.g., Client Name">
+                                        </div>
+                                        <div>
+                                            <label for="pdfUnitInput" class="form-label fw-bold">Unit</label>
+                                            <input type="text" id="pdfUnitInput" class="form-control" placeholder="Enter unit">
+                                        </div>
+                                        <div>
+                                            <label for="pdfEmailInput" class="form-label fw-bold">Validation Email</label>
+                                            <input type="email" id="pdfEmailInput" class="form-control" placeholder="Enter E Mail">
+                                        </div>
+                                        <div>
+                                            <label for="pdfIncludeCanvasSnapshotToggle" class="form-label fw-bold">Include Canvas Snapshot Page</label>
+                                            <button id="pdfIncludeCanvasSnapshotToggle" class="btn btn-secondary w-100">On</button>
+                                        </div>
+                                        <div>
+                                            <label for="logoUpload" class="form-label fw-bold">Company Logo</label>
+                                            <input type="file" id="logoUpload" class="form-control" accept="image/png, image/jpeg">
+                                            <img id="logoPreview" src="#" alt="Logo Preview" class="d-none">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-10">
+                                <div class="card p-3 h-100 d-flex flex-column">
+                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                                        <button id="exportCanvasPdfBtn" class="btn btn-primary">Export PDF</button>
+                                        <button id="exportCanvasPdfBtnNew" class="btn btn-primary">Export Multi-Canvas PDF</button>
+                                        <button id="exportCanvasXmlBtn" class="btn btn-primary">Export XML</button>
+                                    </div>
+                                    <div class="pdf-preview-container flex-grow-1" id="pdfPreviewContainer">
+                                        <div class="text-center text-muted" id="pdfPreviewPlaceholder">
+                                            <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+                                            <h5>PDF Preview</h5>
+                                            <p>Configure your settings and click "Generate Preview" to see how your PDF will look.</p>
+                                            <button id="generatePdfPreviewBtn" class="btn btn-primary">Generate Preview</button>
+                                        </div>
+                                        <div id="pdfPreviewContent" class="d-none">
+                                            <iframe id="pdfPreviewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
                                         </div>
                                     </div>
                                 </div>
@@ -1261,7 +1311,6 @@
                             <label for="uiAccentColorInputModal" class="form-label fw-bold">UI Accent Color</label>
                             <input type="color" id="uiAccentColorInputModal" class="form-control form-control-color" value="#0d6efd">
                         </div>
-                        <button id="resetAllBtnModal" class="btn btn-secondary w-100">Reset All</button>
                         <hr class="my-2" style="border-color: var(--border-color);">
                     </div>
                 </div>
@@ -1339,11 +1388,11 @@
                 // Text & Numbering State
                 numberingEnabled: true,
                 numberingFormat: '1,1',
-                numberingPosition: 'center', // New state property
+                numberingPosition: 'top-left', // Default position changed to top-left
                 numberingSize: 30,
                 numberingColor: '#000000',
                 customTextEnabled: true,
-                customText: 'Custom Text',
+                customText: 'Led Screen',
                 customTextSize: 30,
                 customTextColor: '#000000',
                 customTextSizeManuallySet: false,
@@ -1352,7 +1401,9 @@
                 customTextPositionManuallySet: false,
                 customTextBgEnabled: true,
                 customTextBgColor: '#ffffff',
-                specificationEnabled: false,
+                customTextBgOpacity: 0.5,
+                customTextBgOpacity: 0.5,
+                specificationEnabled: true,
                 specificationColor: '#ffffff',
                 specificationSize: 14,
                 specificationSizeManuallySet: false,
@@ -1379,7 +1430,9 @@
                 canvasMapHeight: 2160,
                 canvasMapZoomLevel: 1, 
                 storedPixelMaps: [], // Array to store all imported pixel maps
-                savedCanvases: [], // Array to store saved canvas layouts
+                savedCanvases: [],
+                currentCanvasId: null, // Array to store saved canvas layouts
+                currentCanvasId: null, // ID of the currently loaded canvas
                 canvasMapObjects: [], // Array to store objects drawn on CanvasMap
                 canvasMapRulerEnabled: true,
                 canvasMapRulerPosition: 'inside',
@@ -1425,10 +1478,14 @@
             
             const canvasInfo = document.getElementById('canvasInfo');
             const canvasContainer = document.getElementById('canvasContainer');
-            const fontSelect = document.getElementById('fontSelectModal');
+            const fontSelectModal = document.getElementById('fontSelectModal');
+            // alias for legacy variable names used elsewhere in the script
+            const fontSelect = fontSelectModal;
             const colorModeToggle = document.getElementById('colorModeToggleModal');
+            const colorModeToggleModal = colorModeToggle;
             const uiAccentColorInput = document.getElementById('uiAccentColorInputModal');
             const resetAllBtn = document.getElementById('resetAllBtnModal');
+            const resetAllBtnModal = resetAllBtn;
             const unitSelector = document.getElementById('unitSelector');
             const sizingModeToggle = document.getElementById('sizingModeToggle');
             const screenDimensionsGroup = document.getElementById('screenDimensionsGroup');
@@ -1478,6 +1535,9 @@
             const importedMapsGallery = document.getElementById('importedMapsGallery'); 
             const savedCanvasesGallery = document.getElementById('savedCanvasesGallery');
             const saveCanvasBtn = document.getElementById('saveCanvasBtn');
+            const saveProjectBtnModal = document.getElementById('saveProjectBtnModal');
+            const loadProjectBtnModal = document.getElementById('loadProjectBtnModal');
+            const loadProjectInput = document.getElementById('loadProjectInputModal');
             const collapseToggles = document.querySelectorAll('.collapse-header');
 
 
@@ -1503,6 +1563,8 @@
             const customTextSizeInput = document.getElementById('customTextSizeInput');
             const customTextColorInput = document.getElementById('customTextColorInput');
             const customTextBgColorInput = document.getElementById('customTextBgColorInput');
+            const customTextBgOpacityInput = document.getElementById('customTextBgOpacityInput');
+            const customTextBgOpacityValue = document.getElementById('customTextBgOpacityValue');
             const customTextBgToggle = document.getElementById('customTextBgToggle');
             const customTextXInput = document.getElementById('customTextXInput');
             const customTextXValue = document.getElementById('customTextXValue');
@@ -1548,11 +1610,13 @@
             const gapToggle = document.getElementById('gapToggle');
             const gapColorInput = document.getElementById('gapColorInput');
             const coordinatesToggle = document.getElementById('coordinatesToggle');
-            const exportCanvasPngBtn = document.getElementById('exportCanvasPngBtn');
-            const exportCanvasJpgBtn = document.getElementById('exportCanvasJpgBtn');
+            const exportCanvasPngBtn = document.getElementById('exportPngBtn');
+            const exportCanvasJpgBtn = document.getElementById('exportJpgBtn');
             const exportCanvasPdfBtn = document.getElementById('exportCanvasPdfBtn');
             const exportCanvasPdfBtnNew = document.getElementById('exportCanvasPdfBtnNew');
             const exportCanvasXmlBtn = document.getElementById('exportCanvasXmlBtn');
+            // PDF Preview
+            const generatePdfPreviewBtn = document.getElementById('generatePdfPreviewBtn');
 
             // Object Properties Panel
             const noObjectSelectedMessage = document.getElementById('noObjectSelectedMessage');
@@ -1654,6 +1718,44 @@
                 return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
             };
 
+            /**
+             * Converts a hex color to rgba with specified alpha.
+             * @param {string} hex The hex color string.
+             * @param {number} alpha The alpha value (0-1).
+             * @returns {string} The rgba color string.
+             */
+            const hexToRgba = (hex, alpha) => {
+                let color = hex.startsWith('#') ? hex.slice(1) : hex;
+                const r = parseInt(color.substring(0, 2), 16);
+                const g = parseInt(color.substring(2, 4), 16);
+                const b = parseInt(color.substring(4, 6), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            };
+
+            /**
+             * Draws a rounded rectangle on the canvas.
+             * @param {CanvasRenderingContext2D} ctx The canvas context.
+             * @param {number} x The x position.
+             * @param {number} y The y position.
+             * @param {number} width The width.
+             * @param {number} height The height.
+             * @param {number} radius The corner radius.
+             */
+            const drawRoundedRect = (ctx, x, y, width, height, radius) => {
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + width - radius, y);
+                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                ctx.lineTo(x + width, y + height - radius);
+                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                ctx.lineTo(x + radius, y + height);
+                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.closePath();
+                ctx.fill();
+            };
+
             const updateUIFromState = () => {
                 // General Settings
                 // document.body.style.fontFamily = fontSelect.value; // Font is a UI preference, don't save/load
@@ -1719,6 +1821,8 @@
                 customTextColorInput.value = state.customTextColor;
                 customTextBgToggle.textContent = state.customTextBgEnabled ? 'BG On' : 'BG Off';
                 customTextBgColorInput.value = state.customTextBgColor;
+                customTextBgOpacityInput.value = Math.round(state.customTextBgOpacity * 100);
+                customTextBgOpacityValue.textContent = Math.round(state.customTextBgOpacity * 100);
                 customTextXInput.value = state.customTextX;
                 customTextXValue.textContent = Math.round(state.customTextX || 0);
                 customTextYInput.value = state.customTextY;
@@ -1821,11 +1925,11 @@
                 state.zoomLevel = 1;
                 state.numberingEnabled = true;
                 state.numberingFormat = '1,1';
-                state.numberingPosition = 'center';
+                state.numberingPosition = 'top-left';
                 state.numberingSize = 30;
                 state.numberingColor = '#000000';
                 state.customTextEnabled = true;
-                state.customText = 'Custom Text';
+                state.customText = 'Led Screen';
                 state.customTextSize = 30;
                 state.customTextColor = '#000000';
                 state.customTextSizeManuallySet = false;
@@ -1834,7 +1938,7 @@
                 state.customTextPositionManuallySet = false;
                 state.customTextBgEnabled = true;
                 state.customTextBgColor = '#ffffff';
-                state.specificationEnabled = false;
+                state.specificationEnabled = true;
                 state.specificationColor = '#ffffff';
                 state.specificationSize = 14;
                 state.specificationSizeManuallySet = false;
@@ -2020,10 +2124,11 @@
                         numPanelsHeight = Math.floor(screenHeightBase / panelHeightBase);
                     }
 
-                    // Validate calculations
+                    // Validate calculations; if invalid, fall back to sane defaults so something renders
                     if (numPanelsWidth <= 0 || numPanelsHeight <= 0 || isNaN(numPanelsWidth) || isNaN(numPanelsHeight)) {
-                        showMessageBox("Error: Screen or panel dimensions are invalid. Please check your inputs.");
-                        return;
+                        console.warn('Invalid panel calculation. Falling back to defaults (4x4).');
+                        numPanelsWidth = state.panelsInWidth || 4;
+                        numPanelsHeight = state.panelsInHeight || 4;
                     }
 
                     // Calculate total resolution
@@ -2079,7 +2184,9 @@
                     }
 
                     // Update UI with calculated values
-                    canvasInfo.textContent = `Total Resolution: ${state.totalResWidth}x${state.totalResHeight} px | Panels: ${numPanelsWidth}x${numPanelsHeight}`;
+                    const totalPanels = numPanelsWidth * numPanelsHeight;
+                    const enabledPanels = totalPanels - state.removedPanels.size;
+                    canvasInfo.textContent = `Total Resolution: ${state.totalResWidth}x${state.totalResHeight} px | Panels: ${numPanelsWidth}x${numPanelsHeight} | Total Panels: ${totalPanels} | Enabled Panels: ${enabledPanels}`;
                     
                     // Set canvas dimensions for both canvases
                     pixelMapCanvas.width = state.totalResWidth;
@@ -2246,12 +2353,15 @@
                             const textMetrics = ctx.measureText(state.customText);
                             const textHeight = state.customTextSize * 1.2;
                             const padding = 5;
-                            ctx.fillStyle = state.customTextBgColor;
-                            ctx.fillRect(
+                            const radius = 10; // Corner radius for rounded edges
+                            ctx.fillStyle = hexToRgba(state.customTextBgColor, state.customTextBgOpacity);
+                            drawRoundedRect(
+                                ctx,
                                 state.customTextX - (textMetrics.width / 2) - padding,
                                 state.customTextY - (textHeight / 2) - padding,
                                 textMetrics.width + (padding * 2),
-                                textHeight + (padding * 2)
+                                textHeight + (padding * 2),
+                                radius
                             );
                         }
                         
@@ -2304,8 +2414,9 @@
                             specLines.push(state.oneLineText.trim());
                         }
                         
+                        const totalPanels = numPanelsWidth * numPanelsHeight;
                         const autoSpecLines = [
-                            `Panels: ${numPanelsWidth} x ${numPanelsHeight}`,
+                            `Panels: ${numPanelsWidth} x ${numPanelsHeight} (${totalPanels} total)`,
                             `Resolution: ${state.totalResWidth} x ${state.totalResHeight}`,
                             `Aspect Ratio: ${state.totalResWidth / divisor}:${state.totalResHeight / divisor}`
                         ];
@@ -2379,6 +2490,36 @@
 
                 applyCanvasMapTransform(); // Apply zoom
                 redrawCanvasMapObjects(); // Redraw all objects on CanvasMap
+                
+                // Draw custom text if enabled (on CanvasMap canvas)
+                if (state.customTextEnabled) {
+                    canvasMapCtx.save();
+                    canvasMapCtx.scale(state.canvasMapZoomLevel, state.canvasMapZoomLevel); // Apply zoom
+                    canvasMapCtx.font = `${state.customTextSize}px Arial`;
+                    canvasMapCtx.textAlign = 'center';
+                    canvasMapCtx.textBaseline = 'middle';
+                    
+                    if (state.customTextBgEnabled) {
+                        const textMetrics = canvasMapCtx.measureText(state.customText);
+                        const textHeight = state.customTextSize * 1.2;
+                        const padding = 5;
+                        const radius = 10;
+                        canvasMapCtx.fillStyle = hexToRgba(state.customTextBgColor, state.customTextBgOpacity);
+                        drawRoundedRect(
+                            canvasMapCtx,
+                            (canvasW / 2) - (textMetrics.width / 2) - padding,
+                            (canvasH / 2) - (textHeight / 2) - padding,
+                            textMetrics.width + (padding * 2),
+                            textHeight + (padding * 2),
+                            radius
+                        );
+                    }
+                    
+                    canvasMapCtx.fillStyle = state.customTextColor;
+                    canvasMapCtx.fillText(state.customText, canvasW / 2, canvasH / 2);
+                    canvasMapCtx.restore();
+                }
+                
                 if (state.canvasMapRulerEnabled) {
                     drawRulers();
                 }
@@ -2922,6 +3063,11 @@
                     exportBtn.className = 'btn btn-secondary btn-sm';
                     exportBtn.onclick = () => exportSavedCanvas(savedCanvas.id);
                     
+                    const duplicateBtn = document.createElement('button');
+                    duplicateBtn.textContent = 'Duplicate';
+                    duplicateBtn.className = 'btn btn-secondary btn-sm';
+                    duplicateBtn.onclick = () => duplicateSavedCanvas(savedCanvas.id);
+                    
                     const renameBtn = document.createElement('button');
                     renameBtn.textContent = 'Rename';
                     renameBtn.className = 'btn btn-secondary btn-sm';
@@ -2942,6 +3088,11 @@
                             const canvasToUpdate = state.savedCanvases.find(c => c.id === savedCanvas.id);
                             if (canvasToUpdate) {
                                 canvasToUpdate.name = newName;
+                if (state.currentCanvasId === savedCanvas.id) {
+                                    state.customText = newName; // Update custom text if this is the current canvas
+                                    updatePixelMap(); // Redraw to show new name
+                                    updateCanvasMap();
+                                }
                             }
                             nameLabel.textContent = newName;
                         }
@@ -2954,6 +3105,7 @@
 
                     controls.appendChild(loadBtn);
                     controls.appendChild(exportBtn);
+                    controls.appendChild(duplicateBtn);
                     controls.appendChild(renameBtn);
                     controls.appendChild(deleteBtn);
 
@@ -2972,6 +3124,9 @@
                 const savedState = state.savedCanvases.find(c => c.id === canvasId);
                 if (!savedState) return;
 
+                state.currentCanvasId = canvasId;
+                state.customText = savedState.name; // Update custom text to canvas name
+
                 // Create a deep copy of the objects to avoid mutation issues
                 const objectsToLoad = JSON.parse(JSON.stringify(savedState.objects));
                 
@@ -2989,6 +3144,7 @@
 
                 Promise.all(imagePromises).then(() => {
                     redrawCanvasMapObjects();
+                    updateCanvasMap();
                     showMessageBox(`Loaded canvas: "${savedState.name}"`);
                 }).catch(err => {
                     console.error("Error loading images for canvas state:", err);
@@ -3003,6 +3159,29 @@
             const deleteSavedCanvas = (canvasId) => {
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
                 renderSavedCanvases();
+            };
+            
+            /**
+             * Duplicates a saved canvas state.
+             * @param {number} canvasId The ID of the canvas state to duplicate.
+             */
+            const duplicateSavedCanvas = (canvasId) => {
+                const original = state.savedCanvases.find(c => c.id === canvasId);
+                if (!original) return;
+
+                const duplicated = {
+                    id: Date.now(),
+                    name: `Copy of ${original.name}`,
+                    thumbnailUrl: original.thumbnailUrl,
+                    objects: JSON.parse(JSON.stringify(original.objects))
+                };
+
+                state.savedCanvases.push(duplicated);
+                state.currentCanvasId = duplicated.id;
+                state.customText = duplicated.name;
+                renderSavedCanvases();
+                updateCanvasMap();
+                showMessageBox(`Duplicated canvas: "${duplicated.name}"`);
             };
             
             /**
@@ -3109,6 +3288,24 @@
                     e.target.value = null;
                 };
                 reader.readAsText(file);
+            });
+
+            saveProjectBtnModal.addEventListener('click', () => {
+                const dataStr = JSON.stringify(state, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportFileDefaultName = 'led_grid_project.pixl';
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+                
+                showMessageBox('Project saved successfully.');
+            });
+
+            loadProjectBtnModal.addEventListener('click', () => {
+                loadProjectInput.click();
             });
 
             fontSelectModal.addEventListener('change', (e) => {
@@ -3299,23 +3496,42 @@
                 state.customTextEnabled = !state.customTextEnabled;
                 customTextToggle.textContent = state.customTextEnabled ? 'On' : 'Off';
                 updatePixelMap();
+                updateCanvasMap();
             });
             customTextInput.addEventListener('input', (e) => {
                 state.customText = e.target.value;
+                // Update the current canvas name if exists
+                if (state.currentCanvasId) {
+                    const currentCanvas = state.savedCanvases.find(c => c.id === state.currentCanvasId);
+                    if (currentCanvas) {
+                        currentCanvas.name = e.target.value;
+                        renderSavedCanvases();
+                    }
+                }
                 updatePixelMap();
+                updateCanvasMap();
             });
             customTextSizeInput.addEventListener('input', (e) => {
                 state.customTextSizeManuallySet = true;
                 state.customTextSize = parseInt(e.target.value, 10) || 0;
                 updatePixelMap();
+                updateCanvasMap();
             });
             customTextColorInput.addEventListener('input', (e) => {
                 state.customTextColor = e.target.value;
                 updatePixelMap();
+                updateCanvasMap();
             });
             customTextBgColorInput.addEventListener('input', (e) => {
                 state.customTextBgColor = e.target.value;
                 updatePixelMap();
+                updateCanvasMap();
+            });
+            customTextBgOpacityInput.addEventListener('input', (e) => {
+                state.customTextBgOpacity = parseInt(e.target.value, 10) / 100;
+                customTextBgOpacityValue.textContent = e.target.value;
+                updatePixelMap();
+                updateCanvasMap();
             });
             customTextBgToggle.addEventListener('click', () => {
                 state.customTextBgEnabled = !state.customTextBgEnabled;
@@ -3400,66 +3616,6 @@
                 
                 applyCanvasTransform();
             });
-            
-            actualResolutionBtn.addEventListener('click', () => {
-                state.zoomLevel = 1;
-                applyCanvasTransform();
-            });
-
-            // Export & Send
-            const downloadImage = (format, isOutline = false) => {
-                const filename = (state.customTextEnabled && state.customText.trim() !== '') ? state.customText.trim() : `${state.totalResWidth}x${state.totalResHeight}`;
-                const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = state.totalResWidth;
-                exportCanvas.height = state.totalResHeight;
-                const exportCtx = exportCanvas.getContext('2d', { alpha: true });
-
-                if (isOutline) {
-                    exportCtx.strokeStyle = '#FFFFFF';
-                    exportCtx.lineWidth = state.outlineSize;
-                    const panelPxWidth = state.panelResWidth;
-                    const panelPxHeight = state.panelResHeight;
-                    if (panelPxWidth <= 0 || panelPxHeight <= 0) {
-                        showMessageBox("Cannot export outline with zero panel resolution.");
-                        return;
-                    }
-                    const numPanelsWidth = Math.floor(state.totalResWidth / panelPxWidth);
-                    const numPanelsHeight = Math.floor(state.totalResHeight / panelPxHeight);
-                    for (let row = 0; row < numPanelsHeight; row++) {
-                        for (let col = 0; col < numPanelsWidth; col++) {
-                            exportCtx.strokeRect(col * panelPxWidth, row * panelPxHeight, panelPxWidth, panelPxHeight);
-                        }
-                    }
-                    const link = document.createElement('a');
-                    link.download = `${filename}_outline.png`;
-                    link.href = exportCanvas.toDataURL('image/png');
-                    link.click();
-                } else {
-                    // Temporarily hide selection rectangle for export
-                    const currentSelection = state.selectionRect;
-                    state.selectionRect = null;
-                    redrawDrawingOverlay();
-
-                    if (format === 'jpg') {
-                        exportCtx.fillStyle = '#ffffff';
-                        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-                    }
-                    exportCtx.drawImage(pixelMapCanvas, 0, 0);
-                    exportCtx.drawImage(drawingOverlayCanvas, 0, 0);
-                    const link = document.createElement('a');
-                    link.download = `${filename}.${format}`;
-                    link.href = exportCanvas.toDataURL(`image/${format === 'jpg' ? 'jpeg' : format}`);
-                    link.click();
-
-                    // Restore selection rectangle
-                    state.selectionRect = currentSelection;
-                    redrawDrawingOverlay();
-                }
-            };
-
-            exportPngBtn.addEventListener('click', () => { downloadImage('png'); });
-            exportJpgBtn.addEventListener('click', () => { downloadImage('jpg'); });
-            exportOutlineBtn.addEventListener('click', () => { downloadImage('png', true); });
             sendToCanvasBtn.addEventListener('click', () => {
                 // Temporarily hide selection rectangle for sending
                 const currentSelection = state.selectionRect;
@@ -4499,6 +4655,128 @@
         exportCanvasPdfBtn.addEventListener('click', exportDetailedCanvasPdf);
         exportCanvasPdfBtnNew.addEventListener('click', showMultiExportModal);
 
+        /**
+         * Generates a PDF preview and displays it in the iframe.
+         */
+        const generatePdfPreview = () => {
+            if (!Array.isArray(state.canvasMapObjects)) {
+                state.canvasMapObjects = [];
+            }
+            // If there are no objects, still show a spec/cover page so users see something
+            const hasObjects = state.canvasMapObjects.length > 0;
+
+            const pdfPreviewContainer = document.getElementById('pdfPreviewContainer');
+            const pdfPreviewIframe = document.getElementById('pdfPreviewFrame');
+            const pdfPreviewPlaceholder = document.getElementById('pdfPreviewPlaceholder');
+            const pdfPreviewContent = document.getElementById('pdfPreviewContent');
+
+            // Show loading state
+            pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
+
+            try {
+                // Create PDF document (same as exportDetailedCanvasPdf but without saving)
+                const doc = new window.jspdf.jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a0'
+                });
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+
+                let totalPages = (hasObjects ? state.canvasMapObjects.length : 0) + 1; // +1 for spec page
+                if (state.pdfIncludeCanvasSnapshot) totalPages++;
+
+                // Create a page for each object
+                if (hasObjects) {
+                    state.canvasMapObjects.forEach((obj, index) => {
+                        const pageNum = index + 1;
+                        if (index > 0) doc.addPage('a0', 'landscape');
+                        drawDetailedObjectPage(doc, obj, pageNum, totalPages);
+                    });
+                }
+
+                // Add the canvas snapshot page if enabled
+                if (state.pdfIncludeCanvasSnapshot) {
+                    const pageNum = state.canvasMapObjects.length + 1;
+                    doc.addPage('a0', 'landscape');
+                    const snapshotObj = { filename: 'Canvas Layout Snapshot' };
+                    drawTemplateElements(doc, pageNum, totalPages, snapshotObj);
+
+                    // --- Center: Canvas Snapshot Image ---
+                    const canvasImage = createExportCanvas(true).toDataURL('image/png');
+                    try {
+                        const imgProps = doc.getImageProperties(canvasImage);
+
+                        // Define available area
+                        const rightColumnX = pageWidth - 138;
+                        const availableX = 10;
+                        const availableY = 10;
+                        const availableWidth = rightColumnX - 15;
+                        const availableHeight = pageHeight - 20;
+
+                        const aspectRatio = imgProps.width / imgProps.height;
+
+                        let imgWidth = availableWidth;
+                        let imgHeight = imgWidth / aspectRatio;
+
+                        if (imgHeight > availableHeight) {
+                            imgHeight = availableHeight;
+                            imgWidth = imgHeight * aspectRatio;
+                        }
+
+                        // Center the image
+                        const imgX = availableX + (availableWidth - imgWidth) / 2;
+                        const imgY = availableY + (availableHeight - imgHeight) / 2;
+
+                        doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+
+                    } catch(e) {
+                         console.error("Could not add Canvas Snapshot image to PDF", e);
+                    }
+                }
+
+                // Add the final media server specification page always
+                drawMediaServerSpecPage(doc, totalPages);
+
+                // Generate PDF blob and display via object URL for better reliability
+                const pdfBlob = doc.output('blob');
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                pdfPreviewIframe.src = pdfUrl;
+                pdfPreviewContent.classList.remove('d-none');
+                pdfPreviewPlaceholder.style.display = 'none';
+
+            } catch (error) {
+                console.error("Error generating PDF preview:", error);
+                pdfPreviewPlaceholder.innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i><p class="mt-2">Error generating PDF preview. Please try again.</p></div>';
+                pdfPreviewContent.classList.add('d-none');
+                pdfPreviewPlaceholder.style.display = 'block';
+            }
+        };
+
+        if (generatePdfPreviewBtn) {
+            generatePdfPreviewBtn.addEventListener('click', generatePdfPreview);
+        }
+
+        // Auto-generate preview when switching to the PDF Settings tab
+        const pdfTab = document.getElementById('pdfsettings-tab');
+        if (pdfTab) {
+            pdfTab.addEventListener('shown.bs.tab', () => {
+                // Only generate if we have content and preview area exists
+                if (document.getElementById('pdfPreviewFrame') && state.canvasMapObjects) {
+                    // Small timeout to allow layout to settle for correct iframe sizing
+                    setTimeout(generatePdfPreview, 50);
+                }
+            });
+        }
+
+        // Also ensure PixelMap redraws when its tab is shown, so sizing/layout is correct
+        const pixelMapTab = document.getElementById('pixelmap-tab');
+        if (pixelMapTab) {
+            pixelMapTab.addEventListener('shown.bs.tab', () => {
+                setTimeout(updatePixelMap, 0);
+            });
+        }
+
 
         /**
          * Generates and triggers a download for a Resolume Arena XML file.
@@ -5281,6 +5559,14 @@
                 }
             });
 
+            // Double-click to edit custom text
+            canvasMapCanvas.addEventListener('dblclick', (e) => {
+                if (state.customTextEnabled) {
+                    customTextInput.focus();
+                    customTextInput.select();
+                }
+            });
+
             // Keyboard movement and deletion
             window.addEventListener('keydown', (e) => {
                 if (!selectedCanvasMapObject) return;
@@ -5304,7 +5590,6 @@
                         moved = true;
                         break;
                     case 'Delete':
-                    case 'Backspace':
                         e.preventDefault(); // Prevent browser back navigation on backspace
                         state.canvasMapObjects = state.canvasMapObjects.filter(obj => obj.id !== selectedCanvasMapObject.id);
                         selectedCanvasMapObject = null;
@@ -5425,7 +5710,10 @@
                 };
 
                 state.savedCanvases.push(newSavedCanvas);
+                state.currentCanvasId = newSavedCanvas.id;
+                state.customText = name; // Set custom text to the canvas name
                 renderSavedCanvases(); // Update the UI to show the new saved canvas
+                updateCanvasMap();
 
                 // Hide the modal
                 saveCanvasModal.classList.remove('visible');
@@ -5469,6 +5757,16 @@
             updateColorPreviews();
             createColorPalette();
             updatePixelMap();
+            
+            // Fit to screen by default
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+            const scaleX = state.totalResWidth > 0 ? containerWidth / state.totalResWidth : 1;
+            const scaleY = state.totalResHeight > 0 ? containerHeight / state.totalResHeight : 1;
+            state.zoomLevel = Math.min(scaleX, scaleY) * 0.95; // 5% margin
+            applyCanvasTransform();
+            // Initial renders
+            updatePixelMap();
             updateCanvasMap();
             updateObjectPropertiesPanel();
             renderImportedMapsGallery(); // Render gallery on initial load
@@ -5493,6 +5791,16 @@
             coordinatesToggle.textContent = 'On';
             if (state.canvasMapRulerEnabled) {
                 drawRulers();
+            }
+
+            // Initialize UI with current state
+            updateUIFromState();
+
+            // Auto-generate PDF preview on initial load if preview elements exist
+            if (document.getElementById('pdfPreviewFrame')) {
+                setTimeout(() => {
+                    try { generatePdfPreview && generatePdfPreview(); } catch (e) { console.warn('Preview init failed', e); }
+                }, 100);
             }
         });
     </script>
