@@ -728,8 +728,8 @@
                                         <button id="actualResolutionBtn" class="btn btn-secondary">Actual Size</button>
                                     </div>
                                     <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                        <button id="exportPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportJpgBtn" class="btn btn-primary">Export JPEG</button>
+                                        <button id="exportCanvasPngBtn" class="btn btn-primary">Export PNG</button>
+                                        <button id="exportCanvasJpgBtn" class="btn btn-primary">Export JPEG</button>
                                         <button id="exportOutlineBtn" class="btn btn-primary">Export Outline</button>
                                         <button id="sendToCanvasBtn" class="btn btn-primary">Send to Canvasmap</button>
                                     </div>
@@ -923,7 +923,7 @@
                                                             <label for="customTextBgColorInput" class="form-label">Background</label>
                                                             <input type="color" id="customTextBgColorInput" class="form-control form-control-color p-0" value="#ffffff">
                                                         </div>
-                                                        <button id="customTextBgTogg le" class="btn btn-secondary">BG On</button>
+                                                        <button id="customTextBgToggle" class="btn btn-secondary">BG On</button>
                                                     </div>
                                                     <div class="mt-2">
                                                         <label for="customTextBgOpacityInput" class="form-label">Background Opacity: <span id="customTextBgOpacityValue">50</span>%</label>
@@ -1455,6 +1455,10 @@
                 pdfEmail: '',
                 pdfIncludeCanvasSnapshot: true,
                 logoDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', // Default placeholder
+                // PDF preview performance flags
+                pdfPreviewDirty: true,
+                pdfPreviewReady: false,
+                lastPdfPreviewUrl: null,
                 
                 // Panel removal state
                 removedPanels: new Set(), // Store coordinates of removed panels as a Set of "row,col" strings
@@ -1484,6 +1488,8 @@
             const colorModeToggle = document.getElementById('colorModeToggleModal');
             const colorModeToggleModal = colorModeToggle;
             const uiAccentColorInput = document.getElementById('uiAccentColorInputModal');
+            // alias for consistency across the code
+            const uiAccentColorInputModal = uiAccentColorInput;
             const resetAllBtn = document.getElementById('resetAllBtnModal');
             const resetAllBtnModal = resetAllBtn;
             const unitSelector = document.getElementById('unitSelector');
@@ -1610,8 +1616,8 @@
             const gapToggle = document.getElementById('gapToggle');
             const gapColorInput = document.getElementById('gapColorInput');
             const coordinatesToggle = document.getElementById('coordinatesToggle');
-            const exportCanvasPngBtn = document.getElementById('exportPngBtn');
-            const exportCanvasJpgBtn = document.getElementById('exportJpgBtn');
+            const exportCanvasPngBtn = document.getElementById('exportCanvasPngBtn');
+            const exportCanvasJpgBtn = document.getElementById('exportCanvasJpgBtn');
             const exportCanvasPdfBtn = document.getElementById('exportCanvasPdfBtn');
             const exportCanvasPdfBtnNew = document.getElementById('exportCanvasPdfBtnNew');
             const exportCanvasXmlBtn = document.getElementById('exportCanvasXmlBtn');
@@ -2480,6 +2486,8 @@
              * Draws the imported pixel map on the CanvasMap tab's canvas.
              */
             const updateCanvasMap = () => {
+                // Any CanvasMap change can affect the PDF preview content
+                state.pdfPreviewDirty = true;
                 const canvasW = state.canvasMapWidth;
                 const canvasH = state.canvasMapHeight;
                 
@@ -3616,6 +3624,48 @@
                 
                 applyCanvasTransform();
             });
+
+            // PixelMap Export PNG/JPEG (includes drawing overlay)
+            const exportCombined = (format) => {
+                // Temporarily hide selection rectangle
+                const currentSelection = state.selectionRect;
+                state.selectionRect = null;
+                redrawDrawingOverlay();
+
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = state.totalResWidth;
+                exportCanvas.height = state.totalResHeight;
+                const exportCtx = exportCanvas.getContext('2d', { alpha: true });
+
+                if (format === 'jpg' || format === 'jpeg') {
+                    // Fill white background for JPEG
+                    exportCtx.fillStyle = '#ffffff';
+                    exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+                }
+
+                // Draw base and overlay
+                exportCtx.drawImage(pixelMapCanvas, 0, 0);
+                exportCtx.drawImage(drawingOverlayCanvas, 0, 0);
+
+                // Restore selection rectangle after combining
+                state.selectionRect = currentSelection;
+                redrawDrawingOverlay();
+
+                const filenameBase = (state.customTextEnabled && state.customText.trim() !== '')
+                    ? state.customText.trim()
+                    : `${state.totalResWidth}x${state.totalResHeight}px`;
+
+                const link = document.createElement('a');
+                link.download = `${filenameBase}.${format === 'jpeg' ? 'jpg' : format}`;
+                const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
+                link.href = exportCanvas.toDataURL(mime, 0.95);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            exportPngBtn.addEventListener('click', () => exportCombined('png'));
+            exportJpgBtn.addEventListener('click', () => exportCombined('jpg'));
             sendToCanvasBtn.addEventListener('click', () => {
                 // Temporarily hide selection rectangle for sending
                 const currentSelection = state.selectionRect;
@@ -3771,16 +3821,17 @@
 
             mediaServerSelect.addEventListener('change', (e) => {
                 state.mediaServer = e.target.value;
+                state.pdfPreviewDirty = true;
             });
 
-            pdfFilenameInput.addEventListener('input', (e) => { state.pdfFilename = e.target.value; });
-            pdfProjectNameInput.addEventListener('input', (e) => { state.pdfProjectName = e.target.value; });
-            pdfVenueInput.addEventListener('input', (e) => { state.pdfVenue = e.target.value; });
-            pdfDrawnByInput.addEventListener('input', (e) => { state.pdfDrawnBy = e.target.value; });
-            pdfSalesInput.addEventListener('input', (e) => { state.pdfSales = e.target.value; });
-            pdfClientInput.addEventListener('input', (e) => { state.pdfClient = e.target.value; });
-            pdfUnitInput.addEventListener('input', (e) => { state.pdfUnit = e.target.value; });
-            pdfEmailInput.addEventListener('input', (e) => { state.pdfEmail = e.target.value; });
+            pdfFilenameInput.addEventListener('input', (e) => { state.pdfFilename = e.target.value; state.pdfPreviewDirty = true; });
+            pdfProjectNameInput.addEventListener('input', (e) => { state.pdfProjectName = e.target.value; state.pdfPreviewDirty = true; });
+            pdfVenueInput.addEventListener('input', (e) => { state.pdfVenue = e.target.value; state.pdfPreviewDirty = true; });
+            pdfDrawnByInput.addEventListener('input', (e) => { state.pdfDrawnBy = e.target.value; state.pdfPreviewDirty = true; });
+            pdfSalesInput.addEventListener('input', (e) => { state.pdfSales = e.target.value; state.pdfPreviewDirty = true; });
+            pdfClientInput.addEventListener('input', (e) => { state.pdfClient = e.target.value; state.pdfPreviewDirty = true; });
+            pdfUnitInput.addEventListener('input', (e) => { state.pdfUnit = e.target.value; state.pdfPreviewDirty = true; });
+            pdfEmailInput.addEventListener('input', (e) => { state.pdfEmail = e.target.value; state.pdfPreviewDirty = true; });
             logoUpload.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -3789,6 +3840,7 @@
                         state.logoDataUrl = event.target.result;
                         logoPreview.src = event.target.result;
                         logoPreview.classList.remove('d-none');
+                        state.pdfPreviewDirty = true;
                     };
                     reader.readAsDataURL(file);
                 }
@@ -3796,6 +3848,7 @@
             pdfIncludeCanvasSnapshotToggle.addEventListener('click', () => {
                 state.pdfIncludeCanvasSnapshot = !state.pdfIncludeCanvasSnapshot;
                 pdfIncludeCanvasSnapshotToggle.textContent = state.pdfIncludeCanvasSnapshot ? 'On' : 'Off';
+                state.pdfPreviewDirty = true;
             });
 
 
@@ -4672,13 +4725,14 @@
 
             // Show loading state
             pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
-
+            // Yield to the browser to render the spinner before heavy work
+            setTimeout(() => {
             try {
-                // Create PDF document (same as exportDetailedCanvasPdf but without saving)
+                // Create a smaller/faster PDF for preview only (export uses A0)
                 const doc = new window.jspdf.jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a0'
+                    format: 'a2'
                 });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
@@ -4690,7 +4744,7 @@
                 if (hasObjects) {
                     state.canvasMapObjects.forEach((obj, index) => {
                         const pageNum = index + 1;
-                        if (index > 0) doc.addPage('a0', 'landscape');
+                        if (index > 0) doc.addPage();
                         drawDetailedObjectPage(doc, obj, pageNum, totalPages);
                     });
                 }
@@ -4698,12 +4752,20 @@
                 // Add the canvas snapshot page if enabled
                 if (state.pdfIncludeCanvasSnapshot) {
                     const pageNum = state.canvasMapObjects.length + 1;
-                    doc.addPage('a0', 'landscape');
+                    doc.addPage();
                     const snapshotObj = { filename: 'Canvas Layout Snapshot' };
                     drawTemplateElements(doc, pageNum, totalPages, snapshotObj);
 
                     // --- Center: Canvas Snapshot Image ---
-                    const canvasImage = createExportCanvas(true).toDataURL('image/png');
+                    // Downscale snapshot for preview to speed up encoding and embedding
+                    const fullCanvas = createExportCanvas(true);
+                    const scale = Math.min(1, 1200 / Math.max(fullCanvas.width, fullCanvas.height));
+                    const previewCanvas = document.createElement('canvas');
+                    previewCanvas.width = Math.max(1, Math.round(fullCanvas.width * scale));
+                    previewCanvas.height = Math.max(1, Math.round(fullCanvas.height * scale));
+                    const pctx = previewCanvas.getContext('2d', { alpha: true });
+                    pctx.drawImage(fullCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                    const canvasImage = previewCanvas.toDataURL('image/png');
                     try {
                         const imgProps = doc.getImageProperties(canvasImage);
 
@@ -4741,9 +4803,16 @@
                 // Generate PDF blob and display via object URL for better reliability
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
+                // Revoke previous URL to avoid leaks
+                if (state.lastPdfPreviewUrl) {
+                    try { URL.revokeObjectURL(state.lastPdfPreviewUrl); } catch {}
+                }
+                state.lastPdfPreviewUrl = pdfUrl;
                 pdfPreviewIframe.src = pdfUrl;
                 pdfPreviewContent.classList.remove('d-none');
                 pdfPreviewPlaceholder.style.display = 'none';
+                state.pdfPreviewReady = true;
+                state.pdfPreviewDirty = false;
 
             } catch (error) {
                 console.error("Error generating PDF preview:", error);
@@ -4751,6 +4820,7 @@
                 pdfPreviewContent.classList.add('d-none');
                 pdfPreviewPlaceholder.style.display = 'block';
             }
+            }, 0);
         };
 
         if (generatePdfPreviewBtn) {
@@ -4763,8 +4833,10 @@
             pdfTab.addEventListener('shown.bs.tab', () => {
                 // Only generate if we have content and preview area exists
                 if (document.getElementById('pdfPreviewFrame') && state.canvasMapObjects) {
-                    // Small timeout to allow layout to settle for correct iframe sizing
-                    setTimeout(generatePdfPreview, 50);
+                    // Only regenerate if needed
+                    if (!state.pdfPreviewReady || state.pdfPreviewDirty) {
+                        setTimeout(generatePdfPreview, 50);
+                    }
                 }
             });
         }
@@ -5796,12 +5868,7 @@
             // Initialize UI with current state
             updateUIFromState();
 
-            // Auto-generate PDF preview on initial load if preview elements exist
-            if (document.getElementById('pdfPreviewFrame')) {
-                setTimeout(() => {
-                    try { generatePdfPreview && generatePdfPreview(); } catch (e) { console.warn('Preview init failed', e); }
-                }, 100);
-            }
+            // PDF preview is generated lazily when the PDF tab is opened.
         });
     </script>
 </body>
