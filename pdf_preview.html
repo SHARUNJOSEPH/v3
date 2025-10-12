@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Settings Preview</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .preview-container {
+            position: relative;
+            border: 1px solid #ccc;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .preview-content {
+            padding: 2rem;
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.5;
+        }
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 5rem;
+            color: rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+            font-weight: bold;
+        }
+        .header, .footer {
+            position: absolute;
+            left: 0;
+            right: 0;
+            padding: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .header {
+            top: 0;
+        }
+        .footer {
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-5">
+        <div class="row">
+            <div class="col-md-4">
+                <h4>PDF Settings</h4>
+                <div class="card">
+                    <div class="card-body">
+                        <!-- Templates -->
+                        <div class="mb-3">
+                            <label for="template" class="form-label">Template</label>
+                            <select id="template" class="form-select">
+                                <option value="custom">Custom</option>
+                                <option value="report">Report</option>
+                                <option value="invoice">Invoice</option>
+                                <option value="presentation">Presentation</option>
+                            </select>
+                        </div>
+                        <hr>
+                        <!-- Page Settings -->
+                        <div class="mb-3">
+                            <label for="pageSize" class="form-label">Page Size</label>
+                            <select id="pageSize" class="form-select">
+                                <option value="A4">A4</option>
+                                <option value="Letter">Letter</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="orientation" class="form-label">Orientation</label>
+                            <select id="orientation" class="form-select">
+                                <option value="portrait">Portrait</option>
+                                <option value="landscape">Landscape</option>
+                            </select>
+                        </div>
+                        <!-- Margins -->
+                        <h6>Margins (in mm)</h6>
+                        <div class="row">
+                            <div class="col">
+                                <label for="marginTop" class="form-label">Top</label>
+                                <input type="number" id="marginTop" class="form-control" value="20">
+                            </div>
+                            <div class="col">
+                                <label for="marginBottom" class="form-label">Bottom</label>
+                                <input type="number" id="marginBottom" class="form-control" value="20">
+                            </div>
+                            <div class="col">
+                                <label for="marginLeft" class="form-label">Left</label>
+                                <input type="number" id="marginLeft" class="form-control" value="20">
+                            </div>
+                            <div class="col">
+                                <label for="marginRight" class="form-label">Right</label>
+                                <input type="number" id="marginRight" class="form-control" value="20">
+                            </div>
+                        </div>
+                        <hr>
+                        <!-- Content -->
+                        <h6>Content</h6>
+                        <div class="mb-3">
+                            <label for="headerText" class="form-label">Header Text</label>
+                            <input type="text" id="headerText" class="form-control" placeholder="e.g., Company Name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="footerText" class="form-label">Footer Text</label>
+                            <input type="text" id="footerText" class="form-control" placeholder="e.g., Page 1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="watermarkText" class="form-label">Watermark Text</label>
+                            <input type="text" id="watermarkText" class="form-control" placeholder="e.g., DRAFT">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <h4>Live Preview</h4>
+                <div id="preview" class="preview-container">
+                    <div class="header" id="previewHeader"></div>
+                    <div class="watermark" id="previewWatermark"></div>
+                    <div class="preview-content">
+                        <h5>Lorem Ipsum Dolor Sit Amet</h5>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam. Maecenas ligula massa, varius a, semper congue, euismod non, mi. Proin porttitor, orci nec nonummy molestie, enim est eleifend mi, non fermentum diam nisl sit amet erat.</p>
+                        <p>Duis semper. Duis arcu massa, scelerisque vitae, consequat in, pretium a, enim. Pellentesque congue. Ut in risus volutpat libero pharetra tempor. Cras vestibulum bibendum augue. Praesent egestas leo in pede. Praesent blandit odio eu enim. Pellentesque sed dui ut augue blandit sodales. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Aliquam nibh.</p>
+                    </div>
+                    <div class="footer" id="previewFooter"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const settings = {
+                template: document.getElementById('template'),
+                pageSize: document.getElementById('pageSize'),
+                orientation: document.getElementById('orientation'),
+                marginTop: document.getElementById('marginTop'),
+                marginBottom: document.getElementById('marginBottom'),
+                marginLeft: document.getElementById('marginLeft'),
+                marginRight: document.getElementById('marginRight'),
+                headerText: document.getElementById('headerText'),
+                footerText: document.getElementById('footerText'),
+                watermarkText: document.getElementById('watermarkText'),
+            };
+
+            const preview = {
+                container: document.getElementById('preview'),
+                content: document.querySelector('.preview-content'),
+                header: document.getElementById('previewHeader'),
+                footer: document.getElementById('previewFooter'),
+                watermark: document.getElementById('previewWatermark'),
+            };
+
+            const pageDimensions = {
+                A4: { width: '210mm', height: '297mm' },
+                Letter: { width: '215.9mm', height: '279.4mm' },
+            };
+
+            const templates = {
+                report: {
+                    marginTop: 25,
+                    marginBottom: 25,
+                    marginLeft: 20,
+                    marginRight: 20,
+                    headerText: 'Confidential Report',
+                    footerText: 'Page 1',
+                    watermarkText: '',
+                },
+                invoice: {
+                    marginTop: 15,
+                    marginBottom: 15,
+                    marginLeft: 15,
+                    marginRight: 15,
+                    headerText: 'INVOICE',
+                    footerText: 'Thank you for your business!',
+                    watermarkText: 'PAID',
+                },
+                presentation: {
+                    marginTop: 10,
+                    marginBottom: 10,
+                    marginLeft: 10,
+                    marginRight: 10,
+                    headerText: '',
+                    footerText: '',
+                    watermarkText: '',
+                }
+            };
+
+            function updatePreview() {
+                // Page Size & Orientation
+                const size = settings.pageSize.value;
+                const orient = settings.orientation.value;
+                let width = pageDimensions[size].width;
+                let height = pageDimensions[size].height;
+
+                if (orient === 'landscape') {
+                    [width, height] = [height, width];
+                }
+                preview.container.style.width = width;
+                preview.container.style.height = height;
+
+                // Margins
+                const margins = {
+                    top: settings.marginTop.value + 'mm',
+                    bottom: settings.marginBottom.value + 'mm',
+                    left: settings.marginLeft.value + 'mm',
+                    right: settings.marginRight.value + 'mm',
+                };
+                preview.content.style.padding = `${margins.top} ${margins.right} ${margins.bottom} ${margins.left}`;
+                
+                // Header, Footer, Watermark
+                preview.header.textContent = settings.headerText.value;
+                preview.footer.textContent = settings.footerText.value;
+                preview.watermark.textContent = settings.watermarkText.value;
+
+                preview.header.style.padding = `0 ${margins.right} 0 ${margins.left}`;
+                preview.footer.style.padding = `0 ${margins.right} 0 ${margins.left}`;
+            }
+
+            function applyTemplate() {
+                const templateName = settings.template.value;
+                if (templateName === 'custom') return;
+
+                const template = templates[templateName];
+                settings.marginTop.value = template.marginTop;
+                settings.marginBottom.value = template.marginBottom;
+                settings.marginLeft.value = template.marginLeft;
+                settings.marginRight.value = template.marginRight;
+                settings.headerText.value = template.headerText;
+                settings.footerText.value = template.footerText;
+                settings.watermarkText.value = template.watermarkText;
+                
+                updatePreview();
+            }
+
+            settings.template.addEventListener('change', applyTemplate);
+
+            // Add event listeners to all settings
+            Object.values(settings).forEach(setting => {
+                setting.addEventListener('input', updatePreview);
+                setting.addEventListener('change', updatePreview);
+            });
+
+            // Initial update
+            updatePreview();
+        });
+    </script>
+</body>
+</html>

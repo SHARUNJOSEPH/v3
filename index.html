@@ -606,6 +606,8 @@
 
         /* Disabled tab look for PDF Settings until a canvas is saved */
         .nav-link.disabled-tab { opacity: 0.5; pointer-events: none; }
+    /* More specific hook for CanvasMap disabled state if needed */
+    #canvasmap-tab.disabled-tab { opacity: 0.5; pointer-events: none; }
 
     </style>
 </head>
@@ -619,6 +621,7 @@
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#generalSettingsModal">General Settings</a></li>
+            <li><a class="dropdown-item" href="pdf_preview.html">PDF Previewer</a></li>
             <li><a class="dropdown-item" href="login.html">Login</a></li>
         </ul>
     </div>
@@ -3743,6 +3746,9 @@
                 const canvasTabTrigger = new bootstrap.Tab(document.getElementById('canvasmap-tab'));
                 // canvasTabTrigger.show(); // Removed to prevent auto-switching
                 updateCanvasMap();
+
+                // Enable CanvasMap tab once at least one LED screen has been sent
+                setCanvasMapEnabled(true);
             });
             
             // PixelMap: Export Outline only
@@ -4886,6 +4892,17 @@
             });
         }
 
+        // Prevent opening CanvasMap tab until at least one LED screen is sent from PixelMap
+        const canvasMapTab = document.getElementById('canvasmap-tab');
+        if (canvasMapTab) {
+            canvasMapTab.addEventListener('show.bs.tab', (e) => {
+                if (!Array.isArray(state.storedPixelMaps) || state.storedPixelMaps.length === 0) {
+                    e.preventDefault();
+                    showMessageBox('Please send at least one LED screen from PixelMap to CanvasMap first.');
+                }
+            });
+        }
+
         // Auto-generate preview when switching to the PDF Settings tab
         const pdfTab = document.getElementById('pdfsettings-tab');
         if (pdfTab) {
@@ -5901,6 +5918,27 @@
             const scaleY = state.totalResHeight > 0 ? containerHeight / state.totalResHeight : 1;
             state.zoomLevel = Math.min(scaleX, scaleY) * 0.95; // 5% margin
             applyCanvasTransform();
+            // Disable CanvasMap until at least one LED screen is sent from PixelMap
+            const canvasMapTabButton = document.getElementById('canvasmap-tab');
+            const canvasMapPane = document.getElementById('canvasmap-pane');
+            const setCanvasMapEnabled = (enabled) => {
+                if (!canvasMapTabButton || !canvasMapPane) return;
+                if (enabled) {
+                    canvasMapTabButton.classList.remove('disabled-tab');
+                    canvasMapTabButton.setAttribute('aria-disabled', 'false');
+                    const controls = canvasMapPane.querySelectorAll('input, select, button, canvas');
+                    controls.forEach(ctrl => ctrl.removeAttribute('disabled'));
+                } else {
+                    canvasMapTabButton.classList.add('disabled-tab');
+                    canvasMapTabButton.setAttribute('aria-disabled', 'true');
+                    const controls = canvasMapPane.querySelectorAll('input, select, button');
+                    controls.forEach(ctrl => ctrl.setAttribute('disabled', 'true'));
+                }
+            };
+
+            const hasSentLedScreen = () => Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
+            setCanvasMapEnabled(hasSentLedScreen());
+
             // Disable PDF Settings until at least one canvas is saved
             const pdfTabButton = document.getElementById('pdfsettings-tab');
             const pdfPane = document.getElementById('pdfsettings-pane');
