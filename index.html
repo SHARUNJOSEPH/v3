@@ -1699,6 +1699,21 @@
             };
 
             /**
+             * Debounces a function, delaying its execution.
+             * @param {Function} func The function to debounce.
+             * @param {number} delay The delay in milliseconds.
+             * @returns {Function} The debounced function.
+             */
+            const debounce = (func, delay) => {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
+            };
+
+            /**
              * Converts a value from one unit to another based on the unitConversions map.
              * @param {number} value The value to convert.
              * @param {string} fromUnit The original unit.
