@@ -734,8 +734,8 @@
                                         <button id="actualResolutionBtn" class="btn btn-secondary">Actual Size</button>
                                     </div>
                                     <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                        <button id="exportCanvasPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportCanvasJpgBtn" class="btn btn-primary">Export JPEG</button>
+                                        <button id="exportPngBtn" class="btn btn-primary">Export PNG</button>
+                                        <button id="exportJpgBtn" class="btn btn-primary">Export JPEG</button>
                                         <button id="exportOutlineBtn" class="btn btn-primary">Export Outline</button>
                                         <button id="sendToCanvasBtn" class="btn btn-primary">Send to Canvasmap</button>
                                     </div>
@@ -1171,8 +1171,8 @@
                                         <button id="canvasMapZoomOutBtn" class="btn btn-secondary">Zoom Out</button>
                                         <button id="canvasMapFitToScreenBtn" class="btn btn-secondary">Fit to Screen</button>
                                         <button id="canvasMapActualSizeBtn" class="btn btn-secondary">Actual Size</button>
-                                        <button id="exportPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportJpgBtn" class="btn btn-primary">Export JPEG</button>
+                                        <button id="exportCanvasPngBtn" class="btn btn-primary">Export PNG</button>
+                                        <button id="exportCanvasJpgBtn" class="btn btn-primary">Export JPEG</button>
                                     </div>
                                     <div class="ruler-container flex-grow-1" id="rulerContainer">
                                         <div class="ruler-corner"></div>
@@ -3654,14 +3654,28 @@
 
             // PixelMap Export PNG/JPEG (includes drawing overlay)
             const exportCombined = (format) => {
+                // Ensure we have a rendered pixel map with valid dimensions
+                let srcW = pixelMapCanvas.width || state.totalResWidth || 0;
+                let srcH = pixelMapCanvas.height || state.totalResHeight || 0;
+                if (srcW === 0 || srcH === 0) {
+                    // Force a render to populate sizes
+                    try { updatePixelMap(); } catch {}
+                    srcW = pixelMapCanvas.width || state.totalResWidth || 0;
+                    srcH = pixelMapCanvas.height || state.totalResHeight || 0;
+                }
+                if (srcW === 0 || srcH === 0) {
+                    showMessageBox('Nothing to export yet. Please configure your LED screen first.');
+                    return;
+                }
+
                 // Temporarily hide selection rectangle
                 const currentSelection = state.selectionRect;
                 state.selectionRect = null;
                 redrawDrawingOverlay();
 
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = state.totalResWidth;
-                exportCanvas.height = state.totalResHeight;
+                exportCanvas.width = srcW;
+                exportCanvas.height = srcH;
                 const exportCtx = exportCanvas.getContext('2d', { alpha: true });
 
                 if (format === 'jpg' || format === 'jpeg') {
@@ -3670,9 +3684,9 @@
                     exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
                 }
 
-                // Draw base and overlay
-                exportCtx.drawImage(pixelMapCanvas, 0, 0);
-                exportCtx.drawImage(drawingOverlayCanvas, 0, 0);
+                // Draw base and overlay at 1:1
+                try { exportCtx.drawImage(pixelMapCanvas, 0, 0); } catch {}
+                try { exportCtx.drawImage(drawingOverlayCanvas, 0, 0); } catch {}
 
                 // Restore selection rectangle after combining
                 state.selectionRect = currentSelection;
@@ -3680,12 +3694,18 @@
 
                 const filenameBase = (state.customTextEnabled && state.customText.trim() !== '')
                     ? state.customText.trim()
-                    : `${state.totalResWidth}x${state.totalResHeight}px`;
+                    : `${srcW}x${srcH}px`;
 
                 const link = document.createElement('a');
                 link.download = `${filenameBase}.${format === 'jpeg' ? 'jpg' : format}`;
                 const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
-                link.href = exportCanvas.toDataURL(mime, 0.95);
+                try {
+                    link.href = exportCanvas.toDataURL(mime, 0.95);
+                } catch (e) {
+                    console.error('Export toDataURL failed:', e);
+                    showMessageBox('Failed to export image.');
+                    return;
+                }
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
