@@ -604,6 +604,9 @@
             border-color: var(--accent-color);
         }
 
+        /* Disabled tab look for PDF Settings until a canvas is saved */
+        .nav-link.disabled-tab { opacity: 0.5; pointer-events: none; }
+
     </style>
 </head>
 <body class="dark-mode">
@@ -3613,6 +3616,12 @@
                 state.zoomLevel /= 1.2;
                 applyCanvasTransform();
             });
+            if (actualResolutionBtn) {
+                actualResolutionBtn.addEventListener('click', () => {
+                    state.zoomLevel = 1;
+                    applyCanvasTransform();
+                });
+            }
             
             fitToScreenBtn.addEventListener('click', () => {
                 const containerWidth = canvasContainer.clientWidth;
@@ -3736,6 +3745,50 @@
                 updateCanvasMap();
             });
             
+            // PixelMap: Export Outline only
+            const exportPixelMapOutline = () => {
+                if (state.totalResWidth <= 0 || state.totalResHeight <= 0) {
+                    showMessageBox('Nothing to export yet. Please configure your grid.');
+                    return;
+                }
+
+                const outlineCanvas = document.createElement('canvas');
+                outlineCanvas.width = state.totalResWidth;
+                outlineCanvas.height = state.totalResHeight;
+                const octx = outlineCanvas.getContext('2d', { alpha: true });
+
+                const numPanelsWidth = Math.max(1, Math.floor(state.totalResWidth / state.panelResWidth));
+                const numPanelsHeight = Math.max(1, Math.floor(state.totalResHeight / state.panelResHeight));
+                const panelPxWidth = state.panelResWidth;
+                const panelPxHeight = state.panelResHeight;
+
+                octx.strokeStyle = state.outlineColor || '#000000';
+                octx.lineWidth = state.outlineSize || 2;
+                for (let row = 0; row < numPanelsHeight; row++) {
+                    for (let col = 0; col < numPanelsWidth; col++) {
+                        const panelKey = `${row},${col}`;
+                        if (!state.removedPanels.has(panelKey)) {
+                            octx.strokeRect(col * panelPxWidth, row * panelPxHeight, panelPxWidth, panelPxHeight);
+                        }
+                    }
+                }
+
+                const fileBase = (state.customTextEnabled && state.customText.trim() !== '')
+                    ? state.customText.trim()
+                    : `${state.totalResWidth}x${state.totalResHeight}px-outline`;
+
+                const a = document.createElement('a');
+                a.download = `${fileBase}.png`;
+                a.href = outlineCanvas.toDataURL('image/png');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            };
+
+            if (exportOutlineBtn) {
+                exportOutlineBtn.addEventListener('click', exportPixelMapOutline);
+            }
+
             // CanvasMap Settings
             canvasWidthInput.addEventListener('input', (e) => { state.canvasMapWidth = parseInt(e.target.value, 10) || 1; updateCanvasMap(); });
             canvasHeightInput.addEventListener('input', (e) => { state.canvasMapHeight = parseInt(e.target.value, 10) || 1; updateCanvasMap(); });
@@ -4824,16 +4877,27 @@
         };
 
         if (generatePdfPreviewBtn) {
-            generatePdfPreviewBtn.addEventListener('click', generatePdfPreview);
+            generatePdfPreviewBtn.addEventListener('click', () => {
+                if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) {
+                    showMessageBox('Please save at least one canvas in CanvasMap before generating a PDF preview.');
+                    return;
+                }
+                generatePdfPreview();
+            });
         }
 
         // Auto-generate preview when switching to the PDF Settings tab
         const pdfTab = document.getElementById('pdfsettings-tab');
         if (pdfTab) {
+            pdfTab.addEventListener('show.bs.tab', (e) => {
+                if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) {
+                    e.preventDefault();
+                    showMessageBox('PDF Settings will be available after you save at least one canvas.');
+                }
+            });
             pdfTab.addEventListener('shown.bs.tab', () => {
-                // Only generate if we have content and preview area exists
-                if (document.getElementById('pdfPreviewFrame') && state.canvasMapObjects) {
-                    // Only regenerate if needed
+                // Only generate if we have content and preview area exists and at least one saved canvas
+                if (document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) {
                     if (!state.pdfPreviewReady || state.pdfPreviewDirty) {
                         setTimeout(generatePdfPreview, 50);
                     }
@@ -5837,6 +5901,34 @@
             const scaleY = state.totalResHeight > 0 ? containerHeight / state.totalResHeight : 1;
             state.zoomLevel = Math.min(scaleX, scaleY) * 0.95; // 5% margin
             applyCanvasTransform();
+            // Disable PDF Settings until at least one canvas is saved
+            const pdfTabButton = document.getElementById('pdfsettings-tab');
+            const pdfPane = document.getElementById('pdfsettings-pane');
+            const setPdfSettingsEnabled = (enabled) => {
+                if (!pdfTabButton || !pdfPane) return;
+                // Toggle tab accessibility
+                if (enabled) {
+                    pdfTabButton.classList.remove('disabled-tab');
+                    pdfTabButton.setAttribute('aria-disabled', 'false');
+                } else {
+                    pdfTabButton.classList.add('disabled-tab');
+                    pdfTabButton.setAttribute('aria-disabled', 'true');
+                }
+                // Disable inner controls
+                const controls = pdfPane.querySelectorAll('input, select, button');
+                controls.forEach(ctrl => {
+                    // Keep Export buttons disabled until enabled too
+                    if (!enabled) {
+                        ctrl.setAttribute('disabled', 'true');
+                    } else {
+                        ctrl.removeAttribute('disabled');
+                    }
+                });
+            };
+
+            const hasSavedCanvases = () => Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+            setPdfSettingsEnabled(hasSavedCanvases());
+
             // Initial renders
             updatePixelMap();
             updateCanvasMap();
@@ -5858,6 +5950,10 @@
             rulerPositionToggle.textContent = 'Inside';
             rulerContainer.classList.add('rulers-inside');
             gridlineToggle.textContent = 'On';
+
+            // When a new canvas is saved, enable PDF Settings
+            const enablePdfAfterSave = () => setPdfSettingsEnabled(true);
+            saveCanvasConfirmBtn.addEventListener('click', enablePdfAfterSave, { once: true });
             magnetToggle.textContent = 'On';
             gapToggle.textContent = 'On';
             coordinatesToggle.textContent = 'On';
