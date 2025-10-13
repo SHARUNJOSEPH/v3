@@ -1483,7 +1483,7 @@
             
             // --- DOM Elements ---
             const pixelMapCanvas = document.getElementById('pixelMapCanvas');
-            const ctx = pixelMapCanvas.getContext('2d', { alpha: true });
+            const ctx = pixelMapCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
             const drawingOverlayCanvas = document.getElementById('drawingOverlayCanvas'); 
             const drawingCtx = drawingOverlayCanvas.getContext('2d', { alpha: true }); 
             
