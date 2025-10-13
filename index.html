@@ -684,10 +684,61 @@
             </svg>
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">Profile</a></li>
             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#generalSettingsModal">General Settings</a>
             </li>
             <li><a class="dropdown-item" href="login.html">Login</a></li>
         </ul>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal fade" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileModalLabel">Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-hint mb-3">Optional details about you or your organization. These are stored locally
+                        for now and can be populated automatically when sign-in is enabled.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="profileNameInput" class="form-label fw-bold">Name</label>
+                            <input id="profileNameInput" type="text" class="form-control" placeholder="Your name">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profileEmailInput" class="form-label fw-bold">Email</label>
+                            <input id="profileEmailInput" type="email" class="form-control" placeholder="name@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profileCompanyInput" class="form-label fw-bold">Company</label>
+                            <input id="profileCompanyInput" type="text" class="form-control" placeholder="Company name">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profileTitleInput" class="form-label fw-bold">Title/Role</label>
+                            <input id="profileTitleInput" type="text" class="form-control"
+                                placeholder="Designer, Engineer, ...">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="profilePhoneInput" class="form-label fw-bold">Phone (optional)</label>
+                            <input id="profilePhoneInput" type="tel" class="form-control" placeholder="+1 555 123 4567">
+                        </div>
+                        <div class="col-12">
+                            <label for="profileNotesInput" class="form-label fw-bold">Notes (optional)</label>
+                            <textarea id="profileNotesInput" class="form-control" rows="3"
+                                placeholder="Any extra info"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button id="clearProfileBtn" type="button" class="btn btn-outline-secondary">Clear</button>
+                    <div class="d-flex gap-2">
+                        <button id="saveProfileBtn" type="button" class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="container-fluid py-4">
@@ -1410,29 +1461,29 @@
                                 <div class="d-flex align-items-center mb-2">
                                     <span class="me-2" aria-hidden="true">👨‍💻</span>
                                     <h6 class="m-0">About Developer</h6>
-                            </div>
-                            <h5 class="text-center fw-bold mb-2">JOSEPH SHARUN</h5>
-                            <p class="text-center text-muted small mb-3">
-                                Professional LED Screen Designer Tool<br>
-                                Created with precision and passion
-                            </p>
-                            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                <!-- TODO: Replace # with real profile links -->
-                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
-                                    style="background:#0A66C2;color:#fff;">
-                                    <span class="me-2" aria-hidden="true">in</span>
-                                    LinkedIn
-                                </a>
-                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
-                                    style="background:#24292e;color:#fff;">
-                                    <span class="me-2" aria-hidden="true">{ }</span>
-                                    GitHub
-                                </a>
-                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
-                                    style="background:#FF813F;color:#fff;">
-                                    <span class="me-2" aria-hidden="true">☕</span>
-                                    Coffee
-                                </a>
+                                </div>
+                                <h5 class="text-center fw-bold mb-2">JOSEPH SHARUN</h5>
+                                <p class="text-center text-muted small mb-3">
+                                    Professional LED Screen Designer Tool<br>
+                                    Created with precision and passion
+                                </p>
+                                <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                                    <!-- TODO: Replace # with real profile links -->
+                                    <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                        style="background:#0A66C2;color:#fff;">
+                                        <span class="me-2" aria-hidden="true">in</span>
+                                        LinkedIn
+                                    </a>
+                                    <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                        style="background:#24292e;color:#fff;">
+                                        <span class="me-2" aria-hidden="true">{ }</span>
+                                        GitHub
+                                    </a>
+                                    <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                        style="background:#FF813F;color:#fff;">
+                                        <span class="me-2" aria-hidden="true">☕</span>
+                                        Coffee
+                                    </a>
                             </div>
                             <div class="text-center text-muted small mb-2">
                                 <span class="me-1" aria-hidden="true">🌐</span> Portfolio Website
@@ -1640,6 +1691,59 @@
             const panelHeightSelect = document.getElementById('panelHeightSelect');
             const panelResWidthInput = document.getElementById('panelResWidth');
             const panelResHeightInput = document.getElementById('panelResHeight');
+            // Profile modal elements
+            const profileModalEl = document.getElementById('profileModal');
+            const profileNameInput = document.getElementById('profileNameInput');
+            const profileEmailInput = document.getElementById('profileEmailInput');
+            const profileCompanyInput = document.getElementById('profileCompanyInput');
+            const profileTitleInput = document.getElementById('profileTitleInput');
+            const profilePhoneInput = document.getElementById('profilePhoneInput');
+            const profileNotesInput = document.getElementById('profileNotesInput');
+            const saveProfileBtn = document.getElementById('saveProfileBtn');
+            const clearProfileBtn = document.getElementById('clearProfileBtn');
+
+            const PROFILE_STORAGE_KEY = 'userProfile';
+
+            const getStoredProfile = () => {
+                try { return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY)) || {}; } catch { return {}; }
+            };
+
+            const setStoredProfile = (data) => {
+                try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data || {})); } catch { }
+            };
+
+            const populateProfileForm = (data = {}) => {
+                if (!profileNameInput) return; // if modal not present, skip
+                profileNameInput.value = data.name || '';
+                profileEmailInput.value = data.email || '';
+                profileCompanyInput.value = data.company || '';
+                profileTitleInput.value = data.title || '';
+                profilePhoneInput.value = data.phone || '';
+                profileNotesInput.value = data.notes || '';
+            };
+
+            const readProfileForm = () => ({
+                name: (profileNameInput?.value || '').trim(),
+                email: (profileEmailInput?.value || '').trim(),
+                company: (profileCompanyInput?.value || '').trim(),
+                title: (profileTitleInput?.value || '').trim(),
+                phone: (profilePhoneInput?.value || '').trim(),
+                notes: (profileNotesInput?.value || '').trim(),
+            });
+
+            // Hook for future authentication integration
+            const applyAuthProfile = (authUser) => {
+                if (!authUser) return; // expected fields: displayName, email, phoneNumber
+                const current = getStoredProfile();
+                const fromAuth = {
+                    name: authUser.displayName || current.name,
+                    email: authUser.email || current.email,
+                    phone: authUser.phoneNumber || current.phone,
+                };
+                const merged = { ...current, ...fromAuth };
+                setStoredProfile(merged);
+                populateProfileForm(merged);
+            };
             const color1Input = document.getElementById('color1Input');
             const color2Input = document.getElementById('color2Input');
             const color2BrightnessToggle = document.getElementById('color2BrightnessToggle');
@@ -3535,6 +3639,23 @@
                             el.classList.toggle('active', el.getAttribute('data-color') === defaultAccent);
                         });
                     }
+                });
+            }
+
+            // Profile modal wiring
+            if (profileModalEl) {
+                profileModalEl.addEventListener('show.bs.modal', () => {
+                    const data = getStoredProfile();
+                    populateProfileForm(data);
+                });
+                saveProfileBtn?.addEventListener('click', () => {
+                    const data = readProfileForm();
+                    setStoredProfile(data);
+                    if (typeof showMessageBox === 'function') showMessageBox('Profile saved.');
+                });
+                clearProfileBtn?.addEventListener('click', () => {
+                    setStoredProfile({});
+                    populateProfileForm({});
                 });
             }
 
