@@ -41,14 +41,16 @@
         .form-control { background-color: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: #e9ecef; }
         .form-label { color: #e9ecef; }
     </style>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body class="dark-mode" style="--bg-color: #212529; --text-color: #e9ecef; --card-bg: #343a40; --border-color: #495057;">
     <div class="container login-container">
         <div class="card">
             <div class="card-body">
                 <h3 class="card-title text-center mb-4">Login</h3>
-                <form>
+                <form id="emailLoginForm">
                     <div class="mb-3">
                         <label for="email" class="form-label">Email address</label>
                         <input type="email" class="form-control" id="email" aria-describedby="emailHelp">
@@ -59,21 +61,9 @@
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Login</button>
                 </form>
-                                <div class="text-center mt-3">
+                <div class="text-center mt-3">
                     <hr>
-                    <div id="g_id_onload"
-                         data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-                         data-callback="handleCredentialResponse"
-                         style="display: flex; justify-content: center;">
-                    </div>
-                    <div class="g_id_signin"
-                         data-type="standard"
-                         data-shape="rectangular"
-                         data-theme="outline"
-                         data-text="signin_with"
-                         data-size="large"
-                         data-logo_alignment="left">
-                    </div>
+                    <button id="googleBtn" class="btn btn-outline-light w-100">Continue with Google</button>
                     <hr>
                     <a href="index.html">Back to Generator</a>
                 </div>
@@ -81,34 +71,61 @@
         </div>
     </div>
     <script>
-        function handleCredentialResponse(response) {
-          // IMPORTANT: You should always verify the credential on your backend server.
-          // For demonstration purposes, we're decoding it on the client side.
-          const responsePayload = decodeJwtResponse(response.credential);
+                    // 1) Initialize Firebase (replace placeholders with your config)
+                    const firebaseConfig = {
+                        apiKey: "YOUR_API_KEY",
+                        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                        projectId: "YOUR_PROJECT_ID",
+                        appId: "YOUR_APP_ID",
+                    };
+                    let isDemo = !firebaseConfig.apiKey || String(firebaseConfig.apiKey).includes('YOUR_') || firebaseConfig.projectId === 'YOUR_PROJECT_ID';
+                    try { if (!isDemo) { firebase?.apps?.length ? null : firebase.initializeApp(firebaseConfig); } } catch { isDemo = true; }
+                    const auth = isDemo ? null : firebase.auth();
 
-          console.log("ID: " + responsePayload.sub);
-          console.log('Full Name: ' + responsePayload.name);
-          console.log("Email: " + responsePayload.email);
+                    const redirectToApp = () => window.location.href = 'index.html';
 
-          // TODO: Send the 'credential' (response.credential) to your backend server
-          // for verification and to create a user session.
-          alert("Successfully signed in as " + responsePayload.name);
-          // Example: window.location.href = '/dashboard';
-        }
+                    // 2) Email/password login
+                    document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const email = document.getElementById('email').value.trim();
+                        const password = document.getElementById('password').value;
+                        if (!isDemo) {
+                            try {
+                                await auth.signInWithEmailAndPassword(email, password);
+                                redirectToApp();
+                            } catch (err) {
+                                if (err.code === 'auth/user-not-found') {
+                                    await auth.createUserWithEmailAndPassword(email, password);
+                                    redirectToApp();
+                                } else {
+                                    alert(err.message);
+                                }
+                            }
+                        } else {
+                            // Local demo auth
+                            if (email === 'admin@gmail.com' && password === 'admin') {
+                                try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
+                                try { window.opener?.__demoLogin?.(email); } catch { }
+                                try { window.__demoLogin?.(email); } catch { }
+                                redirectToApp();
+                            } else {
+                                alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
+                            }
+                        }
+                });
 
-        function decodeJwtResponse(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (e) {
-                console.error("Error decoding JWT", e);
-                return null;
-            }
-        };
+                    // 3) Google sign-in
+                    document.getElementById('googleBtn').addEventListener('click', async () => {
+                        if (isDemo) { alert('Google sign-in is disabled in local demo mode.'); return; }
+                        const provider = new firebase.auth.GoogleAuthProvider();
+                        try {
+                        await auth.signInWithPopup(provider);
+                        redirectToApp();
+                    } catch (err) { alert(err.message); }
+                });
+
+                        // 4) Already signed in? Go back
+                        if (!isDemo) auth.onAuthStateChanged(user => { if (user) redirectToApp(); });
     </script>
     <div style="position: fixed; bottom: 10px; right: 10px;">
         <select id="languageSelector" class="form-select form-select-sm">

@@ -71,38 +71,6 @@
             margin-bottom: 0.5rem;
             transition: background-color 0.3s, border-color 0.3s;
         }
-
-        .collapse-header:hover {
-            background-color: rgba(13, 110, 253, 0.05);
-        }
-
-        .collapse-header:focus {
-            outline: none;
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-        }
-        
-        .collapse-header .toggle-icon {
-            font-size: 1.5rem;
-            transition: transform 0.3s ease-in-out;
-        }
-
-        .collapse-header[aria-expanded="true"] .toggle-icon {
-            transform: rotate(45deg);
-        }
-
-        .nav-tabs .nav-link {
-            color: var(--text-color);
-            font-weight: 600;
-            transition: background-color 0.3s, color 0.3s;
-            border-top-left-radius: 1rem;
-            border-top-right-radius: 1rem;
-        }
-
-        .nav-tabs .nav-link.active {
-            background-color: var(--card-bg);
-            color: var(--accent-color);
-            border-color: var(--border-color) var(--border-color) var(--card-bg) !important;
-        }
         .btn {
             transition: transform 0.12s ease-out, box-shadow 0.2s ease-in-out;
         }
@@ -673,9 +641,35 @@
     /* More specific hook for CanvasMap disabled state if needed */
     #canvasmap-tab.disabled-tab { opacity: 0.5; pointer-events: none; }
 
+        /* Glass blur backdrop for Login modal */
+        .modal-backdrop.login-blur {
+            backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+            -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+            background-color: rgba(10, 15, 25, 0.45); /* slightly stronger tint for clarity */
+            transition: backdrop-filter 0.2s ease, background-color 0.2s ease;
+        }
+        /* Optional: slight glass style for login content */
+        #loginModal .modal-content {
+            border: 1px solid var(--border-color);
+            box-shadow: 0 18px 36px -20px rgba(13,110,253,0.45);
+        }
+
+        /* Full-screen blur overlay for stronger glass effect */
+        #screenBlurOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1049; /* just under Bootstrap modal (1050) */
+            backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+            -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+            background-color: rgba(10, 15, 25, 0.45);
+            display: none;
+        }
+
     </style>
 </head>
 <body class="dark-mode">
+    <!-- Full-screen blur overlay (shown only when Login modal is open) -->
+    <div id="screenBlurOverlay"></div>
     <div class="dropdown" style="position: absolute; top: 20px; right: 30px; z-index: 1050;">
         <a href="#" title="Profile" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16" style="color: var(--accent-color);">
@@ -684,10 +678,16 @@
             </svg>
         </a>
         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton">
-            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">Profile</a></li>
+            <li><a id="profileMenuItem" class="dropdown-item disabled" href="#" aria-disabled="true"
+                    title="Login required">Profile</a></li>
             <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#generalSettingsModal">General Settings</a>
             </li>
-            <li><a class="dropdown-item" href="login.html">Login</a></li>
+            <li><a id="loginMenuItem" class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
+            </li>
+            <li>
+                <hr class="dropdown-divider">
+            </li>
+            <li><a id="logoutMenuItem" class="dropdown-item" href="#" style="display:none;">Logout</a></li>
         </ul>
     </div>
 
@@ -732,9 +732,49 @@
                     </div>
                 </div>
                 <div class="modal-footer d-flex justify-content-between">
-                    <button id="clearProfileBtn" type="button" class="btn btn-outline-secondary">Clear</button>
+                    <div class="d-flex gap-2">
+                        <button id="logoutInProfileBtn" type="button" class="btn btn-outline-danger" style="display:none;">Logout</button>
+                        <button id="clearProfileBtn" type="button" class="btn btn-outline-secondary">Clear</button>
+                    </div>
                     <div class="d-flex gap-2">
                         <button id="saveProfileBtn" type="button" class="btn btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal (styled similar to General Settings) -->
+    <div id="loginModal" class="modal fade" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="loginModalLabel">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="settings-hint mb-3">Sign in to enable your Profile and save preferences. In demo mode, use
+                        <strong>admin@gmail.com</strong> / <strong>admin</strong>.
+                    </p>
+                    <form id="emailLoginFormModal" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="loginEmailInput" class="form-label fw-bold">Email</label>
+                            <input id="loginEmailInput" type="email" class="form-control" placeholder="name@example.com"
+                                required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="loginPasswordInput" class="form-label fw-bold">Password</label>
+                            <input id="loginPasswordInput" type="password" class="form-control" placeholder="••••••••"
+                                required>
+                        </div>
+                        <div class="col-12 d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+                    <hr class="my-3 settings-divider">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="settings-hint">Or continue with</div>
+                        <button id="googleLoginBtnModal" type="button" class="btn btn-outline-secondary">Google</button>
                     </div>
                 </div>
             </div>
@@ -1521,8 +1561,27 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Firebase init (replace with your project config)
+            const firebaseConfig = {
+                apiKey: "YOUR_API_KEY",
+                authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+                projectId: "YOUR_PROJECT_ID",
+                appId: "YOUR_APP_ID",
+            };
+            let isDemoMode = !firebaseConfig.apiKey || String(firebaseConfig.apiKey).includes('YOUR_') || firebaseConfig.projectId === 'YOUR_PROJECT_ID';
+            try {
+                if (!isDemoMode) {
+                    if (!firebase?.apps?.length) firebase.initializeApp(firebaseConfig);
+                }
+            } catch (e) {
+                isDemoMode = true;
+            }
+            window.__IS_DEMO__ = isDemoMode;
             // Enable Bootstrap tooltips globally
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
@@ -1676,6 +1735,10 @@
             const fontPreviewModal = document.getElementById('fontPreviewModal');
             const accentSwatches = document.getElementById('accentSwatches');
             const resetUiPrefsBtn = document.getElementById('resetUiPrefsBtn');
+            const loginMenuItem = document.getElementById('loginMenuItem');
+            const logoutMenuItem = document.getElementById('logoutMenuItem');
+            const profileMenuItem = document.getElementById('profileMenuItem');
+            const logoutInProfileBtn = document.getElementById('logoutInProfileBtn');
             const resetAllBtn = document.getElementById('resetAllBtnModal');
             const resetAllBtnModal = resetAllBtn;
             const unitSelector = document.getElementById('unitSelector');
@@ -3613,6 +3676,84 @@
                 });
             }
 
+            // Auth UI and profile integration (Firebase or local demo)
+            const setUiForAuth = (isLoggedIn) => {
+                if (loginMenuItem) loginMenuItem.style.display = isLoggedIn ? 'none' : '';
+                if (logoutMenuItem) logoutMenuItem.style.display = isLoggedIn ? '' : 'none';
+                if (profileMenuItem) {
+                    if (isLoggedIn) {
+                        profileMenuItem.classList.remove('disabled');
+                        profileMenuItem.removeAttribute('aria-disabled');
+                        profileMenuItem.title = 'Profile';
+                    } else {
+                        profileMenuItem.classList.add('disabled');
+                        profileMenuItem.setAttribute('aria-disabled', 'true');
+                        profileMenuItem.title = 'Login required';
+                    }
+                }
+                if (logoutInProfileBtn) logoutInProfileBtn.style.display = isLoggedIn ? '' : 'none';
+            };
+
+            if (!window.__IS_DEMO__) {
+                try {
+                    const auth = firebase.auth();
+                    auth.onAuthStateChanged((user) => {
+                        const isLoggedIn = !!user;
+                        setUiForAuth(isLoggedIn);
+                        if (isLoggedIn) {
+                            applyAuthProfile({
+                                displayName: user.displayName,
+                                email: user.email,
+                                phoneNumber: user.phoneNumber,
+                            });
+                        }
+                    });
+                    logoutMenuItem?.addEventListener('click', async () => {
+                        await auth.signOut();
+                        if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                    });
+                    profileMenuItem?.addEventListener('click', (e) => {
+                        if (profileMenuItem.classList.contains('disabled')) { e.preventDefault(); return; }
+                        const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+                        modal.show();
+                    });
+                    logoutInProfileBtn?.addEventListener('click', async () => {
+                        await auth.signOut();
+                        const modalEl = document.getElementById('profileModal');
+                        const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                        inst.hide();
+                        if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                    });
+                } catch { }
+            } else {
+                // Local demo auth: admin@gmail.com / admin
+                const DEMO_KEY = 'demoAuthUser';
+                const getDemoUser = () => { try { return JSON.parse(localStorage.getItem(DEMO_KEY)); } catch { return null; } };
+                const setDemoUser = (u) => { try { u ? localStorage.setItem(DEMO_KEY, JSON.stringify(u)) : localStorage.removeItem(DEMO_KEY); } catch { } };
+
+                const existing = getDemoUser();
+                setUiForAuth(!!existing);
+                if (existing) applyAuthProfile({ displayName: 'Admin User', email: existing.email });
+
+                profileMenuItem?.addEventListener('click', (e) => {
+                    if (profileMenuItem.classList.contains('disabled')) { e.preventDefault(); return; }
+                    const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+                    modal.show();
+                });
+                const doDemoLogout = () => {
+                    setDemoUser(null);
+                    setUiForAuth(false);
+                    if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                };
+                logoutMenuItem?.addEventListener('click', doDemoLogout);
+                logoutInProfileBtn?.addEventListener('click', () => {
+                    doDemoLogout();
+                    const modalEl = document.getElementById('profileModal');
+                    const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    inst.hide();
+                });
+            }
+
             // Reset UI prefs to defaults (Poppins, Light mode, default accent)
             if (resetUiPrefsBtn) {
                 resetUiPrefsBtn.addEventListener('click', () => {
@@ -3656,6 +3797,87 @@
                 clearProfileBtn?.addEventListener('click', () => {
                     setStoredProfile({});
                     populateProfileForm({});
+                });
+            }
+
+            // Login modal wiring
+            const emailLoginFormModal = document.getElementById('emailLoginFormModal');
+            const loginEmailInput = document.getElementById('loginEmailInput');
+            const loginPasswordInput = document.getElementById('loginPasswordInput');
+            const googleLoginBtnModal = document.getElementById('googleLoginBtnModal');
+
+            const finishLoginUi = () => {
+                // Close the login modal and enable profile
+                const modalEl = document.getElementById('loginModal');
+                const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                inst.hide();
+                // Enable UI switches are handled by auth observers; demo mode triggers below
+            };
+
+            if (emailLoginFormModal) {
+                emailLoginFormModal.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = (loginEmailInput?.value || '').trim();
+                    const password = loginPasswordInput?.value || '';
+                    if (!email || !password) return;
+
+                    if (!window.__IS_DEMO__) {
+                        try {
+                            const auth = firebase.auth();
+                            await auth.signInWithEmailAndPassword(email, password);
+                            finishLoginUi();
+                        } catch (err) {
+                            if (err.code === 'auth/user-not-found') {
+                                const auth = firebase.auth();
+                                await auth.createUserWithEmailAndPassword(email, password);
+                                finishLoginUi();
+                            } else {
+                                alert(err.message);
+                            }
+                        }
+                    } else {
+                        if (email === 'admin@gmail.com' && password === 'admin') {
+                            try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
+                            // set UI via helper if available from auth block
+                            try { window.__demoLogin?.(email); } catch { }
+                            finishLoginUi();
+                        } else {
+                            alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
+                        }
+                    }
+                });
+            }
+
+            if (googleLoginBtnModal) {
+                googleLoginBtnModal.addEventListener('click', async () => {
+                    if (window.__IS_DEMO__) { alert('Google sign-in is disabled in demo mode.'); return; }
+                    try {
+                        const provider = new firebase.auth.GoogleAuthProvider();
+                        await firebase.auth().signInWithPopup(provider);
+                        finishLoginUi();
+                    } catch (err) {
+                        alert(err.message);
+                    }
+                });
+            }
+
+            // Toggle glass blur backdrop when Login modal shows/hides
+            const loginModalEl2 = document.getElementById('loginModal');
+            if (loginModalEl2) {
+                loginModalEl2.addEventListener('show.bs.modal', () => {
+                    // Defer to allow Bootstrap to insert the backdrop
+                    setTimeout(() => {
+                        const bd = document.querySelector('.modal-backdrop');
+                        if (bd) bd.classList.add('login-blur');
+                        const ov = document.getElementById('screenBlurOverlay');
+                        if (ov) ov.style.display = 'block';
+                    }, 0);
+                });
+                loginModalEl2.addEventListener('hidden.bs.modal', () => {
+                    const bd = document.querySelector('.modal-backdrop.login-blur');
+                    if (bd) bd.classList.remove('login-blur');
+                    const ov = document.getElementById('screenBlurOverlay');
+                    if (ov) ov.style.display = 'none';
                 });
             }
 
