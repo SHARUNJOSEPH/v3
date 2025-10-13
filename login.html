@@ -68,39 +68,65 @@
         </div>
     </div>
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCRiYz5iOnQVfJzwnt43F0FRSlEwRWtbYY",
-            authDomain: "sharun-82f70.firebaseapp.com",
-            projectId: "sharun-82f70",
-            storageBucket: "sharun-82f70.firebasestorage.app",
-            messagingSenderId: "859714949699",
-            appId: "1:859714949699:web:0b2ce526b16ba6aabdfaf6",
-            measurementId: "G-GYBFKRM6PD"
-        };
+                const redirectToApp = () => window.location.href = 'index.html';
 
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+                // Try to load external config/config/firebase-config.js which should set window.__FIREBASE_CONFIG__
+                const loadConfig = () => new Promise((resolve) => {
+                    const s = document.createElement('script');
+                    s.src = 'config/firebase-config.js';
+                    s.onload = () => resolve(window.__FIREBASE_CONFIG__ || null);
+                    s.onerror = () => resolve(null);
+                    document.head.appendChild(s);
+                });
 
-        const redirectToApp = () => window.location.href = 'index.html';
+                const cfg = await loadConfig();
+                let demoMode = false;
+                let auth = null;
 
-        // Email/password login
-        document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
+                if (cfg && cfg.apiKey && cfg.projectId) {
+                    try {
+                        const app = initializeApp(cfg);
+                        auth = getAuth(app);
+                    } catch (e) {
+                        // If config was invalid, fall back to demo mode
+                        demoMode = true;
+                    }
+                } else {
+                    demoMode = true;
+                }
+
+                const emailForm = document.getElementById('emailLoginForm');
+                const googleBtn = document.getElementById('googleBtn');
+
+                // Email/password login with Firebase or Demo fallback
+                emailForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+
+                if (demoMode) {
+                    if (email === 'admin@gmail.com' && password === 'admin') {
+                        try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
+                        try { localStorage.setItem('authExpiryAt', String(Date.now() + 24 * 60 * 60 * 1000)); } catch { }
+                        redirectToApp();
+                    } else {
+                        alert('Demo mode: use admin@gmail.com / admin');
+                    }
+                    return;
+                }
+
             try {
                 await signInWithEmailAndPassword(auth, email, password);
+                try { localStorage.setItem('authExpiryAt', String(Date.now() + 24 * 60 * 60 * 1000)); } catch { }
                 redirectToApp();
             } catch (err) {
                 if (err.code === 'auth/user-not-found') {
                     try {
                         await createUserWithEmailAndPassword(auth, email, password);
+                        try { localStorage.setItem('authExpiryAt', String(Date.now() + 24 * 60 * 60 * 1000)); } catch { }
                         redirectToApp();
                     } catch (createErr) {
                         alert(createErr.message);
@@ -111,23 +137,23 @@
             }
         });
 
-        // Google sign-in
-        document.getElementById('googleBtn').addEventListener('click', async () => {
+                // Google sign-in (disabled in demo mode)
+                googleBtn.addEventListener('click', async () => {
+                    if (demoMode) { alert('Google sign-in is disabled in demo mode.'); return; }
             const provider = new GoogleAuthProvider();
             try {
                 await signInWithPopup(auth, provider);
+                try { localStorage.setItem('authExpiryAt', String(Date.now() + 24 * 60 * 60 * 1000)); } catch { }
                 redirectToApp();
             } catch (err) {
                 alert(err.message);
             }
         });
 
-        // Already signed in? Go back
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                redirectToApp();
+                // Already signed in? Go back (only if Firebase is available)
+                if (!demoMode && auth) {
+                    onAuthStateChanged(auth, user => { if (user) redirectToApp(); });
             }
-        });
     </script>
     <div style="position: fixed; bottom: 10px; right: 10px;">
         <select id="languageSelector" class="form-select form-select-sm">
