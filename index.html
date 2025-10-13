@@ -745,7 +745,8 @@
     </div>
 
     <!-- Login Modal (styled similar to General Settings) -->
-    <div id="loginModal" class="modal fade" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div id="loginModal" class="modal fade" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true"
+        data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -3805,6 +3806,36 @@
             const loginEmailInput = document.getElementById('loginEmailInput');
             const loginPasswordInput = document.getElementById('loginPasswordInput');
             const googleLoginBtnModal = document.getElementById('googleLoginBtnModal');
+            const LAST_PROMPT_KEY = 'authPromptAt';
+            let requireLoginUntilAuth = false; // will be set based on auth state
+
+            const nowMs = () => Date.now();
+            const hours24Ms = 24 * 60 * 60 * 1000;
+            const setPromptStamp = () => { try { localStorage.setItem(LAST_PROMPT_KEY, String(nowMs())); } catch { } };
+            const getPromptStamp = () => { try { return parseInt(localStorage.getItem(LAST_PROMPT_KEY) || '0', 10); } catch { return 0; } };
+
+            const isLoggedIn = () => {
+                if (!window.__IS_DEMO__) {
+                    try { return !!firebase.auth().currentUser; } catch { return false; }
+                } else {
+                    try { return !!JSON.parse(localStorage.getItem('demoAuthUser')); } catch { return false; }
+                }
+            };
+
+            const showLoginModal = (force = false) => {
+                // Only prompt if not logged in
+                if (isLoggedIn()) return;
+                // Honor 24h prompt if not forcing
+                if (!force) {
+                    const last = getPromptStamp();
+                    if (nowMs() - last < hours24Ms) return;
+                }
+                const modalEl = document.getElementById('loginModal');
+                const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+                inst.show();
+                setPromptStamp();
+                requireLoginUntilAuth = true;
+            };
 
             const finishLoginUi = () => {
                 // Close the login modal and enable profile
@@ -3812,6 +3843,8 @@
                 const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                 inst.hide();
                 // Enable UI switches are handled by auth observers; demo mode triggers below
+                requireLoginUntilAuth = false;
+                setPromptStamp();
             };
 
             if (emailLoginFormModal) {
@@ -3878,8 +3911,20 @@
                     if (bd) bd.classList.remove('login-blur');
                     const ov = document.getElementById('screenBlurOverlay');
                     if (ov) ov.style.display = 'none';
+                    // If login is required and user not authenticated, re-open
+                    if (requireLoginUntilAuth && !isLoggedIn()) {
+                        setTimeout(() => showLoginModal(true), 0);
+                    }
                 });
             }
+
+            // Initial prompt on load if not logged in (force on first visit/after logout)
+            setTimeout(() => {
+                if (!isLoggedIn()) {
+                    // If last prompt was over 24h ago or not set, show. Also enforce as per requirement.
+                    showLoginModal(true);
+                }
+            }, 0);
 
 
 
