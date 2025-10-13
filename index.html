@@ -1646,7 +1646,7 @@
                                 showAuthBar(user.displayName || user.email || 'Signed in');
                             } else {
                                 // Not signed in → go to login page
-                                // redirectToLogin();
+                                redirectToLogin();
                             }
                         });
                         authLogoutBtn?.addEventListener('click', async () => {
@@ -1656,7 +1656,7 @@
                         });
                     } catch {
                         // If auth API not available, just redirect
-                        // redirectToLogin();
+                        redirectToLogin();
                     }
                 } else {
                     const demo = getDemoUser();
@@ -1671,7 +1671,7 @@
                         authLogoutBtn?.addEventListener('click', () => { try { localStorage.removeItem('demoAuthUser'); } catch { } clearAuthExpiry(); redirectToLogin(); });
                     } else {
                         // No demo session → go to login
-                        // redirectToLogin();
+                        redirectToLogin();
                     }
                 }
             // Enable Bootstrap tooltips globally
@@ -4181,13 +4181,7 @@
                 });
             }
 
-            // Initial prompt on load if not logged in (force on first visit/after logout)
-            setTimeout(() => {
-                if (!isLoggedIn()) {
-                    // If last prompt was over 24h ago or not set, show. Also enforce as per requirement.
-                    showLoginModal(true);
-                }
-            }, 0);
+                // Do not auto-show login modal on load; rely on redirect when unauthenticated
 
 
 
