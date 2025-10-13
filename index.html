@@ -1640,23 +1640,23 @@
                             if (user) {
                                 if (isAuthExpired()) {
                                     clearAuthExpiry();
-                                    auth.signOut().finally(() => redirectToLogin());
+                                    auth.signOut().finally(() => { setTimeout(() => { try { showLoginModal(true); } catch { } }, 0); });
                                     return;
                                 }
                                 showAuthBar(user.displayName || user.email || 'Signed in');
                             } else {
-                                // Not signed in → go to login page
-                                redirectToLogin();
+                                // Not signed in → show in-app login modal
+                                setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                             }
                         });
                         authLogoutBtn?.addEventListener('click', async () => {
                             try { await auth.signOut(); } catch { }
                             clearAuthExpiry();
-                            redirectToLogin();
+                            setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                         });
                     } catch {
-                        // If auth API not available, just redirect
-                        redirectToLogin();
+                        // If auth API not available, fall back to in-app login modal
+                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     }
                 } else {
                     const demo = getDemoUser();
@@ -1664,14 +1664,14 @@
                         if (isAuthExpired()) {
                             try { localStorage.removeItem('demoAuthUser'); } catch { }
                             clearAuthExpiry();
-                            redirectToLogin();
+                            setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                             return;
                         }
                         showAuthBar(demo.email);
                         authLogoutBtn?.addEventListener('click', () => { try { localStorage.removeItem('demoAuthUser'); } catch { } clearAuthExpiry(); redirectToLogin(); });
                     } else {
-                        // No demo session → go to login
-                        redirectToLogin();
+                        // No demo session → show in-app login modal
+                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     }
                 }
             // Enable Bootstrap tooltips globally
