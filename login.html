@@ -73,10 +73,13 @@
     <script>
                     // 1) Initialize Firebase (replace placeholders with your config)
                     const firebaseConfig = {
-                        apiKey: "YOUR_API_KEY",
-                        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-                        projectId: "YOUR_PROJECT_ID",
-                        appId: "YOUR_APP_ID",
+                        apiKey: "AIzaSyDnsaXpR5vAG4YIwSosm2IdFataeUPvxjU",
+                        authDomain: "grid-945d4.firebaseapp.com",
+                        projectId: "grid-945d4",
+                        storageBucket: "grid-945d4.firebasestorage.app",
+                        messagingSenderId: "823763375861",
+                        appId: "1:823763375861:web:ef103f700ef3234c7e17bc",
+                        measurementId: "G-2MF46RMRQG"
                     };
                     let isDemo = !firebaseConfig.apiKey || String(firebaseConfig.apiKey).includes('YOUR_') || firebaseConfig.projectId === 'YOUR_PROJECT_ID';
                     try { if (!isDemo) { firebase?.apps?.length ? null : firebase.initializeApp(firebaseConfig); } } catch { isDemo = true; }
