@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LED Grid Generator</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -30,12 +33,14 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             padding: 20px;
             min-height: 100vh;
-            transition: background-color 0.3s, color 0.3s;
+            background-image: radial-gradient(1000px 600px at 10% 5%, rgba(13, 110, 253, 0.08), transparent), radial-gradient(1000px 600px at 90% 95%, rgba(32, 201, 151, 0.08), transparent);
+            background-attachment: fixed;
+            transition: background-color 0.3s, color 0.3s, background-image 0.3s;
         }
 
         .container-fluid {
@@ -48,6 +53,7 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             transition: box-shadow 0.3s;
         }
+        .card:hover { box-shadow: 0 10px 25px -10px rgba(13, 110, 253, 0.45); }
         
         /* Custom styling for the collapsible headers */
         .collapse-header {
@@ -97,6 +103,41 @@
             color: var(--accent-color);
             border-color: var(--border-color) var(--border-color) var(--card-bg) !important;
         }
+        .btn {
+            transition: transform 0.12s ease-out, box-shadow 0.2s ease-in-out;
+        }
+        .btn:active { transform: translateY(1px) scale(0.99); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-color), #16a085);
+            border: 0;
+            box-shadow: 0 6px 14px -6px rgba(13, 110, 253, 0.6);
+        }
+        .btn-primary:hover { filter: brightness(1.02); box-shadow: 0 10px 20px -8px rgba(13, 110, 253, 0.65); }
+        .btn-secondary { box-shadow: 0 4px 10px -6px rgba(108, 117, 125, 0.6); }
+        .btn-secondary:hover { filter: brightness(1.03); }
+
+        /* Sticky toolbars for action rows */
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: var(--card-bg);
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 24px -18px rgba(0,0,0,0.35);
+        }
+
+        /* PDF preview skeleton shimmer while generating */
+        .pdf-preview-container { position: relative; overflow: hidden; }
+        .pdf-preview-container.loading::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.02) 100%);
+            animation: shimmer 1.2s infinite;
+            pointer-events: none;
+        }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
         
         .btn {
             border-radius: 0.75rem;
@@ -728,17 +769,21 @@
 
                             <div class="col-12 col-md-8">
                                 <div class="card p-3 h-100 d-flex flex-column">
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 toolbar">
                                         <button id="zoomInBtn" class="btn btn-secondary">Zoom In</button>
                                         <button id="zoomOutBtn" class="btn btn-secondary">Zoom Out</button>
                                         <button id="fitToScreenBtn" class="btn btn-secondary">Fit to Screen</button>
                                         <button id="actualResolutionBtn" class="btn btn-secondary">Actual Size</button>
                                     </div>
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                        <button id="exportPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportJpgBtn" class="btn btn-primary">Export JPEG</button>
-                                        <button id="exportOutlineBtn" class="btn btn-primary">Export Outline</button>
-                                        <button id="sendToCanvasBtn" class="btn btn-primary">Send to Canvasmap</button>
+                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 toolbar">
+                                        <button id="exportPngBtn" class="btn btn-primary" data-bs-toggle="tooltip" title="Download PixelMap as PNG">Export
+                                            PNG</button>
+                                        <button id="exportJpgBtn" class="btn btn-primary" data-bs-toggle="tooltip" title="Download PixelMap as JPEG">Export
+                                            JPEG</button>
+                                        <button id="exportOutlineBtn" class="btn btn-primary" data-bs-toggle="tooltip"
+                                            title="Download outlines only (transparent PNG)">Export Outline</button>
+                                        <button id="sendToCanvasBtn" class="btn btn-primary" data-bs-toggle="tooltip"
+                                            title="Send current LED screen to CanvasMap">Send to Canvasmap</button>
                                     </div>
                                     <div class="canvas-container" id="canvasContainer">
                                         <canvas id="pixelMapCanvas"></canvas>
@@ -1167,13 +1212,15 @@
                             </div>
                             <div class="col-12 col-md-10">
                                 <div class="card p-3 h-100 d-flex flex-column">
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 toolbar">
                                         <button id="canvasMapZoomInBtn" class="btn btn-secondary">Zoom In</button>
                                         <button id="canvasMapZoomOutBtn" class="btn btn-secondary">Zoom Out</button>
                                         <button id="canvasMapFitToScreenBtn" class="btn btn-secondary">Fit to Screen</button>
                                         <button id="canvasMapActualSizeBtn" class="btn btn-secondary">Actual Size</button>
-                                        <button id="exportCanvasPngBtn" class="btn btn-primary">Export PNG</button>
-                                        <button id="exportCanvasJpgBtn" class="btn btn-primary">Export JPEG</button>
+                                        <button id="exportCanvasPngBtn" class="btn btn-primary" data-bs-toggle="tooltip"
+                                            title="Download CanvasMap as PNG">Export PNG</button>
+                                        <button id="exportCanvasJpgBtn" class="btn btn-primary" data-bs-toggle="tooltip"
+                                            title="Download CanvasMap as JPEG">Export JPEG</button>
                                     </div>
                                     <div class="ruler-container flex-grow-1" id="rulerContainer">
                                         <div class="ruler-corner"></div>
@@ -1350,6 +1397,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Enable Bootstrap tooltips globally
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
             // --- Global State and Constants ---
             const state = {
                 unit: 'meter',
@@ -4819,6 +4869,7 @@
             const pdfPreviewContent = document.getElementById('pdfPreviewContent');
 
             // Show loading state
+            if (pdfPreviewContainer) pdfPreviewContainer.classList.add('loading');
             pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
             // Yield to the browser to render the spinner before heavy work
             setTimeout(() => {
@@ -4908,12 +4959,14 @@
                 pdfPreviewPlaceholder.style.display = 'none';
                 state.pdfPreviewReady = true;
                 state.pdfPreviewDirty = false;
+                if (pdfPreviewContainer) pdfPreviewContainer.classList.remove('loading');
 
             } catch (error) {
                 console.error("Error generating PDF preview:", error);
                 pdfPreviewPlaceholder.innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle"></i><p class="mt-2">Error generating PDF preview. Please try again.</p></div>';
                 pdfPreviewContent.classList.add('d-none');
                 pdfPreviewPlaceholder.style.display = 'block';
+                if (pdfPreviewContainer) pdfPreviewContainer.classList.remove('loading');
             }
             }, 0);
         };
