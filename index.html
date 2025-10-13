@@ -3710,8 +3710,11 @@
                         }
                     });
                     logoutMenuItem?.addEventListener('click', async () => {
+                        // Immediately reflect UI and prompt login again
+                        setUiForAuth(false);
                         await auth.signOut();
                         if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     });
                     profileMenuItem?.addEventListener('click', (e) => {
                         if (profileMenuItem.classList.contains('disabled')) { e.preventDefault(); return; }
@@ -3719,11 +3722,13 @@
                         modal.show();
                     });
                     logoutInProfileBtn?.addEventListener('click', async () => {
+                        setUiForAuth(false);
                         await auth.signOut();
                         const modalEl = document.getElementById('profileModal');
                         const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                         inst.hide();
                         if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 150);
                     });
                 } catch { }
             } else {
@@ -3745,6 +3750,7 @@
                     setDemoUser(null);
                     setUiForAuth(false);
                     if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                    setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                 };
                 logoutMenuItem?.addEventListener('click', doDemoLogout);
                 logoutInProfileBtn?.addEventListener('click', () => {
@@ -3858,11 +3864,14 @@
                         try {
                             const auth = firebase.auth();
                             await auth.signInWithEmailAndPassword(email, password);
+                            // Immediately reflect UI while auth observer updates asynchronously
+                            setUiForAuth(true);
                             finishLoginUi();
                         } catch (err) {
                             if (err.code === 'auth/user-not-found') {
                                 const auth = firebase.auth();
                                 await auth.createUserWithEmailAndPassword(email, password);
+                                setUiForAuth(true);
                                 finishLoginUi();
                             } else {
                                 alert(err.message);
@@ -3871,8 +3880,9 @@
                     } else {
                         if (email === 'admin@gmail.com' && password === 'admin') {
                             try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
-                            // set UI via helper if available from auth block
-                            try { window.__demoLogin?.(email); } catch { }
+                            // Reflect UI immediately in demo mode
+                            setUiForAuth(true);
+                            applyAuthProfile({ displayName: 'Admin User', email });
                             finishLoginUi();
                         } else {
                             alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
@@ -3887,6 +3897,7 @@
                     try {
                         const provider = new firebase.auth.GoogleAuthProvider();
                         await firebase.auth().signInWithPopup(provider);
+                        setUiForAuth(true);
                         finishLoginUi();
                     } catch (err) {
                         alert(err.message);
