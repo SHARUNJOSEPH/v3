@@ -661,6 +661,73 @@
             display: none;
         }
 
+        /* Google login button - polished UX */
+        .btn-google {
+            background: #fff;
+            color: #3c4043;
+            border: 1px solid #dadce0;
+            border-radius: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+        }
+        .btn-google:hover {
+            background: #f8faff;
+            border-color: #c2e7ff;
+            box-shadow: 0 6px 16px -8px rgba(66, 133, 244, 0.45);
+        }
+        .btn-google:active { transform: translateY(1px); }
+        .btn-google .g-icon { display: inline-flex; width: 18px; height: 18px; }
+
+        /* Variant to align with primary button feel while preserving Google icon */
+        .btn-google-primary {
+            background: linear-gradient(135deg, var(--accent-color), #16a085);
+            color: #fff;
+            border: 0;
+            box-shadow: 0 10px 24px -12px rgba(13,110,253,0.6);
+        }
+        .btn-google-primary:hover {
+            filter: brightness(1.02);
+            box-shadow: 0 12px 28px -12px rgba(13,110,253,0.7);
+        }
+        .btn-google-primary .g-icon svg {
+            filter: brightness(1.1) saturate(1.1);
+        }
+
+        /* Dropdown menu colors in dark mode */
+        body.dark-mode .dropdown-menu {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+        /* Ensure all dropdown links adopt light text in dark mode */
+        body.dark-mode .dropdown-menu .dropdown-item,
+        body.dark-mode .dropdown-menu a.dropdown-item,
+        body.dark-mode .dropdown-menu .dropdown-item:visited {
+            color: var(--text-color) !important;
+        }
+        body.dark-mode .dropdown-menu .dropdown-item:hover,
+        body.dark-mode .dropdown-menu .dropdown-item:focus {
+            background-color: var(--input-bg);
+            color: var(--text-color) !important;
+        }
+        /* Active item styling */
+        body.dark-mode .dropdown-menu .dropdown-item.active,
+        body.dark-mode .dropdown-menu .dropdown-item:active {
+            background-color: var(--accent-color) !important;
+            color: #fff !important;
+        }
+        /* Optional header styling if used */
+        body.dark-mode .dropdown-menu .dropdown-header {
+            color: var(--secondary-text-color) !important;
+        }
+        body.dark-mode .dropdown-divider {
+            border-top-color: var(--border-color);
+        }
+
     </style>
 </head>
 <body class="dark-mode">
@@ -753,10 +820,6 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="settings-hint mb-3">Sign in to enable your Profile and save preferences. If Firebase isn’t configured locally,
-                        use demo login:
-                        <strong>admin@gmail.com</strong> / <strong>admin</strong>.
-                    </p>
                     <form id="emailLoginFormModal" class="row g-3">
                         <div class="col-md-6">
                             <label for="loginEmailInput" class="form-label fw-bold">Email</label>
@@ -773,9 +836,23 @@
                         </div>
                     </form>
                     <hr class="my-3 settings-divider">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex flex-column align-items-center text-center gap-2">
                         <div class="settings-hint">Or continue with</div>
-                        <button id="googleLoginBtnModal" type="button" class="btn btn-outline-secondary">Google</button>
+                        <button id="googleLoginBtnModal" type="button" class="btn btn-google btn-google-primary">
+                            <span class="g-icon" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="18" height="18">
+                                    <path fill="#FFC107"
+                                        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12 s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,5.053,29.268,3,24,3C12.955,3,4,11.955,4,23 s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                                    <path fill="#FF3D00"
+                                        d="M6.306,14.691l6.571,4.819C14.655,16.146,18.961,13,24,13c3.059,0,5.842,1.154,7.961,3.039 l5.657-5.657C34.046,5.053,29.268,3,24,3C16.318,3,9.656,7.337,6.306,14.691z" />
+                                    <path fill="#4CAF50"
+                                        d="M24,43c5.166,0,9.86-1.977,13.409-5.197l-6.19-5.238C29.211,34.091,26.715,35,24,35 c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.026C9.505,38.556,16.227,43,24,43z" />
+                                    <path fill="#1976D2"
+                                        d="M43.611,20.083H42V20H24v8h11.303c-0.793,2.237-2.231,4.166-4.092,5.566 c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,23C44,22.659,43.862,21.35,43.611,20.083z" />
+                                </svg>
+                            </span>
+                            Continue with Google
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1622,6 +1699,7 @@
                 const getAuthExpiry = () => { try { return parseInt(localStorage.getItem(AUTH_EXPIRY_KEY) || '0', 10); } catch { return 0; } };
                 const isAuthExpired = () => nowMs() > getAuthExpiry();
                 const clearAuthExpiry = () => { try { localStorage.removeItem(AUTH_EXPIRY_KEY); } catch { } };
+                const setAuthExpiry = () => { try { localStorage.setItem(AUTH_EXPIRY_KEY, String(nowMs() + 24 * 60 * 60 * 1000)); } catch { } };
                 const showAuthBar = (label) => {
                     if (!authBar) return;
                     if (label) {
@@ -1638,7 +1716,11 @@
                         const auth = firebase.auth();
                         auth.onAuthStateChanged((user) => {
                             if (user) {
-                                if (isAuthExpired()) {
+                                // If no expiry set yet (first login), set it; else enforce expiry
+                                const exp = getAuthExpiry();
+                                if (!exp || Number.isNaN(exp) || exp <= 0) {
+                                    setAuthExpiry();
+                                } else if (nowMs() > exp) {
                                     clearAuthExpiry();
                                     auth.signOut().finally(() => { setTimeout(() => { try { showLoginModal(true); } catch { } }, 0); });
                                     return;
@@ -1661,7 +1743,10 @@
                 } else {
                     const demo = getDemoUser();
                     if (demo?.email) {
-                        if (isAuthExpired()) {
+                        const exp = getAuthExpiry();
+                        if (!exp || Number.isNaN(exp) || exp <= 0) {
+                            setAuthExpiry();
+                        } else if (nowMs() > exp) {
                             try { localStorage.removeItem('demoAuthUser'); } catch { }
                             clearAuthExpiry();
                             setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
@@ -4068,12 +4153,14 @@
             };
 
             const finishLoginUi = () => {
+                // Mark that login is complete before hiding to avoid any re-open logic
+                requireLoginUntilAuth = false;
                 // Close the login modal and enable profile
                 const modalEl = document.getElementById('loginModal');
-                const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-                inst.hide();
-                // Enable UI switches are handled by auth observers; demo mode triggers below
-                requireLoginUntilAuth = false;
+                if (modalEl) {
+                    const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    inst.hide();
+                }
                 setPromptStamp();
             };
 
@@ -4112,6 +4199,7 @@
                         try {
                             const auth = firebase.auth();
                             await auth.signInWithEmailAndPassword(email, password);
+                            setAuthExpiry();
                             // Immediately reflect UI while auth observer updates asynchronously
                             setUiForAuth(true);
                             finishLoginUi();
@@ -4119,6 +4207,7 @@
                             if (err.code === 'auth/user-not-found') {
                                 const auth = firebase.auth();
                                 await auth.createUserWithEmailAndPassword(email, password);
+                                setAuthExpiry();
                                 setUiForAuth(true);
                                 finishLoginUi();
                             } else {
@@ -4128,6 +4217,7 @@
                     } else {
                         if (email === 'admin@gmail.com' && password === 'admin') {
                             try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
+                            setAuthExpiry();
                             // Reflect UI immediately in demo mode
                             setUiForAuth(true);
                             applyAuthProfile({ displayName: 'Admin User', email });
@@ -4147,6 +4237,7 @@
                     try {
                         const provider = new firebase.auth.GoogleAuthProvider();
                         await firebase.auth().signInWithPopup(provider);
+                        setAuthExpiry();
                         setUiForAuth(true);
                         finishLoginUi();
                         // For new Google logins, Firestore may not have a profile yet
@@ -4174,10 +4265,6 @@
                     if (bd) bd.classList.remove('login-blur');
                     const ov = document.getElementById('screenBlurOverlay');
                     if (ov) ov.style.display = 'none';
-                    // If login is required and user not authenticated, re-open
-                    if (requireLoginUntilAuth && !isLoggedIn()) {
-                        setTimeout(() => showLoginModal(true), 0);
-                    }
                 });
             }
 
