@@ -4258,6 +4258,9 @@
                         if (bd) bd.classList.add('login-blur');
                         const ov = document.getElementById('screenBlurOverlay');
                         if (ov) ov.style.display = 'block';
+                        // Hide the close button if login is required (blocking usage)
+                        const closeBtn = loginModalEl2.querySelector('.btn-close');
+                        if (closeBtn) closeBtn.style.display = (requireLoginUntilAuth ? 'none' : '');
                     }, 0);
                 });
                 loginModalEl2.addEventListener('hidden.bs.modal', () => {
@@ -4265,6 +4268,10 @@
                     if (bd) bd.classList.remove('login-blur');
                     const ov = document.getElementById('screenBlurOverlay');
                     if (ov) ov.style.display = 'none';
+                    // If login is required and user not authenticated, immediately re-open
+                    if (requireLoginUntilAuth && !isLoggedIn()) {
+                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
+                    }
                 });
             }
 
