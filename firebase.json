@@ -8,7 +8,7 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
-        "source": "**/*.{js,css,png,jpg,jpeg,svg,webp}",
+        "source": "**/*.{js,css,png,jpg,jpeg,svg,webp,ico}",
         "headers": [
           {
             "key": "Cache-Control",
