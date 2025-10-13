@@ -670,7 +670,10 @@
 <body class="dark-mode">
     <!-- Full-screen blur overlay (shown only when Login modal is open) -->
     <div id="screenBlurOverlay"></div>
-    <div class="dropdown" style="position: absolute; top: 20px; right: 30px; z-index: 1050;">
+    <div class="dropdown"
+        style="position: absolute; top: 20px; right: 30px; z-index: 1050; display: flex; align-items: center; gap: 10px;">
+        <span id="userNameDisplay" class="fw-bold" title="Signed-in user"
+            style="display:none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-color);"></span>
         <a href="#" title="Profile" class="dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16" style="color: var(--accent-color);">
                 <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
@@ -1572,27 +1575,42 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Firebase init (replace with your project config)
-            const firebaseConfig = {
-                apiKey: "AIzaSyDnsaXpR5vAG4YIwSosm2IdFataeUPvxjU",
-                authDomain: "grid-945d4.firebaseapp.com",
-                projectId: "grid-945d4",
-                storageBucket: "grid-945d4.firebasestorage.app",
-                messagingSenderId: "823763375861",
-                appId: "1:823763375861:web:ef103f700ef3234c7e17bc",
-                measurementId: "G-2MF46RMRQG"
+            // Helpers to load scripts and initialize Firebase without hardcoding secrets in the repo
+            const loadScript = (src) => new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src; s.async = true; s.defer = false;
+                s.onload = () => resolve(true);
+                s.onerror = () => reject(new Error('Failed to load ' + src));
+                document.head.appendChild(s);
+            });
+
+            const ensureFirebaseInitialized = async () => {
+                try {
+                    // 1) If already initialized (e.g., by a previous script), nothing to do
+                    if (window.firebase?.apps?.length) return true;
+                    // 2) Try to load project-specific config from a non-committed file
+                    try {
+                        await loadScript('config/firebase-config.js'); // should set window.__FIREBASE_CONFIG__
+                    } catch { }
+                    if (window.__FIREBASE_CONFIG__) {
+                        try { firebase.initializeApp(window.__FIREBASE_CONFIG__); return true; } catch { }
+                    }
+                    // 3) If hosted on Firebase Hosting, attempt auto-init script
+                    try {
+                        await loadScript('/__/firebase/init.js');
+                        // If it succeeded, firebase should be initialized now
+                        if (window.firebase?.apps?.length) return true;
+                    } catch { }
+                } catch { }
+                return false;
             };
-            let isDemoMode = !firebaseConfig.apiKey || String(firebaseConfig.apiKey).includes('YOUR_') || firebaseConfig.projectId === 'YOUR_PROJECT_ID';
-            try {
-                if (!isDemoMode) {
-                    if (!firebase?.apps?.length) firebase.initializeApp(firebaseConfig);
-                }
-            } catch (e) {
-                isDemoMode = true;
-            }
-            window.__IS_DEMO__ = isDemoMode;
-            let db = null;
-            try { if (!isDemoMode) { db = firebase.firestore(); } } catch { }
+
+            (async () => {
+                let initialized = await ensureFirebaseInitialized();
+                let isDemoMode = !initialized;
+                window.__IS_DEMO__ = isDemoMode;
+                let db = null;
+                try { if (!isDemoMode) { db = firebase.firestore(); } } catch { }
             // Enable Bootstrap tooltips globally
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
@@ -1749,6 +1767,7 @@
             const loginMenuItem = document.getElementById('loginMenuItem');
             const logoutMenuItem = document.getElementById('logoutMenuItem');
             const profileMenuItem = document.getElementById('profileMenuItem');
+                const userNameDisplay = document.getElementById('userNameDisplay');
             const logoutInProfileBtn = document.getElementById('logoutInProfileBtn');
             const resetAllBtn = document.getElementById('resetAllBtnModal');
             const resetAllBtnModal = resetAllBtn;
@@ -3745,6 +3764,21 @@
                 });
             }
 
+                // Helper to compute and show current user's name/email near profile button
+                const getCurrentUserDisplay = () => {
+                    try {
+                        if (!window.__IS_DEMO__) {
+                            const u = firebase.auth().currentUser;
+                            const stored = getStoredProfile?.() || {};
+                            return stored.name || u?.displayName || u?.email || '';
+                        } else {
+                            const stored = getStoredProfile?.() || {};
+                            if (stored.name) return stored.name;
+                            try { const demo = JSON.parse(localStorage.getItem('demoAuthUser') || 'null'); return demo?.email || ''; } catch { return ''; }
+                        }
+                    } catch { return ''; }
+                };
+
             // Auth UI and profile integration (Firebase or local demo)
             const setUiForAuth = (isLoggedIn) => {
                 if (loginMenuItem) loginMenuItem.style.display = isLoggedIn ? 'none' : '';
@@ -3761,6 +3795,22 @@
                     }
                 }
                 if (logoutInProfileBtn) logoutInProfileBtn.style.display = isLoggedIn ? '' : 'none';
+                if (userNameDisplay) {
+                    if (isLoggedIn) {
+                        const label = getCurrentUserDisplay();
+                        if (label) {
+                            userNameDisplay.textContent = label;
+                            userNameDisplay.title = label;
+                            userNameDisplay.style.display = '';
+                        } else {
+                            userNameDisplay.textContent = '';
+                            userNameDisplay.style.display = 'none';
+                        }
+                    } else {
+                        userNameDisplay.textContent = '';
+                        userNameDisplay.style.display = 'none';
+                    }
+                }
             };
 
             if (!window.__IS_DEMO__) {
@@ -3780,6 +3830,15 @@
                                 if (cloud) {
                                     setStoredProfile({ ...getStoredProfile(), ...cloud });
                                     populateProfileForm(cloud);
+                                    // Ensure header name reflects cloud profile
+                                    setUiForAuth(true);
+                                } else {
+                                    // First time login (no cloud profile yet)
+                                    if (!hasShownProfilePrompt()) {
+                                        // Show profile modal to collect details
+                                        showProfileModalNow();
+                                        markProfilePromptShown();
+                                    }
                                 }
                             } catch { }
                         }
@@ -3893,6 +3952,8 @@
                             try {
                                 await saveProfileToCloud(uid, data);
                                 showToast('Profile saved to cloud.', 'success');
+                                // Refresh header name from latest profile
+                                setUiForAuth(true);
                                 return;
                             } catch (e) {
                                 console.warn('Cloud save failed, kept local:', e);
@@ -3900,6 +3961,7 @@
                         }
                     }
                     showToast('Profile saved locally.', 'success');
+                    setUiForAuth(true);
                 });
                 clearProfileBtn?.addEventListener('click', () => {
                     setStoredProfile({});
@@ -3953,6 +4015,30 @@
                 setPromptStamp();
             };
 
+                // ---- One-time Profile prompt per user ----
+                const userScopedKey = (id) => `profilePromptShown:${id}`;
+                const getActiveUserIdForPrompt = () => {
+                    if (!window.__IS_DEMO__) {
+                        try { return firebase.auth().currentUser?.uid || null; } catch { return null; }
+                    } else {
+                        try { const demo = JSON.parse(localStorage.getItem('demoAuthUser') || 'null'); return demo?.email ? `demo:${demo.email}` : null; } catch { return null; }
+                    }
+                };
+                const hasShownProfilePrompt = () => {
+                    const id = getActiveUserIdForPrompt();
+                    if (!id) return false;
+                    try { return !!localStorage.getItem(userScopedKey(id)); } catch { return false; }
+                };
+                const markProfilePromptShown = () => {
+                    const id = getActiveUserIdForPrompt();
+                    if (!id) return;
+                    try { localStorage.setItem(userScopedKey(id), String(Date.now())); } catch { }
+                };
+                const showProfileModalNow = () => {
+                    const modal = new bootstrap.Modal(document.getElementById('profileModal'));
+                    modal.show();
+                };
+
             if (emailLoginFormModal) {
                 emailLoginFormModal.addEventListener('submit', async (e) => {
                     e.preventDefault();
@@ -3984,6 +4070,8 @@
                             setUiForAuth(true);
                             applyAuthProfile({ displayName: 'Admin User', email });
                             finishLoginUi();
+                            // One-time profile prompt for demo user
+                            if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
                         } else {
                             alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
                         }
@@ -3999,6 +4087,8 @@
                         await firebase.auth().signInWithPopup(provider);
                         setUiForAuth(true);
                         finishLoginUi();
+                        // For new Google logins, Firestore may not have a profile yet
+                        if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
                     } catch (err) {
                         alert(err.message);
                     }
@@ -6721,6 +6811,8 @@
             updateUIFromState();
 
             // PDF preview is generated lazily when the PDF tab is opened.
+
+            })();
         });
     </script>
 </body>
