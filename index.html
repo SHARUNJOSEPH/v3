@@ -1561,10 +1561,15 @@
         </div>
     </div>
 
+    <!-- Global toast container (always on top) -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"
+        style="z-index: 2000;"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Firebase init (replace with your project config)
@@ -1586,6 +1591,8 @@
                 isDemoMode = true;
             }
             window.__IS_DEMO__ = isDemoMode;
+            let db = null;
+            try { if (!isDemoMode) { db = firebase.firestore(); } } catch { }
             // Enable Bootstrap tooltips globally
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
@@ -1811,6 +1818,33 @@
                 setStoredProfile(merged);
                 populateProfileForm(merged);
             };
+
+            // ===== Profile: Firestore helpers (when Firebase is configured) =====
+            const getCurrentUserId = () => {
+                if (window.__IS_DEMO__) return null;
+                try { return firebase.auth().currentUser?.uid || null; } catch { return null; }
+            };
+
+            const loadProfileFromCloud = async (uid) => {
+                if (!uid || window.__IS_DEMO__ || !db) return null;
+                try {
+                    const ref = db.collection('profiles').doc(uid);
+                    const snap = await ref.get();
+                    return snap.exists ? snap.data() : null;
+                } catch (e) {
+                    console.warn('Profile load failed:', e);
+                    return null;
+                }
+            };
+
+            const saveProfileToCloud = async (uid, data) => {
+                if (!uid || window.__IS_DEMO__ || !db) throw new Error('Cloud unavailable');
+                const payload = { ...data, updatedAt: new Date().toISOString() };
+                if (!payload.displayName && data.name) payload.displayName = data.name;
+                const ref = db.collection('profiles').doc(uid);
+                await ref.set(payload, { merge: true });
+                return true;
+            };
             const color1Input = document.getElementById('color1Input');
             const color2Input = document.getElementById('color2Input');
             const color2BrightnessToggle = document.getElementById('color2BrightnessToggle');
@@ -1996,6 +2030,37 @@
                 if (!saveCanvasModal.classList.contains('visible')) {
                     hideBackdrop();
                 }
+            };
+
+            // Non-blocking global toast notifications (always on top)
+            const showToast = (message, variant = 'primary', delayMs = 2200) => {
+                try {
+                    const container = document.getElementById('toastContainer');
+                    if (!container) return;
+                    const id = 'toast-' + Date.now();
+                    const bg = {
+                        success: 'bg-success text-white',
+                        danger: 'bg-danger text-white',
+                        warning: 'bg-warning text-dark',
+                        info: 'bg-info text-dark',
+                        primary: 'bg-primary text-white',
+                    }[variant] || 'bg-primary text-white';
+                    const div = document.createElement('div');
+                    div.id = id;
+                    div.className = `toast align-items-center ${bg} border-0 shadow`;
+                    div.setAttribute('role', 'status');
+                    div.setAttribute('aria-live', 'polite');
+                    div.setAttribute('aria-atomic', 'true');
+                    div.innerHTML = `
+                        <div class="d-flex">
+                          <div class="toast-body">${message}</div>
+                          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>`;
+                    container.appendChild(div);
+                    const toast = new bootstrap.Toast(div, { delay: delayMs, autohide: true });
+                    toast.show();
+                    div.addEventListener('hidden.bs.toast', () => div.remove());
+                } catch { }
             };
 
             /**
@@ -3701,7 +3766,7 @@
             if (!window.__IS_DEMO__) {
                 try {
                     const auth = firebase.auth();
-                    auth.onAuthStateChanged((user) => {
+                    auth.onAuthStateChanged(async (user) => {
                         const isLoggedIn = !!user;
                         setUiForAuth(isLoggedIn);
                         if (isLoggedIn) {
@@ -3710,13 +3775,20 @@
                                 email: user.email,
                                 phoneNumber: user.phoneNumber,
                             });
+                            try {
+                                const cloud = await loadProfileFromCloud(user.uid);
+                                if (cloud) {
+                                    setStoredProfile({ ...getStoredProfile(), ...cloud });
+                                    populateProfileForm(cloud);
+                                }
+                            } catch { }
                         }
                     });
                     logoutMenuItem?.addEventListener('click', async () => {
                         // Immediately reflect UI and prompt login again
                         setUiForAuth(false);
                         await auth.signOut();
-                        if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                        showToast('Logged out.', 'info');
                         setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     });
                     profileMenuItem?.addEventListener('click', (e) => {
@@ -3730,7 +3802,7 @@
                         const modalEl = document.getElementById('profileModal');
                         const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                         inst.hide();
-                        if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                        showToast('Logged out.', 'info');
                         setTimeout(() => { try { showLoginModal(true); } catch { } }, 150);
                     });
                 } catch { }
@@ -3752,7 +3824,7 @@
                 const doDemoLogout = () => {
                     setDemoUser(null);
                     setUiForAuth(false);
-                    if (typeof showMessageBox === 'function') showMessageBox('Logged out.');
+                    showToast('Logged out.', 'info');
                     setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                 };
                 logoutMenuItem?.addEventListener('click', doDemoLogout);
@@ -3795,14 +3867,39 @@
 
             // Profile modal wiring
             if (profileModalEl) {
-                profileModalEl.addEventListener('show.bs.modal', () => {
+                profileModalEl.addEventListener('show.bs.modal', async () => {
+                    // Prefer cloud data if logged in; else local
+                    if (!window.__IS_DEMO__) {
+                        const uid = getCurrentUserId();
+                        if (uid) {
+                            const cloud = await loadProfileFromCloud(uid);
+                            if (cloud) {
+                                setStoredProfile({ ...getStoredProfile(), ...cloud });
+                                populateProfileForm(cloud);
+                                return;
+                            }
+                        }
+                    }
                     const data = getStoredProfile();
                     populateProfileForm(data);
                 });
-                saveProfileBtn?.addEventListener('click', () => {
+                saveProfileBtn?.addEventListener('click', async () => {
                     const data = readProfileForm();
                     setStoredProfile(data);
-                    if (typeof showMessageBox === 'function') showMessageBox('Profile saved.');
+                    // If logged in with Firebase, also save to Firestore
+                    if (!window.__IS_DEMO__) {
+                        const uid = getCurrentUserId();
+                        if (uid) {
+                            try {
+                                await saveProfileToCloud(uid, data);
+                                showToast('Profile saved to cloud.', 'success');
+                                return;
+                            } catch (e) {
+                                console.warn('Cloud save failed, kept local:', e);
+                            }
+                        }
+                    }
+                    showToast('Profile saved locally.', 'success');
                 });
                 clearProfileBtn?.addEventListener('click', () => {
                     setStoredProfile({});

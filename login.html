@@ -41,9 +41,6 @@
         .form-control { background-color: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: #e9ecef; }
         .form-label { color: #e9ecef; }
     </style>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body class="dark-mode" style="--bg-color: #212529; --text-color: #e9ecef; --card-bg: #343a40; --border-color: #495057;">
     <div class="container login-container">
@@ -70,65 +67,67 @@
             </div>
         </div>
     </div>
-    <script>
-                    // 1) Initialize Firebase (replace placeholders with your config)
-                    const firebaseConfig = {
-                        apiKey: "AIzaSyDnsaXpR5vAG4YIwSosm2IdFataeUPvxjU",
-                        authDomain: "grid-945d4.firebaseapp.com",
-                        projectId: "grid-945d4",
-                        storageBucket: "grid-945d4.firebasestorage.app",
-                        messagingSenderId: "823763375861",
-                        appId: "1:823763375861:web:ef103f700ef3234c7e17bc",
-                        measurementId: "G-2MF46RMRQG"
-                    };
-                    let isDemo = !firebaseConfig.apiKey || String(firebaseConfig.apiKey).includes('YOUR_') || firebaseConfig.projectId === 'YOUR_PROJECT_ID';
-                    try { if (!isDemo) { firebase?.apps?.length ? null : firebase.initializeApp(firebaseConfig); } } catch { isDemo = true; }
-                    const auth = isDemo ? null : firebase.auth();
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 
-                    const redirectToApp = () => window.location.href = 'index.html';
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRiYz5iOnQVfJzwnt43F0FRSlEwRWtbYY",
+            authDomain: "sharun-82f70.firebaseapp.com",
+            projectId: "sharun-82f70",
+            storageBucket: "sharun-82f70.firebasestorage.app",
+            messagingSenderId: "859714949699",
+            appId: "1:859714949699:web:0b2ce526b16ba6aabdfaf6",
+            measurementId: "G-GYBFKRM6PD"
+        };
 
-                    // 2) Email/password login
-                    document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
-                        e.preventDefault();
-                        const email = document.getElementById('email').value.trim();
-                        const password = document.getElementById('password').value;
-                        if (!isDemo) {
-                            try {
-                                await auth.signInWithEmailAndPassword(email, password);
-                                redirectToApp();
-                            } catch (err) {
-                                if (err.code === 'auth/user-not-found') {
-                                    await auth.createUserWithEmailAndPassword(email, password);
-                                    redirectToApp();
-                                } else {
-                                    alert(err.message);
-                                }
-                            }
-                        } else {
-                            // Local demo auth
-                            if (email === 'admin@gmail.com' && password === 'admin') {
-                                try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
-                                try { window.opener?.__demoLogin?.(email); } catch { }
-                                try { window.__demoLogin?.(email); } catch { }
-                                redirectToApp();
-                            } else {
-                                alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
-                            }
-                        }
-                });
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
 
-                    // 3) Google sign-in
-                    document.getElementById('googleBtn').addEventListener('click', async () => {
-                        if (isDemo) { alert('Google sign-in is disabled in local demo mode.'); return; }
-                        const provider = new firebase.auth.GoogleAuthProvider();
-                        try {
-                        await auth.signInWithPopup(provider);
+        const redirectToApp = () => window.location.href = 'index.html';
+
+        // Email/password login
+        document.getElementById('emailLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                redirectToApp();
+            } catch (err) {
+                if (err.code === 'auth/user-not-found') {
+                    try {
+                        await createUserWithEmailAndPassword(auth, email, password);
                         redirectToApp();
-                    } catch (err) { alert(err.message); }
-                });
+                    } catch (createErr) {
+                        alert(createErr.message);
+                    }
+                } else {
+                    alert(err.message);
+                }
+            }
+        });
 
-                        // 4) Already signed in? Go back
-                        if (!isDemo) auth.onAuthStateChanged(user => { if (user) redirectToApp(); });
+        // Google sign-in
+        document.getElementById('googleBtn').addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                redirectToApp();
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        // Already signed in? Go back
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                redirectToApp();
+            }
+        });
     </script>
     <div style="position: fixed; bottom: 10px; right: 10px;">
         <select id="languageSelector" class="form-select form-select-sm">
