@@ -186,6 +186,28 @@
             box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
+        /* General Settings polish */
+        .modal-content { background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 1rem; }
+        .modal-header, .modal-footer { background: transparent; border-color: var(--border-color); }
+        .modal-title { color: var(--text-color); }
+        body.dark-mode .btn-close { filter: invert(1) grayscale(100%); opacity: .85; }
+        .settings-hint { color: var(--secondary-text-color); font-size: 0.85rem; }
+        .font-preview-chip {
+            background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(22,160,133,.08));
+            border: 1px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            display: inline-block;
+            color: var(--text-color);
+        }
+        .accent-swatches { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .accent-swatch {
+            width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+            box-shadow: 0 2px 6px rgba(0,0,0,.15);
+        }
+        .accent-swatch.active { outline: 3px solid rgba(13,110,253,.25); border-color: #fff; }
+        .settings-divider { border-color: var(--border-color); opacity: 1; }
+
         .input-group-text {
             background-color: var(--accent-color);
             color: white;
@@ -1339,7 +1361,7 @@
     </div>
 
     <div id="generalSettingsModal" class="modal fade" tabindex="-1" aria-labelledby="generalSettingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="generalSettingsModalLabel">General Settings</h5>
@@ -1350,22 +1372,75 @@
                         <div>
                             <label for="fontSelectModal" class="form-label fw-bold">UI Font</label>
                             <select id="fontSelectModal" class="form-select">
+                                <option value="Poppins, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Poppins (Default)</option>
                                 <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif">Segoe UI</option>
                                 <option value="Arial, sans-serif">Arial</option>
                                 <option value="Verdana, sans-serif">Verdana</option>
                                 <option value="Georgia, serif">Georgia</option>
                                 <option value="'Courier New', monospace">Courier New</option>
                             </select>
+                            <div class="mt-2 settings-hint">Preview:</div>
+                            <div id="fontPreviewModal" class="font-preview-chip mt-1">Aa The quick brown fox jumps over the lazy dog</div>
                         </div>
                         <div>
                             <label class="form-label fw-bold">Color Mode</label>
-                            <button id="colorModeToggleModal" class="btn btn-secondary w-100">Dark Mode</button>
+                            <button id="colorModeToggleModal" class="btn btn-secondary w-100" title="Toggle light/dark mode"
+                                data-bs-toggle="tooltip">Dark Mode</button>
+                            <div class="settings-hint mt-1">Toggles the overall theme for better visibility in bright or dark environments.</div>
                         </div>
                         <div>
                             <label for="uiAccentColorInputModal" class="form-label fw-bold">UI Accent Color</label>
                             <input type="color" id="uiAccentColorInputModal" class="form-control form-control-color" value="#0d6efd">
-                        </div>
-                        <hr class="my-2" style="border-color: var(--border-color);">
+                            <div class="settings-hint mt-2">Quick presets</div>
+                            <div class="accent-swatches mt-1" id="accentSwatches">
+                                <div class="accent-swatch" data-color="#0d6efd" style="background:#0d6efd"></div>
+                                <div class="accent-swatch" data-color="#16a085" style="background:#16a085"></div>
+                                <div class="accent-swatch" data-color="#6f42c1" style="background:#6f42c1"></div>
+                                <div class="accent-swatch" data-color="#e83e8c" style="background:#e83e8c"></div>
+                                <div class="accent-swatch" data-color="#fd7e14" style="background:#fd7e14"></div>
+                                <div class="accent-swatch" data-color="#20c997" style="background:#20c997"></div>
+                            </div>
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="button" id="resetUiPrefsBtn" class="btn btn-outline-secondary btn-sm">Reset UI Preferences</button>
+                            </div>
+                            </div>
+                            <hr class="my-2 settings-divider">
+                            <!-- About Developer Section -->
+                            <div id="aboutDeveloperCard" class="card p-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="me-2" aria-hidden="true">👨‍💻</span>
+                                    <h6 class="m-0">About Developer</h6>
+                            </div>
+                            <h5 class="text-center fw-bold mb-2">JOSEPH SHARUN</h5>
+                            <p class="text-center text-muted small mb-3">
+                                Professional LED Screen Designer Tool<br>
+                                Created with precision and passion
+                            </p>
+                            <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
+                                <!-- TODO: Replace # with real profile links -->
+                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                    style="background:#0A66C2;color:#fff;">
+                                    <span class="me-2" aria-hidden="true">in</span>
+                                    LinkedIn
+                                </a>
+                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                    style="background:#24292e;color:#fff;">
+                                    <span class="me-2" aria-hidden="true">{ }</span>
+                                    GitHub
+                                </a>
+                                <a href="#" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
+                                    style="background:#FF813F;color:#fff;">
+                                    <span class="me-2" aria-hidden="true">☕</span>
+                                    Coffee
+                                </a>
+                            </div>
+                            <div class="text-center text-muted small mb-2">
+                                <span class="me-1" aria-hidden="true">🌐</span> Portfolio Website
+                            </div>
+                            <div class="text-center">
+                                <a id="visitPortfolioBtn" href="#" target="_blank" rel="noopener" class="btn btn-primary">Visit Portfolio</a>
+                            </div>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -1547,6 +1622,9 @@
             const uiAccentColorInput = document.getElementById('uiAccentColorInputModal');
             // alias for consistency across the code
             const uiAccentColorInputModal = uiAccentColorInput;
+            const fontPreviewModal = document.getElementById('fontPreviewModal');
+            const accentSwatches = document.getElementById('accentSwatches');
+            const resetUiPrefsBtn = document.getElementById('resetUiPrefsBtn');
             const resetAllBtn = document.getElementById('resetAllBtnModal');
             const resetAllBtnModal = resetAllBtn;
             const unitSelector = document.getElementById('unitSelector');
@@ -3390,6 +3468,7 @@
 
             fontSelectModal.addEventListener('change', (e) => {
                 document.body.style.fontFamily = e.target.value;
+                if (fontPreviewModal) fontPreviewModal.style.fontFamily = e.target.value;
             });
 
             colorModeToggleModal.addEventListener('click', () => {
@@ -3402,11 +3481,62 @@
             uiAccentColorInputModal.addEventListener('input', (e) => {
                 state.uiAccentColor = e.target.value;
                 updateUIAccentColor(state.uiAccentColor);
+                // remove active state from swatches if custom chosen
+                if (accentSwatches) Array.from(accentSwatches.querySelectorAll('.accent-swatch')).forEach(s => s.classList.remove('active'));
             });
 
             resetAllBtnModal.addEventListener('click', () => {
                 resetAll();
             });
+
+            // Initialize font preview to current body font
+            if (fontPreviewModal) {
+                const currentFont = getComputedStyle(document.body).fontFamily;
+                fontPreviewModal.style.fontFamily = currentFont;
+            }
+
+            // Accent swatch interactions
+            if (accentSwatches) {
+                accentSwatches.addEventListener('click', (e) => {
+                    const sw = e.target.closest('.accent-swatch');
+                    if (!sw) return;
+                    const clr = sw.getAttribute('data-color');
+                    uiAccentColorInputModal.value = clr;
+                    state.uiAccentColor = clr;
+                    updateUIAccentColor(clr);
+                    accentSwatches.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('active'));
+                    sw.classList.add('active');
+                });
+            }
+
+            // Reset UI prefs to defaults (Poppins, Light mode, default accent)
+            if (resetUiPrefsBtn) {
+                resetUiPrefsBtn.addEventListener('click', () => {
+                    // Font
+                    const defaultFont = "Poppins, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+                    fontSelectModal.value = defaultFont;
+                    document.body.style.fontFamily = defaultFont;
+                    if (fontPreviewModal) fontPreviewModal.style.fontFamily = defaultFont;
+
+                    // Color mode
+                    if (document.body.classList.contains('dark-mode')) {
+                        document.body.classList.remove('dark-mode');
+                        state.isDarkMode = false;
+                        colorModeToggleModal.textContent = 'Dark Mode';
+                    }
+
+                    // Accent color default
+                    const defaultAccent = '#0d6efd';
+                    state.uiAccentColor = defaultAccent;
+                    uiAccentColorInputModal.value = defaultAccent;
+                    updateUIAccentColor(defaultAccent);
+                    if (accentSwatches) {
+                        accentSwatches.querySelectorAll('.accent-swatch').forEach(el => {
+                            el.classList.toggle('active', el.getAttribute('data-color') === defaultAccent);
+                        });
+                    }
+                });
+            }
 
 
 
