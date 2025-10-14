@@ -2246,7 +2246,7 @@
                         if (typeof pdfDrawnByInput !== 'undefined' && pdfDrawnByInput) {
                             pdfDrawnByInput.value = (state.pdfDrawnBy || '').toUpperCase();
                         }
-                        state.pdfPreviewDirty = true;
+                        state.pdfPreviewDirty = true; schedulePdfPreview();
                     }
                     // Sync Validation Email to auth email (uppercase for consistency) and lock Drawn By/Email when MediaPro
                     state.pdfEmail = (merged.email || state.pdfEmail || '').toUpperCase();
@@ -2532,6 +2532,24 @@
                     timeout = setTimeout(() => func.apply(context, args), delay);
                 };
             };
+
+                // Track whether the PDF Settings tab is currently active
+                let __pdfTabActive = false;
+
+                // Debounced scheduler to regenerate the PDF preview when appropriate
+                const schedulePdfPreview = debounce(() => {
+                    try {
+                        if (!__pdfTabActive) return; // Only refresh while PDF tab is visible
+                        const frame = document.getElementById('pdfPreviewFrame');
+                        if (!frame) return;
+                        if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) return;
+                        // If a generation is already in progress, allow it to finish; otherwise trigger
+                        const container = document.getElementById('pdfPreviewContainer');
+                        const isLoading = !!(container && container.classList.contains('loading'));
+                        if (isLoading) return;
+                        generatePdfPreview();
+                    } catch { }
+                }, 600);
 
             /**
              * Converts a value from one unit to another based on the unitConversions map.
@@ -3360,7 +3378,7 @@
              */
             const updateCanvasMap = () => {
                 // Any CanvasMap change can affect the PDF preview content
-                state.pdfPreviewDirty = true;
+                state.pdfPreviewDirty = true; schedulePdfPreview();
                 const canvasW = state.canvasMapWidth;
                 const canvasH = state.canvasMapHeight;
                 
@@ -5269,7 +5287,7 @@
 
             mediaServerSelect.addEventListener('change', (e) => {
                 state.mediaServer = e.target.value;
-                state.pdfPreviewDirty = true;
+                state.pdfPreviewDirty = true; schedulePdfPreview();
             });
 
                 const toUpperLive = (el, setter) => {
@@ -5285,15 +5303,16 @@
                         state.pdfPreviewDirty = true;
                     });
                 };
-                toUpperLive(pdfFilenameInput, (v) => state.pdfFilename = v);
-                toUpperLive(pdfProjectNameInput, (v) => state.pdfProjectName = v);
-                toUpperLive(pdfVenueInput, (v) => state.pdfVenue = v);
-                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => state.pdfCompany = v);
-                toUpperLive(pdfDrawnByInput, (v) => state.pdfDrawnBy = v);
-                toUpperLive(pdfSalesInput, (v) => state.pdfSales = v);
-                toUpperLive(pdfClientInput, (v) => state.pdfClient = v);
-                toUpperLive(pdfUnitInput, (v) => state.pdfUnit = v);
-                toUpperLive(pdfEmailInput, (v) => state.pdfEmail = v);
+                const markDirtyAndSchedule = () => { state.pdfPreviewDirty = true; schedulePdfPreview(); };
+                toUpperLive(pdfFilenameInput, (v) => { state.pdfFilename = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfProjectNameInput, (v) => { state.pdfProjectName = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfVenueInput, (v) => { state.pdfVenue = v; markDirtyAndSchedule(); });
+                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfDrawnByInput, (v) => { state.pdfDrawnBy = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfSalesInput, (v) => { state.pdfSales = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfClientInput, (v) => { state.pdfClient = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfUnitInput, (v) => { state.pdfUnit = v; markDirtyAndSchedule(); });
+                toUpperLive(pdfEmailInput, (v) => { state.pdfEmail = v; markDirtyAndSchedule(); });
             logoUpload.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -5302,7 +5321,7 @@
                         state.logoDataUrl = event.target.result;
                         logoPreview.src = event.target.result;
                         logoPreview.classList.remove('d-none');
-                        state.pdfPreviewDirty = true;
+                        state.pdfPreviewDirty = true; schedulePdfPreview();
                     };
                     reader.readAsDataURL(file);
                 }
@@ -5310,7 +5329,7 @@
             pdfIncludeCanvasSnapshotToggle.addEventListener('click', () => {
                 state.pdfIncludeCanvasSnapshot = !state.pdfIncludeCanvasSnapshot;
                 pdfIncludeCanvasSnapshotToggle.textContent = state.pdfIncludeCanvasSnapshot ? 'On' : 'Off';
-                state.pdfPreviewDirty = true;
+                state.pdfPreviewDirty = true; schedulePdfPreview();
             });
 
 
@@ -6321,6 +6340,7 @@
                 }
             });
             pdfTab.addEventListener('shown.bs.tab', () => {
+                __pdfTabActive = true;
                 // Only generate if we have content and preview area exists and at least one saved canvas
                 if (document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) {
                     if (!state.pdfPreviewReady || state.pdfPreviewDirty) {
@@ -6328,6 +6348,7 @@
                     }
                 }
             });
+            pdfTab.addEventListener('hidden.bs.tab', () => { __pdfTabActive = false; });
         }
 
         // Also ensure PixelMap redraws when its tab is shown, so sizing/layout is correct
@@ -6337,6 +6358,15 @@
                 setTimeout(updatePixelMap, 0);
             });
         }
+
+                // If the PDF tab is already active on load (e.g., deep link), set active flag
+                try {
+                    const activeTab = document.querySelector('.nav-link.active');
+                    if (activeTab && activeTab.id === 'pdfsettings-tab') {
+                        __pdfTabActive = true;
+                        schedulePdfPreview();
+                    }
+                } catch { }
 
 
         /**
