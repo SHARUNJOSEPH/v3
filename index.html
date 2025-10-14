@@ -5481,7 +5481,7 @@
                 // Job No
                 doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
                 doc.setFontSize(10); doc.text("Job No:", brX + margin, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text("##########", col1ValueX, currentY_fields + textYOffset);
+                doc.setFontSize(11); doc.text((state.pdfJobNo || 'N/A'), col1ValueX, currentY_fields + textYOffset);
                 currentY_fields += fieldHeight;
 
                 // Project Name
@@ -5510,8 +5510,8 @@
                 doc.rect(midX1, currentY_fields, blockWidth / 2, fieldHeight); // Client Box
                 doc.setFontSize(10); doc.text("Sales:", brX + margin, currentY_fields + textYOffset);
                 doc.setFontSize(10); doc.text("Client:", midX1 + margin, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text(state.pdfSales || "Name", brX + 22, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text(state.pdfClient || "Client Name", midX1 + 22, currentY_fields + textYOffset);
+                doc.setFontSize(11); doc.text((state.pdfSales || 'N/A'), brX + 22, currentY_fields + textYOffset);
+                doc.setFontSize(11); doc.text((state.pdfClient || 'N/A'), midX1 + 22, currentY_fields + textYOffset);
                 currentY_fields += fieldHeight;
 
                 // Sheet Title
