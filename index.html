@@ -1659,6 +1659,10 @@
                                             <input type="text" id="pdfVenueInput" class="form-control" placeholder="e.g., Grand Ballroom">
                                         </div>
                                         <div>
+                                            <label for="pdfCompanyInput" class="form-label fw-bold">Company</label>
+                                            <input type="text" id="pdfCompanyInput" class="form-control" placeholder="e.g., Company Name">
+                                            </div>
+                                            <div>
                                             <label for="pdfDrawnByInput" class="form-label fw-bold">Drawn By</label>
                                             <input type="text" id="pdfDrawnByInput" class="form-control" placeholder="e.g., John Doe">
                                         </div>
@@ -2074,6 +2078,7 @@
                 pdfFilename: 'canvasmap_details',
                 pdfProjectName: '',
                 pdfVenue: '',
+                pdfCompany: '',
                 pdfDrawnBy: '',
                 pdfSales: '',
                 pdfClient: '',
@@ -2227,6 +2232,7 @@
                 populateProfileForm(merged);
                 enforceEmailReadonly();
                 enforceCompanyField();
+                if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
                 // If Drawn By not set, default from profile name
                 try {
                     if (!state.pdfDrawnBy && merged.name) {
@@ -2235,6 +2241,18 @@
                             pdfDrawnByInput.value = state.pdfDrawnBy;
                         }
                         state.pdfPreviewDirty = true;
+                    }
+                    // Sync Validation Email to auth email and lock Drawn By/Email when MediaPro
+                    state.pdfEmail = merged.email || state.pdfEmail;
+                    if (typeof pdfEmailInput !== 'undefined' && pdfEmailInput) pdfEmailInput.value = state.pdfEmail;
+                    const profCompany = merged.company || (getStoredProfile() && getStoredProfile().company) || '';
+                    const isMP = String(profCompany).trim().toLowerCase() === 'mediapro';
+                    if (isMP) {
+                        if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
+                        if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
+                    } else {
+                        if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); }
+                        if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); }
                     }
                 } catch { }
             };
@@ -2271,6 +2289,16 @@
             const color1Preview = document.getElementById('color1Preview');
             const color2Preview = document.getElementById('color2Preview');
             const outlineToggle = document.getElementById('outlineToggle');
+                const enforcePdfCompanyLock = () => {
+                    try {
+                        const prof = getStoredProfile();
+                        const isMP = /^(?i:mediapro)$/i.test((prof?.company || state.pdfCompany || '').trim());
+                        if (pdfCompanyInput) {
+                            if (isMP) { pdfCompanyInput.value = 'MediaPro'; pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); }
+                            else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); }
+                        }
+                    } catch { }
+                };
             const outlineColorInput = document.getElementById('outlineColorInput');
             const outlineSizeInput = document.getElementById('outlineSizeInput');
             const rasterEffectToggle = document.getElementById('rasterEffectToggle');
@@ -2396,6 +2424,7 @@
             const pdfFilenameInput = document.getElementById('pdfFilenameInput');
             const pdfProjectNameInput = document.getElementById('pdfProjectNameInput');
             const pdfVenueInput = document.getElementById('pdfVenueInput');
+                const pdfCompanyInput = document.getElementById('pdfCompanyInput');
             const pdfDrawnByInput = document.getElementById('pdfDrawnByInput');
             const pdfSalesInput = document.getElementById('pdfSalesInput');
             const pdfClientInput = document.getElementById('pdfClientInput');
@@ -2601,6 +2630,17 @@
                 color2Input.value = state.color2;
                 color2BrightnessToggle.checked = state.isColor2Brighter;
                 color2Input.disabled = state.isColor2Brighter;
+                // Default Company from profile; lock if MediaPro
+                try {
+                    const prof = getStoredProfile();
+                    if (!state.pdfCompany && prof?.company) state.pdfCompany = String(prof.company);
+                    if (pdfCompanyInput) {
+                        pdfCompanyInput.value = state.pdfCompany || '';
+                        const isMP = /^(?i:mediapro)$/i.test((prof?.company || state.pdfCompany || '').trim());
+                        if (isMP) { pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); }
+                        else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); }
+                    }
+                } catch { }
                 updateColorPreviews();
 
                 // Effects
@@ -2650,6 +2690,7 @@
                 oneLineTextInput.value = state.oneLineText;
                 specificationBgColorInput.value = state.specificationBgColor;
                 specificationBgToggle.textContent = state.specificationBgEnabled ? 'BG On' : 'BG Off';
+                if (pdfCompanyInput) pdfCompanyInput.value = state.pdfCompany;
 
                 // Manual Drawing Tools
                 drawModeToggle.textContent = state.isDrawingMode ? 'On' : 'Off';
@@ -2689,6 +2730,18 @@
                 }
 
                 // View Options
+                // Default Validation Email from Profile email
+                if (!state.pdfEmail && prof?.email) state.pdfEmail = String(prof.email);
+                if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail || '';
+                // Lock Drawn By and Validation Email when company is MediaPro
+                const lockPdfPersonal = /^(?i:mediapro)$/i.test((prof?.company || state.pdfCompany || '').trim());
+                if (lockPdfPersonal) {
+                    if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
+                    if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
+                } else {
+                    if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); }
+                    if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); }
+                }
                 rulerToggle.textContent = state.canvasMapRulerEnabled ? 'On' : 'Off';
                 rulerContainer.classList.toggle('rulers-on', state.canvasMapRulerEnabled);
                 rulerPositionToggle.textContent = state.canvasMapRulerPosition === 'outside' ? 'Outside' : 'Inside';
@@ -2701,7 +2754,7 @@
                 gapToggle.textContent = state.canvasMapShowGap ? 'On' : 'Off';
                 gapColorInput.value = state.canvasMapGapColor;
                 coordinatesToggle.textContent = state.canvasMapShowCoordinates ? 'On' : 'Off';
-                
+                // pdfEmailInput.value set above
                 updateObjectPropertiesPanel();
             };
 
@@ -2799,6 +2852,7 @@
                 state.pdfClient = '';
                 state.pdfUnit = '';
                 state.pdfEmail = '';
+                state.pdfCompany = '';
                 state.pdfIncludeCanvasSnapshot = true;
                 state.logoDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
                 isDraggingCanvasMapObject = false;
@@ -4361,6 +4415,28 @@
                             if (pdfDrawnByInput) pdfDrawnByInput.value = state.pdfDrawnBy;
                             state.pdfPreviewDirty = true;
                         }
+                        // Sync Company default and lock (only if empty or matched previous)
+                        const prevCompany = state.pdfCompany;
+                        if (!prevCompany || prevCompany === (getStoredProfile().company || '')) {
+                            state.pdfCompany = data.company || '';
+                            if (pdfCompanyInput) pdfCompanyInput.value = state.pdfCompany;
+                            if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
+                            state.pdfPreviewDirty = true;
+                        } else {
+                            if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
+                        }
+                        // Always sync Validation Email from Profile email when saved
+                        state.pdfEmail = data.email || '';
+                        if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail;
+                        // When company is MediaPro in Profile, lock Drawn By and Validation Email
+                        const isMP = /^(?i:mediapro)$/i.test((data.company || '').trim());
+                        if (isMP) {
+                            if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
+                            if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
+                        } else {
+                            if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); }
+                            if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); }
+                        }
                     } catch { }
                     // If logged in with Firebase, also save to Firestore
                     if (!window.__IS_DEMO__) {
@@ -4385,6 +4461,7 @@
                     populateProfileForm({});
                     enforceEmailReadonly();
                     enforceCompanyField();
+                    if (pdfCompanyInput) { pdfCompanyInput.value = ''; pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); }
                 });
             }
 
@@ -5192,6 +5269,7 @@
             pdfFilenameInput.addEventListener('input', (e) => { state.pdfFilename = e.target.value; state.pdfPreviewDirty = true; });
             pdfProjectNameInput.addEventListener('input', (e) => { state.pdfProjectName = e.target.value; state.pdfPreviewDirty = true; });
             pdfVenueInput.addEventListener('input', (e) => { state.pdfVenue = e.target.value; state.pdfPreviewDirty = true; });
+                pdfCompanyInput?.addEventListener('input', (e) => { state.pdfCompany = e.target.value; state.pdfPreviewDirty = true; });
             pdfDrawnByInput.addEventListener('input', (e) => { state.pdfDrawnBy = e.target.value; state.pdfPreviewDirty = true; });
             pdfSalesInput.addEventListener('input', (e) => { state.pdfSales = e.target.value; state.pdfPreviewDirty = true; });
             pdfClientInput.addEventListener('input', (e) => { state.pdfClient = e.target.value; state.pdfPreviewDirty = true; });
@@ -5502,6 +5580,12 @@
                 doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
                 doc.setFontSize(10); doc.text("Venue:", brX + margin, currentY_fields + textYOffset);
                 doc.setFontSize(11); doc.text(state.pdfVenue || 'N/A', col1ValueX, currentY_fields + textYOffset);
+                currentY_fields += fieldHeight;
+
+                // Company
+                doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
+                doc.setFontSize(10); doc.text("Company:", brX + margin, currentY_fields + textYOffset);
+                doc.setFontSize(11); doc.text((state.pdfCompany || (getStoredProfile()?.company || 'N/A')), col1ValueX, currentY_fields + textYOffset);
                 currentY_fields += fieldHeight;
 
                 // Sales | Client
