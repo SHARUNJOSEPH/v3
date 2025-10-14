@@ -1661,6 +1661,10 @@
                                             <input type="text" id="pdfProjectNameInput" class="form-control" placeholder="e.g., Corporate Conference 2025">
                                         </div>
                                         <div>
+                                            <label for="pdfJobNoInput" class="form-label fw-bold">Job No</label>
+                                            <input type="text" id="pdfJobNoInput" class="form-control" placeholder="e.g., JOB-0001">
+                                            </div>
+                                            <div>
                                             <label for="pdfVenueInput" class="form-label fw-bold">Venue</label>
                                             <input type="text" id="pdfVenueInput" class="form-control" placeholder="e.g., Grand Ballroom">
                                         </div>
@@ -1694,7 +1698,7 @@
                                         </div>
                                         <div>
                                             <label for="logoUpload" class="form-label fw-bold">Company Logo</label>
-                                            <input type="file" id="logoUpload" class="form-control" accept="image/png, image/jpeg">
+                                            <input type="file" id="logoUpload" class="form-control" accept="image/png, image/jpeg, image/webp">
                                             <img id="logoPreview" src="#" alt="Logo Preview" class="d-none">
                                         </div>
                                     </div>
@@ -1866,6 +1870,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Helpers to load scripts and initialize Firebase without hardcoding secrets in the repo
@@ -1903,7 +1908,9 @@
                 let isDemoMode = !initialized;
                 window.__IS_DEMO__ = isDemoMode;
                 let db = null;
+                let storage = null;
                 try { if (!isDemoMode) { db = firebase.firestore(); } } catch { }
+                try { if (!isDemoMode) { storage = firebase.storage(); } } catch { }
 
                 // ---- Simple auth redirect + header for local/dev ----
                 const authBar = document.getElementById('authBar');
@@ -2083,6 +2090,7 @@
                 mediaServer: 'resolume',
                 pdfFilename: 'canvasmap_details',
                 pdfProjectName: '',
+                pdfJobNo: '',
                 pdfVenue: '',
                 pdfCompany: '',
                 pdfDrawnBy: '',
@@ -2252,13 +2260,13 @@
                     state.pdfEmail = (merged.email || state.pdfEmail || '').toUpperCase();
                     if (typeof pdfEmailInput !== 'undefined' && pdfEmailInput) pdfEmailInput.value = state.pdfEmail;
                     const profCompany = merged.company || (getStoredProfile() && getStoredProfile().company) || '';
-                    const isMP = String(profCompany).trim().toLowerCase() === 'mediapro';
+                    const isMP = isMediaPro(profCompany);
                     if (isMP) {
-                        if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
-                        if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
+                        if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); pdfDrawnByInput.title = 'Managed by your company'; }
+                        if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); pdfEmailInput.title = 'Managed by your company'; }
                     } else {
-                        if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); }
-                        if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); }
+                        if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); pdfDrawnByInput.removeAttribute('title'); }
+                        if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); pdfEmailInput.removeAttribute('title'); }
                     }
                 } catch { }
             };
@@ -2298,10 +2306,10 @@
                 const enforcePdfCompanyLock = () => {
                     try {
                         const prof = getStoredProfile();
-                        const isMP = String((prof?.company || state.pdfCompany || '')).trim().toLowerCase() === 'mediapro';
+                        const isMP = isMediaPro((prof?.company || state.pdfCompany || ''));
                         if (pdfCompanyInput) {
-                            if (isMP) { pdfCompanyInput.value = 'MEDIAPRO'; pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); }
-                            else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); }
+                            if (isMP) { pdfCompanyInput.value = 'MEDIAPRO'; pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); pdfCompanyInput.title = 'Managed by your company'; }
+                            else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); pdfCompanyInput.removeAttribute('title'); }
                         }
                     } catch { }
                 };
@@ -2429,6 +2437,7 @@
             const mediaServerSelect = document.getElementById('mediaServerSelect');
             const pdfFilenameInput = document.getElementById('pdfFilenameInput');
             const pdfProjectNameInput = document.getElementById('pdfProjectNameInput');
+                const pdfJobNoInput = document.getElementById('pdfJobNoInput');
             const pdfVenueInput = document.getElementById('pdfVenueInput');
                 const pdfCompanyInput = document.getElementById('pdfCompanyInput');
             const pdfDrawnByInput = document.getElementById('pdfDrawnByInput');
@@ -2532,6 +2541,136 @@
                     timeout = setTimeout(() => func.apply(context, args), delay);
                 };
             };
+
+                // --- Company utilities ---
+                const isMediaPro = (name) => {
+                    try { return String(name || '').trim().toLowerCase() === 'mediapro'; } catch { return false; }
+                };
+
+                // Optional embedded base64 for MediaPro logo (PNG). If empty, we'll try mediapro-logo.png file next to index.html
+                const MEDIAPRO_LOGO_BASE64 = '';
+
+                // App's built-in 1x1 placeholder used by defaults
+                const DEFAULT_LOGO_PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+                // Helper: convert Blob to data URL
+                const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+                    try {
+                        const fr = new FileReader();
+                        fr.onload = () => resolve(fr.result);
+                        fr.onerror = () => reject(fr.error || new Error('Failed to read image blob'));
+                        fr.readAsDataURL(blob);
+                    } catch (e) { reject(e); }
+                });
+
+                // Helper: fetch an image URL and return a PNG data URL via canvas (fallback to original data URL)
+                const fetchToPngDataUrl = async (url) => {
+                    const res = await fetch(url, { mode: 'cors' });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const blob = await res.blob();
+                    try {
+                        const bmp = await createImageBitmap(blob);
+                        const c = document.createElement('canvas');
+                        c.width = bmp.width; c.height = bmp.height;
+                        const ictx = c.getContext('2d', { alpha: true });
+                        ictx.drawImage(bmp, 0, 0);
+                        return c.toDataURL('image/png');
+                    } catch {
+                        return await blobToDataUrl(blob);
+                    }
+                };
+
+                const loadMediaProLogoAsPngDataUrl = () => new Promise((resolve, reject) => {
+                    if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
+                        resolve(`data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`);
+                        return;
+                    }
+                    try {
+                        const fallbackLocal = () => {
+                            const tryLocal = (src, onFail) => {
+                                try {
+                                    const img = new Image();
+                                    // Note: crossOrigin not needed for same-origin/local file loads
+                                    img.onload = () => {
+                                        try {
+                                            const c = document.createElement('canvas');
+                                            c.width = img.naturalWidth || img.width;
+                                            c.height = img.naturalHeight || img.height;
+                                            const ictx = c.getContext('2d', { alpha: true });
+                                            ictx.drawImage(img, 0, 0);
+                                            const dataUrl = c.toDataURL('image/png'); // normalize to PNG for jsPDF
+                                            resolve(dataUrl);
+                                        } catch (e) { onFail(e); }
+                                    };
+                                    img.onerror = () => onFail(new Error('Local image failed to load: ' + src));
+                                    img.src = src;
+                                } catch (e) { onFail(e); }
+                            };
+                            // Prefer PNG, then WEBP
+                            tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
+                        };
+
+                        // Prefer cloud asset if available
+                        if (!window.__IS_DEMO__ && firebase?.storage) {
+                            try {
+                                const tryStorage = (path, onFail) => {
+                                    const ref = firebase.storage().ref(path);
+                                    ref.getDownloadURL()
+                                        .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
+                                        .catch(() => onFail());
+                                };
+                                // Try PNG first, then WEBP
+                                tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
+                                return; // attempt made; handlers will resolve or fallback
+                            } catch { /* fall through to local */ }
+                        }
+
+                        // If cloud unavailable, try local fallback immediately
+                        fallbackLocal();
+                    } catch (e) { reject(e); }
+                });
+
+                const isPlaceholderLogo = (dataUrl) => {
+                    if (!dataUrl) return true;
+                    const s = String(dataUrl);
+                    if (s === DEFAULT_LOGO_PLACEHOLDER) return true;
+                    // Heuristic for extremely tiny data URLs
+                    return s.length < 200;
+                };
+
+                const ensureDefaultLogoForCompany = async () => {
+                    try {
+                        const company = state.pdfCompany || (getStoredProfile()?.company) || '';
+                        if (!isMediaPro(company)) return;
+                        if (!isPlaceholderLogo(state.logoDataUrl)) return; // custom logo already set
+                        const dataUrl = await loadMediaProLogoAsPngDataUrl();
+                        if (dataUrl && dataUrl.startsWith('data:image/')) {
+                            state.logoDataUrl = dataUrl;
+                            if (logoPreview) {
+                                logoPreview.src = dataUrl;
+                                logoPreview.classList.remove('d-none');
+                            }
+                            state.pdfPreviewDirty = true; schedulePdfPreview();
+                        }
+                    } catch (e) {
+                        try { showToast('Default MediaPro logo not found. Add mediapro-logo.png next to index.html or upload a logo.', 'warning'); } catch { }
+                    }
+                };
+
+                const enforceCompanyLogoPolicy = () => {
+                    try {
+                        const company = state.pdfCompany || (getStoredProfile()?.company) || '';
+                        const isMP = isMediaPro(company);
+                        const uploadContainer = document.getElementById('logoUpload')?.closest('div');
+                        if (uploadContainer) {
+                            if (isMP) {
+                                uploadContainer.style.display = 'none';
+                            } else {
+                                uploadContainer.style.display = '';
+                            }
+                        }
+                    } catch { }
+                };
 
                 // Track whether the PDF Settings tab is currently active
                 let __pdfTabActive = false;
@@ -2660,9 +2799,9 @@
                     if (!state.pdfCompany && prof?.company) state.pdfCompany = String(prof.company);
                     if (pdfCompanyInput) {
                         pdfCompanyInput.value = state.pdfCompany || '';
-                        const isMP = /^(?i:mediapro)$/i.test((prof?.company || state.pdfCompany || '').trim());
-                        if (isMP) { pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); }
-                        else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); }
+                        const isMP = isMediaPro((prof?.company || state.pdfCompany || '').trim());
+                        if (isMP) { pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); pdfCompanyInput.title = 'Managed by your company'; }
+                        else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); pdfCompanyInput.removeAttribute('title'); }
                     }
                 } catch { }
                 updateColorPreviews();
@@ -2733,6 +2872,7 @@
                 pdfFilenameInput.value = (state.pdfFilename || '').toUpperCase();
                 pdfProjectNameInput.value = (state.pdfProjectName || '').toUpperCase();
                 pdfVenueInput.value = (state.pdfVenue || '').toUpperCase();
+                if (pdfJobNoInput) pdfJobNoInput.value = (state.pdfJobNo || '').toUpperCase();
                 // If Drawn By is empty, default to profile name (local/cloud)
                 try {
                     if (!state.pdfDrawnBy) {
@@ -2753,18 +2893,22 @@
                     logoPreview.classList.add('d-none');
                 }
 
+                // Auto-apply default logo for MediaPro if needed
+                ensureDefaultLogoForCompany();
+                enforceCompanyLogoPolicy();
+
                 // View Options
                 // Default Validation Email from Profile email
                 if (!state.pdfEmail && prof?.email) state.pdfEmail = String(prof.email);
                 if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail || '';
                 // Lock Drawn By and Validation Email when company is MediaPro
-                const lockPdfPersonal = String((prof?.company || state.pdfCompany || '')).trim().toLowerCase() === 'mediapro';
+                const lockPdfPersonal = isMediaPro((prof?.company || state.pdfCompany || '').trim());
                 if (lockPdfPersonal) {
-                    if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
-                    if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
+                    if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); pdfDrawnByInput.title = 'Managed by your company'; }
+                    if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); pdfEmailInput.title = 'Managed by your company'; }
                 } else {
-                    if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); }
-                    if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); }
+                    if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); pdfDrawnByInput.removeAttribute('title'); }
+                    if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); pdfEmailInput.removeAttribute('title'); }
                 }
                 rulerToggle.textContent = state.canvasMapRulerEnabled ? 'On' : 'Off';
                 rulerContainer.classList.toggle('rulers-on', state.canvasMapRulerEnabled);
@@ -2870,6 +3014,7 @@
                 state.mediaServer = 'resolume';
                 state.pdfFilename = 'CANVASMAP_DETAILS';
                 state.pdfProjectName = '';
+                state.pdfJobNo = '';
                 state.pdfVenue = '';
                 state.pdfDrawnBy = '';
                 state.pdfSales = '';
@@ -4437,7 +4582,7 @@
                         if (!prevName || prevName === (getStoredProfile().name || '')) {
                             state.pdfDrawnBy = (data.name || '').toUpperCase();
                             if (pdfDrawnByInput) pdfDrawnByInput.value = state.pdfDrawnBy;
-                            state.pdfPreviewDirty = true;
+                            state.pdfPreviewDirty = true; schedulePdfPreview();
                         }
                         // Sync Company default and lock (only if empty or matched previous)
                         const prevCompany = state.pdfCompany;
@@ -4445,10 +4590,12 @@
                             state.pdfCompany = (data.company || '').toUpperCase();
                             if (pdfCompanyInput) pdfCompanyInput.value = state.pdfCompany;
                             if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
-                            state.pdfPreviewDirty = true;
+                            state.pdfPreviewDirty = true; schedulePdfPreview();
                         } else {
                             if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
                         }
+                        // Enforce default logo if MediaPro and no custom logo
+                        ensureDefaultLogoForCompany();
                         // Always sync Validation Email from Profile email when saved (uppercase for consistency)
                         state.pdfEmail = (data.email || '').toUpperCase();
                         if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail;
@@ -5306,8 +5453,9 @@
                 const markDirtyAndSchedule = () => { state.pdfPreviewDirty = true; schedulePdfPreview(); };
                 toUpperLive(pdfFilenameInput, (v) => { state.pdfFilename = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfProjectNameInput, (v) => { state.pdfProjectName = v; markDirtyAndSchedule(); });
+                if (pdfJobNoInput) toUpperLive(pdfJobNoInput, (v) => { state.pdfJobNo = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfVenueInput, (v) => { state.pdfVenue = v; markDirtyAndSchedule(); });
-                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; markDirtyAndSchedule(); });
+                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; enforceCompanyLogoPolicy(); ensureDefaultLogoForCompany(); markDirtyAndSchedule(); });
                 toUpperLive(pdfDrawnByInput, (v) => { state.pdfDrawnBy = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfSalesInput, (v) => { state.pdfSales = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfClientInput, (v) => { state.pdfClient = v; markDirtyAndSchedule(); });
@@ -6216,7 +6364,7 @@
                 const doc = new window.jspdf.jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a2'
+                    format: 'a0'
                 });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
