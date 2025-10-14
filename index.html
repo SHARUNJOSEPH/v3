@@ -88,7 +88,7 @@
             background: var(--card-bg);
             padding: 0.5rem 1rem;
             border-radius: 0.75rem;
-            box-shadow: 0 8px 24px -18px rgba(0,0,0,0.35);
+            box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.35);
         }
 
         /* PDF preview skeleton shimmer while generating */
@@ -728,6 +728,41 @@
             border-top-color: var(--border-color);
         }
 
+        /* Password field UX */
+        .password-input-wrapper { position: relative; }
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            background: transparent;
+            border: 0;
+            color: var(--secondary-text-color);
+            padding: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .password-toggle:hover { color: var(--text-color); }
+        .password-toggle svg { width: 18px; height: 18px; }
+
+    .password-requirements { font-size: clamp(0.78rem, 1.2vw, 0.9rem); color: var(--secondary-text-color); margin-top: .5rem; display: flex; flex-wrap: wrap; gap: .35rem .5rem; align-items: center; width: 100%; }
+        .password-requirements li { margin-left: 0; display: inline; white-space: nowrap; }
+        .password-requirements li + li::before { content: '|'; margin: 0 .35rem; color: var(--secondary-text-color); }
+        /* Allow wrapping on all screen sizes so full message is visible (wrap to second line if needed) */
+    .password-requirements .ok { color: #20c997; }
+    .password-requirements .bad { color: #dc3545; }
+
+        /* Subtle shake on auth error */
+        @keyframes shakeX {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+        #loginModal .modal-content.shake { animation: shakeX 0.45s ease; }
+
     </style>
 </head>
 <body class="dark-mode">
@@ -796,6 +831,52 @@
                                 placeholder="Any extra info"></textarea>
                         </div>
                     </div>
+<hr class="my-4" style="border-color: var(--border-color);">
+<div id="passwordChangeSection" class="row g-3" style="display:none;">
+    <div class="col-12">
+        <h4 class="m-0 fw-bold">Change Password</h4>
+    </div>
+    <div class="col-md-6">
+        <label for="newPasswordInput" class="form-label fw-bold">New password</label>
+        <div class="password-input-wrapper">
+            <input type="password" id="newPasswordInput" class="form-control" placeholder="At least 8 characters"
+                autocomplete="new-password">
+            <button type="button" class="password-toggle" data-target="newPasswordInput"
+                aria-label="Toggle password visibility">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8" />
+                    <path d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label for="confirmPasswordInput" class="form-label fw-bold">Confirm new password</label>
+        <div class="password-input-wrapper">
+            <input type="password" id="confirmPasswordInput" class="form-control" placeholder="Re-enter new password"
+                autocomplete="new-password">
+            <button type="button" class="password-toggle" data-target="confirmPasswordInput"
+                aria-label="Toggle password visibility">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8" />
+                    <path d="M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5" />
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="col-12">
+        <ul id="passwordRules" class="password-requirements list-unstyled">
+            <li data-rule="length" class="bad">At least 8 characters</li>
+            <li data-rule="upper" class="bad">Contains an uppercase letter (A-Z)</li>
+            <li data-rule="lower" class="bad">Contains a lowercase letter (a-z)</li>
+            <li data-rule="digit" class="bad">Contains a number (0-9)</li>
+            <li data-rule="special" class="bad">Contains a special character (!@#$%^&*)</li>
+        </ul>
+    </div>
+    <div class="col-12 d-flex justify-content-end">
+        <button id="updatePasswordBtn" type="button" class="btn btn-primary">Update Password</button>
+    </div>
+</div>
                 </div>
                 <div class="modal-footer d-flex justify-content-between">
                     <div class="d-flex gap-2">
@@ -820,6 +901,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="loginError" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
                     <form id="emailLoginFormModal" class="row g-3">
                         <div class="col-md-6">
                             <label for="loginEmailInput" class="form-label fw-bold">Email</label>
@@ -858,6 +940,124 @@
             </div>
         </div>
     </div>
+    <script>
+        // Minimal scripting to toggle password UI and update password
+        document.addEventListener('DOMContentLoaded', () => {
+            const profileModal = document.getElementById('profileModal');
+            const passwordSection = document.getElementById('passwordChangeSection');
+            const updateBtn = document.getElementById('updatePasswordBtn');
+            const newInput = document.getElementById('newPasswordInput');
+            const confirmInput = document.getElementById('confirmPasswordInput');
+            const rulesEl = document.getElementById('passwordRules');
+
+            const isFirebaseAvailable = () => {
+                try { return !!window.firebase && !!firebase.auth; } catch { return false; }
+            };
+            const getUser = () => {
+                if (isFirebaseAvailable()) {
+                    try { return firebase.auth().currentUser; } catch { return null; }
+                }
+                return null;
+            };
+            const isPasswordProvider = (user) => {
+                try { return user?.providerData?.some(p => (p.providerId === 'password' || p.providerId === 'firebase')); } catch { return false; }
+            };
+
+            if (profileModal) {
+                profileModal.addEventListener('show.bs.modal', () => {
+                    const user = getUser();
+                    if (user && isPasswordProvider(user)) {
+                        passwordSection && (passwordSection.style.display = '');
+                    } else {
+                        passwordSection && (passwordSection.style.display = 'none');
+                    }
+                    // Clear fields on open
+                    [newInput, confirmInput].forEach(el => { if (el) el.value = ''; });
+                    // Reset rules state
+                    if (rulesEl) {
+                        rulesEl.querySelectorAll('li').forEach(li => li.classList.remove('ok'));
+                        rulesEl.querySelectorAll('li').forEach(li => li.classList.add('bad'));
+                    }
+                });
+            }
+
+            if (updateBtn) {
+                updateBtn.addEventListener('click', async () => {
+                    const user = getUser();
+                    if (!user) { alert('Please login with Email/Password to change your password.'); return; }
+                    if (!isPasswordProvider(user)) { alert('Password change is not available for Google sign-ins.'); return; }
+
+                    const nxt = newInput?.value || '';
+                    const cnf = confirmInput?.value || '';
+                    if (!nxt || !cnf) { alert('Please fill all password fields.'); return; }
+                    // Enforce strong password requirements
+                    const rules = {
+                        length: nxt.length >= 8,
+                        upper: /[A-Z]/.test(nxt),
+                        lower: /[a-z]/.test(nxt),
+                        digit: /\d/.test(nxt),
+                        special: /[!@#$%^&*]/.test(nxt)
+                    };
+                    if (rulesEl) {
+                        Object.entries(rules).forEach(([k, ok]) => {
+                            const li = rulesEl.querySelector(`li[data-rule="${k}"]`);
+                            if (li) li.className = ok ? 'ok' : 'bad';
+                        });
+                    }
+                    const allOk = Object.values(rules).every(Boolean);
+                    if (!allOk) { alert('Password does not meet the requirements.'); return; }
+                    if (nxt !== cnf) { alert('New passwords do not match.'); return; }
+
+                    if (!isFirebaseAvailable()) { alert('Password update requires Firebase Auth.'); return; }
+
+                    try {
+                        // Try to update; if Firebase requires recent login, prompt re-auth flow
+                        await user.updatePassword(nxt);
+                        alert('Password updated successfully.');
+                        [newInput, confirmInput].forEach(el => { if (el) el.value = ''; });
+                    } catch (e) {
+                        // If requires-recent-login, advise logout/login or add a reauth path
+                        if (e && (e.code === 'auth/requires-recent-login' || e.code === 'auth/weak-password')) {
+                            alert('Please sign out and sign back in to change your password.');
+                        } else {
+                            alert(e?.message || 'Failed to update password.');
+                        }
+                    }
+                });
+
+                // Visibility toggles that persist: delegate clicks so toggles exist even after rerenders
+                document.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.password-toggle');
+                    if (!btn) return;
+                    const targetId = btn.getAttribute('data-target');
+                    const input = document.getElementById(targetId);
+                    if (!input) return;
+                    const nowType = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                    input.setAttribute('type', nowType);
+                    // Optionally swap icon (same icon used for simplicity)
+                });
+
+                // Live validation on typing new password
+                const refreshRules = () => {
+                    if (!rulesEl || !newInput) return;
+                    const val = newInput.value || '';
+                    const rules = {
+                        length: val.length >= 8,
+                        upper: /[A-Z]/.test(val),
+                        lower: /[a-z]/.test(val),
+                        digit: /\d/.test(val),
+                        special: /[!@#$%^&*]/.test(val)
+                    };
+                    Object.entries(rules).forEach(([k, ok]) => {
+                        const li = rulesEl.querySelector(`li[data-rule="${k}"]`);
+                        if (li) li.className = ok ? 'ok' : 'bad';
+                    });
+                };
+                if (newInput) newInput.addEventListener('input', refreshRules);
+            } // end if (updateBtn)
+
+        }); // end DOMContentLoaded
+    </script>
 
     <div class="container-fluid py-4">
         <h1 class="text-center mb-4 text-primary fw-bold">LED Grid Generator</h1>
@@ -4164,6 +4364,57 @@
                 setPromptStamp();
             };
 
+                // ---- Friendly auth error mapping and UI helpers ----
+                const mapAuthError = (err) => {
+                    const code = err?.code || '';
+                    switch (code) {
+                        case 'auth/invalid-credential':
+                        case 'auth/wrong-password':
+                            return 'Incorrect email or password. Please try again.';
+                        case 'auth/user-disabled':
+                            return 'This account has been disabled. Please contact support.';
+                        case 'auth/too-many-requests':
+                            return 'Too many attempts. Please wait a moment and try again.';
+                        case 'auth/network-request-failed':
+                            return 'Network error. Check your connection and try again.';
+                        case 'auth/invalid-email':
+                            return 'Please enter a valid email address.';
+                        case 'auth/popup-closed-by-user':
+                            return 'Sign-in was canceled.';
+                        case 'auth/popup-blocked':
+                            return 'Your browser blocked the sign-in popup. Allow popups and try again.';
+                        default:
+                            return (err?.message && !String(err.message).startsWith('Firebase:'))
+                                ? String(err.message)
+                                : 'Sign-in failed. Please try again.';
+                    }
+                };
+                const showLoginError = (msg) => {
+                    try {
+                        const el = document.getElementById('loginError');
+                        if (!el) return;
+                        el.textContent = msg;
+                        el.classList.remove('d-none');
+                        const mc = document.querySelector('#loginModal .modal-content');
+                        if (mc) {
+                            mc.classList.remove('shake');
+                            void mc.offsetWidth; // restart animation
+                            mc.classList.add('shake');
+                            setTimeout(() => { mc.classList.remove('shake'); }, 450);
+                        }
+                    } catch { }
+                };
+                const clearLoginError = () => {
+                    try {
+                        const el = document.getElementById('loginError');
+                        if (el) el.classList.add('d-none');
+                    } catch { }
+                };
+
+                // Clear error as user types
+                loginEmailInput?.addEventListener('input', clearLoginError);
+                loginPasswordInput?.addEventListener('input', clearLoginError);
+
                 // ---- One-time Profile prompt per user ----
                 const userScopedKey = (id) => `profilePromptShown:${id}`;
                 const getActiveUserIdForPrompt = () => {
@@ -4211,7 +4462,7 @@
                                 setUiForAuth(true);
                                 finishLoginUi();
                             } else {
-                                alert(err.message);
+                                showLoginError(mapAuthError(err));
                             }
                         }
                     } else {
@@ -4225,7 +4476,7 @@
                             // One-time profile prompt for demo user
                             if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
                         } else {
-                            alert('Invalid credentials for local demo. Use admin@gmail.com / admin');
+                            showLoginError('Incorrect email or password. For local demo use admin@gmail.com / admin.');
                         }
                     }
                 });
@@ -4233,7 +4484,7 @@
 
             if (googleLoginBtnModal) {
                 googleLoginBtnModal.addEventListener('click', async () => {
-                    if (window.__IS_DEMO__) { alert('Google sign-in is disabled in demo mode.'); return; }
+                    if (window.__IS_DEMO__) { showLoginError('Google sign-in is disabled in demo mode.'); return; }
                     try {
                         const provider = new firebase.auth.GoogleAuthProvider();
                         await firebase.auth().signInWithPopup(provider);
@@ -4243,7 +4494,7 @@
                         // For new Google logins, Firestore may not have a profile yet
                         if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
                     } catch (err) {
-                        alert(err.message);
+                        showLoginError(mapAuthError(err));
                     }
                 });
             }
@@ -4261,6 +4512,7 @@
                         // Hide the close button if login is required (blocking usage)
                         const closeBtn = loginModalEl2.querySelector('.btn-close');
                         if (closeBtn) closeBtn.style.display = (requireLoginUntilAuth ? 'none' : '');
+                        clearLoginError();
                     }, 0);
                 });
                 loginModalEl2.addEventListener('hidden.bs.modal', () => {
