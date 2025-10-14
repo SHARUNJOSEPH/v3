@@ -753,6 +753,12 @@
     .password-requirements .ok { color: #20c997; }
     .password-requirements .bad { color: #dc3545; }
 
+        /* Readonly field styling cue */
+        input.readonly[readonly] {
+            background-color: rgba(255,255,255,0.05);
+            cursor: not-allowed;
+        }
+
         /* Subtle shake on auth error */
         @keyframes shakeX {
             0%, 100% { transform: translateX(0); }
@@ -810,7 +816,8 @@
                         </div>
                         <div class="col-md-6">
                             <label for="profileEmailInput" class="form-label fw-bold">Email</label>
-                            <input id="profileEmailInput" type="email" class="form-control" placeholder="name@example.com">
+                            <input id="profileEmailInput" type="email" class="form-control readonly" placeholder="name@example.com" readonly
+                                aria-readonly="true" title="Email is managed by your account">
                         </div>
                         <div class="col-md-6">
                             <label for="profileCompanyInput" class="form-label fw-bold">Company</label>
@@ -2153,24 +2160,58 @@
                 try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data || {})); } catch { }
             };
 
+                const isCompanyEmail = (email) => /@mediaproav\.com$/i.test(String(email || ''));
+                const getAuthedEmailSafe = () => {
+                    try { return (!window.__IS_DEMO__ && firebase?.auth?.() ? firebase.auth().currentUser?.email : null) || null; } catch { return null; }
+                };
+                const enforceEmailReadonly = () => {
+                    if (!profileEmailInput) return;
+                    profileEmailInput.setAttribute('readonly', 'true');
+                    profileEmailInput.classList.add('readonly');
+                    // If we have an authed email, reflect it
+                    const authed = getAuthedEmailSafe();
+                    if (authed) profileEmailInput.value = authed;
+                };
+
+                const enforceCompanyField = () => {
+                    if (!profileCompanyInput) return;
+                    const email = getAuthedEmailSafe() || (profileEmailInput?.value || '').trim();
+                    const lock = isCompanyEmail(email);
+                    if (lock) {
+                        profileCompanyInput.value = 'MediaPro';
+                        profileCompanyInput.setAttribute('readonly', 'true');
+                        profileCompanyInput.classList.add('readonly');
+                    } else {
+                        profileCompanyInput.removeAttribute('readonly');
+                        profileCompanyInput.classList.remove('readonly');
+                    }
+                };
+
             const populateProfileForm = (data = {}) => {
                 if (!profileNameInput) return; // if modal not present, skip
                 profileNameInput.value = data.name || '';
-                profileEmailInput.value = data.email || '';
+                // Email is managed by auth; prefer authed email if present
+                profileEmailInput.value = getAuthedEmailSafe() || data.email || '';
                 profileCompanyInput.value = data.company || '';
                 profileTitleInput.value = data.title || '';
                 profilePhoneInput.value = data.phone || '';
                 profileNotesInput.value = data.notes || '';
+                enforceEmailReadonly();
+                enforceCompanyField();
             };
 
-            const readProfileForm = () => ({
-                name: (profileNameInput?.value || '').trim(),
-                email: (profileEmailInput?.value || '').trim(),
-                company: (profileCompanyInput?.value || '').trim(),
-                title: (profileTitleInput?.value || '').trim(),
-                phone: (profilePhoneInput?.value || '').trim(),
-                notes: (profileNotesInput?.value || '').trim(),
-            });
+                const readProfileForm = () => {
+                    const email = getAuthedEmailSafe() || (profileEmailInput?.value || '').trim();
+                    const companyLocked = isCompanyEmail(getAuthedEmailSafe() || email);
+                    return {
+                        name: (profileNameInput?.value || '').trim(),
+                        email,
+                        company: companyLocked ? 'MediaPro' : (profileCompanyInput?.value || '').trim(),
+                        title: (profileTitleInput?.value || '').trim(),
+                        phone: (profilePhoneInput?.value || '').trim(),
+                        notes: (profileNotesInput?.value || '').trim(),
+                    };
+                };
 
             // Hook for future authentication integration
             const applyAuthProfile = (authUser) => {
@@ -2184,6 +2225,8 @@
                 const merged = { ...current, ...fromAuth };
                 setStoredProfile(merged);
                 populateProfileForm(merged);
+                enforceEmailReadonly();
+                enforceCompanyField();
             };
 
             // ===== Profile: Firestore helpers (when Firebase is configured) =====
@@ -4314,6 +4357,8 @@
                 clearProfileBtn?.addEventListener('click', () => {
                     setStoredProfile({});
                     populateProfileForm({});
+                    enforceEmailReadonly();
+                    enforceCompanyField();
                 });
             }
 
