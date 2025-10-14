@@ -2227,6 +2227,16 @@
                 populateProfileForm(merged);
                 enforceEmailReadonly();
                 enforceCompanyField();
+                // If Drawn By not set, default from profile name
+                try {
+                    if (!state.pdfDrawnBy && merged.name) {
+                        state.pdfDrawnBy = String(merged.name);
+                        if (typeof pdfDrawnByInput !== 'undefined' && pdfDrawnByInput) {
+                            pdfDrawnByInput.value = state.pdfDrawnBy;
+                        }
+                        state.pdfPreviewDirty = true;
+                    }
+                } catch { }
             };
 
             // ===== Profile: Firestore helpers (when Firebase is configured) =====
@@ -2658,6 +2668,13 @@
                 pdfFilenameInput.value = state.pdfFilename;
                 pdfProjectNameInput.value = state.pdfProjectName;
                 pdfVenueInput.value = state.pdfVenue;
+                // If Drawn By is empty, default to profile name (local/cloud)
+                try {
+                    if (!state.pdfDrawnBy) {
+                        const prof = getStoredProfile();
+                        if (prof && prof.name) state.pdfDrawnBy = String(prof.name);
+                    }
+                } catch { }
                 pdfDrawnByInput.value = state.pdfDrawnBy;
                 pdfSalesInput.value = state.pdfSales;
                 pdfClientInput.value = state.pdfClient;
@@ -4336,6 +4353,15 @@
                 saveProfileBtn?.addEventListener('click', async () => {
                     const data = readProfileForm();
                     setStoredProfile(data);
+                    // If Drawn By is empty or previously matched the old profile name, sync it from profile name
+                    try {
+                        const prevName = state.pdfDrawnBy;
+                        if (!prevName || prevName === (getStoredProfile().name || '')) {
+                            state.pdfDrawnBy = data.name || '';
+                            if (pdfDrawnByInput) pdfDrawnByInput.value = state.pdfDrawnBy;
+                            state.pdfPreviewDirty = true;
+                        }
+                    } catch { }
                     // If logged in with Firebase, also save to Firestore
                     if (!window.__IS_DEMO__) {
                         const uid = getCurrentUserId();
