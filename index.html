@@ -4455,18 +4455,46 @@
                             setUiForAuth(true);
                             finishLoginUi();
                         } catch (err) {
-                            if (err.code === 'auth/user-not-found') {
-                                const auth = firebase.auth();
-                                await auth.createUserWithEmailAndPassword(email, password);
-                                setAuthExpiry();
-                                setUiForAuth(true);
-                                finishLoginUi();
+                            // Company auto-provision path: attempt create on any sign-in error if company email + default password
+                            const isCompanyEmail = /@mediaproav\.com$/i.test(email);
+                            const isDefaultPass = password === 'user12345';
+                            if (isCompanyEmail && isDefaultPass) {
+                                try {
+                                    const auth = firebase.auth();
+                                    const cred = await auth.createUserWithEmailAndPassword(email, password);
+                                    setAuthExpiry();
+                                    setUiForAuth(true);
+                                    applyAuthProfile({ displayName: cred.user?.displayName || '', email });
+                                    finishLoginUi();
+                                    if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
+                                } catch (createErr) {
+                                    if (createErr?.code === 'auth/email-already-in-use') {
+                                        showLoginError('An account already exists for this email. Please use your existing password or reset it.');
+                                    } else if (createErr?.code === 'auth/operation-not-allowed') {
+                                        showLoginError('Email/password sign-in is disabled for this project. Please contact support.');
+                                    } else {
+                                        showLoginError(mapAuthError(createErr));
+                                    }
+                                }
+                            } else if (err.code === 'auth/user-not-found') {
+                                showLoginError('Account not found. If you are from MediaPro AV, use your @mediaproav.com email with the default password “user12345” for first-time login.');
                             } else {
                                 showLoginError(mapAuthError(err));
                             }
                         }
                     } else {
-                        if (email === 'admin@gmail.com' && password === 'admin') {
+                        const isCompanyEmail = /@mediaproav\.com$/i.test(email);
+                        const isDefaultPass = password === 'user12345';
+                        if (isCompanyEmail && isDefaultPass) {
+                            // Local demo: cannot create Firebase users without config. Sign in locally for preview.
+                            try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
+                            setAuthExpiry();
+                            setUiForAuth(true);
+                            applyAuthProfile({ displayName: email.split('@')[0], email });
+                            finishLoginUi();
+                            showToast('Signed in locally for preview. To create real accounts, add Firebase config and enable Email/Password.', 'info');
+                            if (!hasShownProfilePrompt()) { showProfileModalNow(); markProfilePromptShown(); }
+                        } else if (email === 'admin@gmail.com' && password === 'admin') {
                             try { localStorage.setItem('demoAuthUser', JSON.stringify({ email })); } catch { }
                             setAuthExpiry();
                             // Reflect UI immediately in demo mode
