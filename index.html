@@ -2655,7 +2655,55 @@
                                         .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
                                         .catch(() => onFail());
                                 };
-                                // Try PNG first, then WEBP
+                                // Try PNG firs                                const loadMediaProLogoAsPngDataUrl = () => new Promise((resolve, reject) => {
+                                    if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
+                                        resolve(`data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`);
+                                        return;
+                                    }
+                                    try {
+                                        const fallbackLocal = () => {
+                                            const tryLocal = (src, onFail) => {
+                                                try {
+                                                    const img = new Image();
+                                                    // Note: crossOrigin not needed for same-origin/local file loads
+                                                    img.onload = () => {
+                                                        try {
+                                                            const c = document.createElement('canvas');
+                                                            c.width = img.naturalWidth || img.width;
+                                                            c.height = img.naturalHeight || img.height;
+                                                            const ictx = c.getContext('2d', { alpha: true });
+                                                            ictx.drawImage(img, 0, 0);
+                                                            const dataUrl = c.toDataURL('image/png'); // normalize to PNG for jsPDF
+                                                            resolve(dataUrl);
+                                                        } catch (e) { onFail(e); }
+                                                    };
+                                                    img.onerror = () => onFail(new Error('Local image failed to load: ' + src));
+                                                    img.src = src;
+                                                } catch (e) { onFail(e); }
+                                            };
+                                            // Prefer PNG, then WEBP
+                                            tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
+                                        };
+                                
+                                        // Prefer cloud asset if available
+                                        if (!window.__IS_DEMO__ && firebase?.storage) {
+                                            try {
+                                                const tryStorage = (path, onFail) => {
+                                                    const ref = firebase.storage().ref(path);
+                                                    ref.getDownloadURL()
+                                                        .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
+                                                        .catch(() => onFail());
+                                                };
+                                                // Try PNG first, then WEBP
+                                                tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
+                                                return; // attempt made; handlers will resolve or fallback
+                                            } catch { /* fall through to local */ }
+                                        }
+                                
+                                        // If cloud unavailable, try local fallback immediately
+                                        fallbackLocal();
+                                    } catch (e) { reject(e); }
+                                });t, then WEBP
                                 tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
                                 return; // attempt made; handlers will resolve or fallback
                             } catch { /* fall through to local */ }
