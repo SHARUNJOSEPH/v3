@@ -212,6 +212,12 @@
         #pixelMapCanvas {
             z-index: 1; /* Base layer */
         }
+        /* Drop highlight for PixelMap canvas container */
+        #canvasContainer.drop-target {
+            outline: 2px dashed var(--accent-color, #0d6efd);
+            outline-offset: 6px;
+            border-radius: 8px;
+        }
         
         #drawingOverlayCanvas.drawing-mode, #canvasMapCanvas.drawing-mode {
             cursor: crosshair;
@@ -2255,6 +2261,61 @@
             const setStoredProfile = (data) => {
                 try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data || {})); } catch { }
             };
+
+                // --- Enable drag-and-drop onto PixelMap preview to re-edit a saved screen ---
+                if (canvasContainer) {
+                    const addDropHighlight = () => canvasContainer.classList.add('drop-target');
+                    const removeDropHighlight = () => canvasContainer.classList.remove('drop-target');
+                    let dragCounter = 0;
+
+                    const allowDropIfScreen = (e) => {
+                        const types = e.dataTransfer?.types || [];
+                        if (Array.from(types).includes('text/plain')) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    const handleDrop = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dragCounter = 0;
+                        removeDropHighlight();
+                        const idStr = e.dataTransfer.getData('text/plain');
+                        const mapId = parseInt(idStr, 10);
+                        if (!isNaN(mapId) && Array.isArray(state.storedPixelMaps)) {
+                            const found = state.storedPixelMaps.find(m => m.id === mapId);
+                            if (found) {
+                                try {
+                                    // Apply immediately without needing tab switches
+                                    loadSentMapForEdit(found);
+                                    // Ensure transform/overlay are in sync
+                                    applyCanvasTransform();
+                                    redrawDrawingOverlay();
+                                } catch (err) {
+                                    console.warn('Drop-to-edit failed:', err);
+                                }
+                            }
+                        }
+                    };
+
+                    // Attach to the container
+                    canvasContainer.addEventListener('dragover', (e) => { if (allowDropIfScreen(e)) addDropHighlight(); });
+                    canvasContainer.addEventListener('dragenter', () => { dragCounter++; addDropHighlight(); });
+                    canvasContainer.addEventListener('dragleave', () => { dragCounter = Math.max(0, dragCounter - 1); if (dragCounter === 0) removeDropHighlight(); });
+                    canvasContainer.addEventListener('drop', handleDrop);
+
+                    // Also attach to the canvases to catch drops on the top-most elements
+                    [pixelMapCanvas, drawingOverlayCanvas].forEach((el) => {
+                        if (!el) return;
+                        el.addEventListener('dragover', (e) => { if (allowDropIfScreen(e)) addDropHighlight(); });
+                        el.addEventListener('dragenter', () => { dragCounter++; addDropHighlight(); });
+                        el.addEventListener('dragleave', () => { dragCounter = Math.max(0, dragCounter - 1); if (dragCounter === 0) removeDropHighlight(); });
+                        el.addEventListener('drop', handleDrop);
+                    });
+                }
 
                 const isCompanyEmail = (email) => /@mediaproav\.com$/i.test(String(email || ''));
                 const getAuthedEmailSafe = () => {
@@ -4357,6 +4418,8 @@
                     items.forEach(map => {
                         const item = document.createElement('div');
                         item.className = 'sent-item' + (state.sentActiveId === map.id ? ' active' : '');
+                        item.draggable = true;
+                        item.dataset.mapId = map.id;
                         item.title = 'Double-click to edit';
                         item.setAttribute('data-bs-toggle', 'tooltip');
                         item.setAttribute('data-bs-placement', 'top');
@@ -4426,6 +4489,12 @@
                         });
                         item.addEventListener('dblclick', () => {
                             loadSentMapForEdit(map);
+                        });
+
+                        // Drag support: allow dragging item to PixelMap canvas to re-edit on drop
+                        item.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', String(map.id));
+                            e.dataTransfer.effectAllowed = 'copy';
                         });
 
                         gallery.appendChild(item);

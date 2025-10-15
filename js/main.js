@@ -328,6 +328,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const saveProjectBtnModal = document.getElementById('saveProjectBtnModal');
             const loadProjectBtnModal = document.getElementById('loadProjectBtnModal');
             const loadProjectInput = document.getElementById('loadProjectInputModal');
+            const pixelMapSentGallery = document.getElementById('pixelMapSentGallery');
+            if (pixelMapSentGallery) {
+                pixelMapSentGallery.addEventListener('click', (e) => {
+                    const sentItem = e.target.closest('.sent-item');
+                    if (sentItem && sentItem.dataset.mapId) {
+                        const mapId = parseInt(sentItem.dataset.mapId, 10);
+                        loadPixelMapState(mapId);
+                    }
+                });
+
+                pixelMapSentGallery.addEventListener('dragstart', (e) => {
+                    const draggableItem = e.target.closest('.sent-item');
+                    if (draggableItem) {
+                        e.dataTransfer.setData('text/plain', draggableItem.dataset.mapId);
+                        e.dataTransfer.effectAllowed = 'copy';
+                    }
+                });
+            }
+
+            if (canvasContainer) {
+                canvasContainer.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                });
+
+                canvasContainer.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const mapId = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    if (!isNaN(mapId)) {
+                        loadPixelMapState(mapId);
+                    }
+                });
+            }
+
             const collapseToggles = document.querySelectorAll('.collapse-header');
 
 
@@ -1998,6 +2032,96 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
                 renderSavedCanvases();
             };
+
+            const renderPixelMapSentGallery = () => {
+                const gallery = document.getElementById('pixelMapSentGallery');
+                const countEl = document.getElementById('pixelMapSentCount');
+                if (!gallery || !countEl) return;
+
+                gallery.innerHTML = ''; // Clear existing
+
+                if (state.storedPixelMaps.length === 0) {
+                    gallery.innerHTML = '<div class="text-muted p-3 text-center" style="width:100%;">Screens you send to CanvasMap will appear here.</div>';
+                    countEl.textContent = '0 items';
+                    return;
+                }
+
+                countEl.textContent = `${state.storedPixelMaps.length} item${state.storedPixelMaps.length > 1 ? 's' : ''}`;
+
+                state.storedPixelMaps.forEach(map => {
+                    const item = document.createElement('div');
+                    item.className = 'sent-item';
+                    item.dataset.mapId = map.id;
+                    item.title = `Click or drag to load "${map.filename}" for editing`;
+                    item.draggable = true;
+
+                    const img = document.createElement('img');
+                    img.src = map.dataUrl;
+                    img.alt = map.filename;
+
+                    const title = document.createElement('div');
+                    title.className = 'sent-title';
+                    title.textContent = map.filename;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'sent-meta';
+                    meta.textContent = `${map.details.resWidth}x${map.details.resHeight}`;
+
+                    item.appendChild(img);
+                    item.appendChild(title);
+                    item.appendChild(meta);
+                    gallery.appendChild(item);
+                });
+            };
+
+            const loadPixelMapState = (mapId) => {
+                const mapData = state.storedPixelMaps.find(m => m.id === mapId);
+                if (!mapData) {
+                    showToast('Could not find the selected screen data.', 'danger');
+                    return;
+                }
+
+                const mapDetailsToState = (details) => {
+                    if (!details) return {};
+                    return {
+                        unit: details.unit,
+                        screenWidth: details.actualWidth,
+                        screenHeight: details.actualHeight,
+                        panelsInWidth: details.panelsWidth,
+                        panelsInHeight: details.panelsHeight,
+                        panelResWidth: details.panelRes ? parseInt(details.panelRes.split('x')[0], 10) : 128,
+                        panelResHeight: details.panelRes ? parseInt(details.panelRes.split('x')[1], 10) : 128,
+                        totalResWidth: details.resWidth,
+                        totalResHeight: details.resHeight,
+                        panelWidth: details.panelSize ? parseFloat(details.panelSize.split('x')[0]) : 0.5,
+                        panelHeight: details.panelSize ? parseFloat(details.panelSize.split('x')[1]) : 0.5,
+                    };
+                };
+
+                const stateUpdates = {
+                    ...mapData, 
+                    ...mapDetailsToState(mapData.details),
+                    removedPanels: new Set(mapData.removedPanels || []),
+                };
+
+                Object.keys(stateUpdates).forEach(key => {
+                    if (Object.prototype.hasOwnProperty.call(state, key) && key !== 'id') {
+                         state[key] = stateUpdates[key];
+                    }
+                });
+
+                updateUIFromState();
+                updatePixelMap();
+
+                const gallery = document.getElementById('pixelMapSentGallery');
+                if (gallery) {
+                    Array.from(gallery.children).forEach(child => {
+                        child.classList.toggle('active', parseInt(child.dataset.mapId, 10) === mapId);
+                    });
+                }
+                
+                showToast(`Loaded screen: "${mapData.filename}"`, 'info');
+            };
             
             /**
              * Duplicates a saved canvas state.
@@ -2967,10 +3091,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         unit: state.unit,
                         panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
                         panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
-                    }
+                    },
+                    // Store the full pixelmap state for later editing
+                    ...JSON.parse(JSON.stringify(state))
                 };
                 state.storedPixelMaps.push(mapObject);
                 renderImportedMapsGallery(); // Update gallery in CanvasMap tab
+                renderPixelMapSentGallery(); // Update gallery in PixelMap tab
 
                 // Switch to CanvasMap tab
                 const canvasTabTrigger = new bootstrap.Tab(document.getElementById('canvasmap-tab'));
