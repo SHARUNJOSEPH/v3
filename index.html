@@ -1649,7 +1649,7 @@
                         <div class="row g-4">
                             <div class="col-12 col-md-2">
                                 <div class="card p-3 h-100">
-                                    <div class="d-flex flex-column gap-3">
+                                    <div id="pdfFieldsContainer" class="d-flex flex-column gap-3">
                                         <div>
                                             <label for="mediaServerSelect" class="form-label fw-bold">Media Server</label>
                                             <select id="mediaServerSelect" class="form-select">
@@ -2360,6 +2360,8 @@
                                 try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = 'none'; } catch { }
                             }
                         }
+                        // Reorder fields to make read-write inputs come first for MediaPro
+                        reorderPdfFieldsForMediaPro();
                     } catch { }
                 };
             const outlineColorInput = document.getElementById('outlineColorInput');
@@ -2791,6 +2793,46 @@
                     } catch { }
                 };
 
+                // Reorder PDF fields so MediaPro-managed read-only fields are pushed to the bottom for easier data entry
+                const reorderPdfFieldsForMediaPro = () => {
+                    try {
+                        const container = document.getElementById('pdfFieldsContainer');
+                        if (!container) return;
+                        const company = state.pdfCompany || (getStoredProfile()?.company) || '';
+                        const isMP = isMediaPro(company);
+
+                        // Identify field blocks (the wrapping div for each input)
+                        const blockFor = (inputEl) => inputEl ? inputEl.closest('div') : null;
+                        const blocks = {
+                            company: blockFor(document.getElementById('pdfCompanyInput')),
+                            drawnBy: blockFor(document.getElementById('pdfDrawnByInput')),
+                            email: blockFor(document.getElementById('pdfEmailInput')),
+                        };
+
+                        // Capture initial order once for possible restoration
+                        if (!container.__initialChildren) {
+                            container.__initialChildren = Array.from(container.children);
+                        }
+
+                        if (isMP) {
+                            // Move managed fields to the end, preserving their relative order
+                            ['company', 'drawnBy', 'email'].forEach(key => {
+                                const node = blocks[key];
+                                if (node && container.contains(node)) {
+                                    container.appendChild(node);
+                                }
+                            });
+                        } else if (Array.isArray(container.__initialChildren) && container.__initialChildren.length) {
+                            // Restore original order when not MediaPro
+                            container.__initialChildren.forEach(child => {
+                                if (container.contains(child)) {
+                                    container.appendChild(child);
+                                }
+                            });
+                        }
+                    } catch { }
+                };
+
                 // Track whether the PDF Settings tab is currently active
                 let __pdfTabActive = false;
 
@@ -2945,6 +2987,8 @@
                             try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = 'none'; } catch { }
                         }
                     }
+                    // Reorder after initial lock evaluation
+                    reorderPdfFieldsForMediaPro();
                 } catch { }
                 updateColorPreviews();
 
@@ -3074,6 +3118,8 @@
                         try { const hint = document.getElementById('pdfEmailHint'); if (hint) hint.style.display = 'none'; } catch { }
                     }
                 }
+                // Ensure ordering reflects current policy
+                reorderPdfFieldsForMediaPro();
                 rulerToggle.textContent = state.canvasMapRulerEnabled ? 'On' : 'Off';
                 rulerContainer.classList.toggle('rulers-on', state.canvasMapRulerEnabled);
                 rulerPositionToggle.textContent = state.canvasMapRulerPosition === 'outside' ? 'Outside' : 'Inside';
@@ -5619,7 +5665,7 @@
                 toUpperLive(pdfProjectNameInput, (v) => { state.pdfProjectName = v; markDirtyAndSchedule(); });
                 if (pdfJobNoInput) toUpperLive(pdfJobNoInput, (v) => { state.pdfJobNo = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfVenueInput, (v) => { state.pdfVenue = v; markDirtyAndSchedule(); });
-                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; enforceCompanyLogoPolicy(); ensureDefaultLogoForCompany(); markDirtyAndSchedule(); });
+                if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; enforceCompanyLogoPolicy(); ensureDefaultLogoForCompany(); reorderPdfFieldsForMediaPro(); markDirtyAndSchedule(); });
                 toUpperLive(pdfDrawnByInput, (v) => { state.pdfDrawnBy = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfSalesInput, (v) => { state.pdfSales = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfClientInput, (v) => { state.pdfClient = v; markDirtyAndSchedule(); });
