@@ -824,10 +824,12 @@
                             <label for="profileEmailInput" class="form-label fw-bold">Email</label>
                             <input id="profileEmailInput" type="email" class="form-control readonly" placeholder="name@example.com" readonly
                                 aria-readonly="true" title="Email is managed by your account">
+                            <div id="profileEmailHint" class="settings-hint mt-1">Managed by your account</div>
                         </div>
                         <div class="col-md-6">
                             <label for="profileCompanyInput" class="form-label fw-bold">Company</label>
                             <input id="profileCompanyInput" type="text" class="form-control" placeholder="Company name">
+                            <div id="profileCompanyHint" class="settings-hint mt-1" style="display:none;">Locked to MediaPro by company policy</div>
                         </div>
                         <div class="col-md-6">
                             <label for="profileTitleInput" class="form-label fw-bold">Title/Role</label>
@@ -1676,10 +1678,12 @@
                                         <div>
                                             <label for="pdfCompanyInput" class="form-label fw-bold">Company</label>
                                             <input type="text" id="pdfCompanyInput" class="form-control" placeholder="e.g., Company Name">
+                                            <div id="pdfCompanyHint" class="settings-hint mt-1" style="display:none;">Managed by your company</div>
                                             </div>
                                             <div>
                                             <label for="pdfDrawnByInput" class="form-label fw-bold">Drawn By</label>
                                             <input type="text" id="pdfDrawnByInput" class="form-control" placeholder="e.g., John Doe">
+                                            <div id="pdfDrawnByHint" class="settings-hint mt-1" style="display:none;">Managed by your company</div>
                                         </div>
                                         <div>
                                             <label for="pdfSalesInput" class="form-label fw-bold">Sales</label>
@@ -1696,6 +1700,7 @@
                                         <div>
                                             <label for="pdfEmailInput" class="form-label fw-bold">Validation Email</label>
                                             <input type="email" id="pdfEmailInput" class="form-control" placeholder="Enter E Mail">
+                                            <div id="pdfEmailHint" class="settings-hint mt-1" style="display:none;">Managed by your company</div>
                                         </div>
                                         <div>
                                             <label for="pdfIncludeCanvasSnapshotToggle" class="form-label fw-bold">Include OutPut Map</label>
@@ -2209,6 +2214,10 @@
                     // If we have an authed email, reflect it
                     const authed = getAuthedEmailSafe();
                     if (authed) profileEmailInput.value = authed;
+                    try {
+                        const hint = document.getElementById('profileEmailHint');
+                        if (hint) hint.style.display = '';
+                    } catch { }
                 };
 
                 const enforceCompanyField = () => {
@@ -2219,9 +2228,11 @@
                         profileCompanyInput.value = 'MediaPro';
                         profileCompanyInput.setAttribute('readonly', 'true');
                         profileCompanyInput.classList.add('readonly');
+                        try { const hint = document.getElementById('profileCompanyHint'); if (hint) hint.style.display = ''; } catch { }
                     } else {
                         profileCompanyInput.removeAttribute('readonly');
                         profileCompanyInput.classList.remove('readonly');
+                        try { const hint = document.getElementById('profileCompanyHint'); if (hint) hint.style.display = 'none'; } catch { }
                     }
                 };
 
@@ -2266,6 +2277,11 @@
                 enforceEmailReadonly();
                 enforceCompanyField();
                 if (typeof enforcePdfCompanyLock === 'function') enforcePdfCompanyLock();
+                try {
+                    // Show account managed hint when we have an authenticated user
+                    const emailHint = document.getElementById('profileEmailHint');
+                    if (emailHint) emailHint.style.display = '';
+                } catch { }
                 // If Drawn By not set, default from profile name
                 try {
                     if (!state.pdfDrawnBy && merged.name) {
@@ -2283,9 +2299,13 @@
                     if (isMP) {
                         if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); pdfDrawnByInput.title = 'Managed by your company'; }
                         if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); pdfEmailInput.title = 'Managed by your company'; }
+                        try { const h1 = document.getElementById('pdfDrawnByHint'); if (h1) h1.style.display = ''; } catch { }
+                        try { const h2 = document.getElementById('pdfEmailHint'); if (h2) h2.style.display = ''; } catch { }
                     } else {
                         if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); pdfDrawnByInput.removeAttribute('title'); }
                         if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); pdfEmailInput.removeAttribute('title'); }
+                        try { const h1 = document.getElementById('pdfDrawnByHint'); if (h1) h1.style.display = 'none'; } catch { }
+                        try { const h2 = document.getElementById('pdfEmailHint'); if (h2) h2.style.display = 'none'; } catch { }
                     }
                 } catch { }
             };
@@ -2327,8 +2347,18 @@
                         const prof = getStoredProfile();
                         const isMP = isMediaPro((prof?.company || state.pdfCompany || ''));
                         if (pdfCompanyInput) {
-                            if (isMP) { pdfCompanyInput.value = 'MEDIAPRO'; pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); pdfCompanyInput.title = 'Managed by your company'; }
-                            else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); pdfCompanyInput.removeAttribute('title'); }
+                            if (isMP) {
+                                pdfCompanyInput.value = 'MEDIAPRO';
+                                pdfCompanyInput.setAttribute('readonly', 'true');
+                                pdfCompanyInput.classList.add('readonly');
+                                pdfCompanyInput.title = 'Managed by your company';
+                                try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = ''; } catch { }
+                            } else {
+                                pdfCompanyInput.removeAttribute('readonly');
+                                pdfCompanyInput.classList.remove('readonly');
+                                pdfCompanyInput.removeAttribute('title');
+                                try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = 'none'; } catch { }
+                            }
                         }
                     } catch { }
                 };
@@ -2585,6 +2615,17 @@
                     } catch (e) { reject(e); }
                 });
 
+                // Helper: add a timeout to a promise to avoid long hangs
+                const withTimeout = (promise, ms, label = 'operation') => {
+                    let timer;
+                    return Promise.race([
+                        promise,
+                        new Promise((_, reject) => {
+                            timer = setTimeout(() => reject(new Error(label + ' timeout')), ms);
+                        })
+                    ]).finally(() => clearTimeout(timer));
+                };
+
                 // Helper: fetch an image URL and return a PNG data URL via canvas (fallback to original data URL)
                 const fetchToPngDataUrl = async (url) => {
                     const res = await fetch(url, { mode: 'cors' });
@@ -2659,22 +2700,49 @@
                             tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
                         };
 
-                        // 2) Prefer cloud asset if available
-                        if (!window.__IS_DEMO__ && window.firebase?.storage) {
-                            const tryStorage = (path, onFail) => {
+                        // 2) Try fast local files first to avoid network delays
+                        // If these fail, then try cloud with a short timeout
+                        const tryLocalFirstThenCloud = () => {
+                            const onLocalFail = () => {
+                                // 3) Try cloud asset with a short timeout, then give up
+                                if (!window.__IS_DEMO__ && window.firebase?.storage) {
+                                    const tryStorage = (path, onFail) => {
+                                        try {
+                                            const ref = firebase.storage().ref(path);
+                                            withTimeout(ref.getDownloadURL(), 2000, 'storage URL')
+                                                .then((url) => withTimeout(fetchToPngDataUrl(url), 2500, 'logo fetch')
+                                                    .then(resolve)
+                                                    .catch(onFail))
+                                                .catch(() => onFail());
+                                        } catch (e) { onFail(e); }
+                                    };
+                                    tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
+                                } else {
+                                    reject(new Error('Could not load MediaPro logo'));
+                                }
+                            };
+                            // Local PNG then WEBP
+                            const tryLocal = (src, onFail) => {
                                 try {
-                                    const ref = firebase.storage().ref(path);
-                                    ref.getDownloadURL()
-                                        .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
-                                        .catch(() => onFail());
+                                    const img = new Image();
+                                    img.onload = () => {
+                                        try {
+                                            const c = document.createElement('canvas');
+                                            c.width = img.naturalWidth || img.width;
+                                            c.height = img.naturalHeight || img.height;
+                                            const ictx = c.getContext('2d', { alpha: true });
+                                            ictx.drawImage(img, 0, 0);
+                                            resolve(c.toDataURL('image/png'));
+                                        } catch (e) { onFail(e); }
+                                    };
+                                    img.onerror = () => onFail(new Error('Local image failed to load: ' + src));
+                                    img.src = src;
                                 } catch (e) { onFail(e); }
                             };
-                            tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
-                            return; // Handlers will resolve or fallback
-                        }
+                            tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', onLocalFail));
+                        };
 
-                        // 3) If cloud unavailable, use local files
-                        fallbackLocal();
+                        tryLocalFirstThenCloud();
                     } catch (e) { reject(e); }
                 });
 
@@ -2725,6 +2793,20 @@
 
                 // Track whether the PDF Settings tab is currently active
                 let __pdfTabActive = false;
+
+                // Early default logo set to avoid any visible delay on first load
+                try {
+                    const profEarly = getStoredProfile();
+                    if (!state.pdfCompany && profEarly?.company) state.pdfCompany = String(profEarly.company);
+                    if (isMediaPro(state.pdfCompany) || isMediaPro(profEarly?.company)) {
+                        const saved = localStorage.getItem('mediaproDefaultLogoDataUrl');
+                        if (saved && saved.startsWith('data:image/')) {
+                            state.logoDataUrl = saved;
+                        } else if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
+                            state.logoDataUrl = `data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`;
+                        }
+                    }
+                } catch { }
 
                 // Debounced scheduler to regenerate the PDF preview when appropriate
                 const schedulePdfPreview = debounce(() => {
@@ -2851,8 +2933,17 @@
                     if (pdfCompanyInput) {
                         pdfCompanyInput.value = state.pdfCompany || '';
                         const isMP = isMediaPro((prof?.company || state.pdfCompany || '').trim());
-                        if (isMP) { pdfCompanyInput.setAttribute('readonly', 'true'); pdfCompanyInput.classList.add('readonly'); pdfCompanyInput.title = 'Managed by your company'; }
-                        else { pdfCompanyInput.removeAttribute('readonly'); pdfCompanyInput.classList.remove('readonly'); pdfCompanyInput.removeAttribute('title'); }
+                        if (isMP) {
+                            pdfCompanyInput.setAttribute('readonly', 'true');
+                            pdfCompanyInput.classList.add('readonly');
+                            pdfCompanyInput.title = 'Managed by your company';
+                            try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = ''; } catch { }
+                        } else {
+                            pdfCompanyInput.removeAttribute('readonly');
+                            pdfCompanyInput.classList.remove('readonly');
+                            pdfCompanyInput.removeAttribute('title');
+                            try { const hint = document.getElementById('pdfCompanyHint'); if (hint) hint.style.display = 'none'; } catch { }
+                        }
                     }
                 } catch { }
                 updateColorPreviews();
@@ -2957,11 +3048,31 @@
                 // Lock Drawn By and Validation Email when company is MediaPro
                 const lockPdfPersonal = isMediaPro((prof?.company || state.pdfCompany || '').trim());
                 if (lockPdfPersonal) {
-                    if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); pdfDrawnByInput.title = 'Managed by your company'; }
-                    if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); pdfEmailInput.title = 'Managed by your company'; }
+                    if (pdfDrawnByInput) {
+                        pdfDrawnByInput.setAttribute('readonly', 'true');
+                        pdfDrawnByInput.classList.add('readonly');
+                        pdfDrawnByInput.title = 'Managed by your company';
+                        try { const hint = document.getElementById('pdfDrawnByHint'); if (hint) hint.style.display = ''; } catch { }
+                    }
+                    if (pdfEmailInput) {
+                        pdfEmailInput.setAttribute('readonly', 'true');
+                        pdfEmailInput.classList.add('readonly');
+                        pdfEmailInput.title = 'Managed by your company';
+                        try { const hint = document.getElementById('pdfEmailHint'); if (hint) hint.style.display = ''; } catch { }
+                    }
                 } else {
-                    if (pdfDrawnByInput) { pdfDrawnByInput.removeAttribute('readonly'); pdfDrawnByInput.classList.remove('readonly'); pdfDrawnByInput.removeAttribute('title'); }
-                    if (pdfEmailInput) { pdfEmailInput.removeAttribute('readonly'); pdfEmailInput.classList.remove('readonly'); pdfEmailInput.removeAttribute('title'); }
+                    if (pdfDrawnByInput) {
+                        pdfDrawnByInput.removeAttribute('readonly');
+                        pdfDrawnByInput.classList.remove('readonly');
+                        pdfDrawnByInput.removeAttribute('title');
+                        try { const hint = document.getElementById('pdfDrawnByHint'); if (hint) hint.style.display = 'none'; } catch { }
+                    }
+                    if (pdfEmailInput) {
+                        pdfEmailInput.removeAttribute('readonly');
+                        pdfEmailInput.classList.remove('readonly');
+                        pdfEmailInput.removeAttribute('title');
+                        try { const hint = document.getElementById('pdfEmailHint'); if (hint) hint.style.display = 'none'; } catch { }
+                    }
                 }
                 rulerToggle.textContent = state.canvasMapRulerEnabled ? 'On' : 'Off';
                 rulerContainer.classList.toggle('rulers-on', state.canvasMapRulerEnabled);
