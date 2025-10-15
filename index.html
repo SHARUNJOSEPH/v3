@@ -637,6 +637,37 @@
     /* More specific hook for CanvasMap disabled state if needed */
     #canvasmap-tab.disabled-tab { opacity: 0.5; pointer-events: none; }
 
+        /* Bottom gallery for PixelMap sent screens */
+        .sent-gallery {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 6px 8px;
+            border: 1px dashed var(--border-color);
+            border-radius: 0.5rem;
+            background: var(--input-bg);
+            min-height: 90px;
+        }
+        .sent-item {
+            flex: 0 0 auto;
+            width: 140px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 6px;
+            cursor: pointer;
+            transition: transform .1s ease, box-shadow .15s ease;
+        }
+        .sent-item:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); }
+        .sent-item.active { outline: 2px solid var(--accent-color); }
+        .sent-item img { width: 100%; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; }
+        .sent-item .sent-title { font-size: .75rem; text-align: center; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .sent-item .sent-meta { font-size: .68rem; color: var(--secondary-text-color); }
+
         /* Glass blur backdrop for Login modal */
         .modal-backdrop.login-blur {
             backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
@@ -1163,8 +1194,8 @@
                                                 </div>
                                             </div>
                                             <hr class="my-2" style="border-color: var(--border-color);">
-                                            <button id="saveProjectBtnModal" class="btn btn-primary w-100">Save Project</button>
-                                            <button id="loadProjectBtnModal" class="btn btn-primary w-100 mt-2">Load Project</button>
+                                            <button id="saveProjectBtnModal" class="btn btn-primary w-100">Save led </button>
+                                            <button id="loadProjectBtnModal" class="btn btn-primary w-100 mt-2">Load led</button>
                                             <input type="file" id="loadProjectInputModal" class="d-none" accept=".pixl,application/json">
                                             <button id="resetAllBtnModal" class="btn btn-secondary w-100 mt-3">Reset All</button>
                                         </div>
@@ -1485,6 +1516,25 @@
                                     </div>
                                     
                                 </div>
+                                </div>
+                                </div>
+                                <!-- Bottom: Screens sent to CanvasMap gallery -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="card p-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                                <h6 class="m-0">Screens sent to CanvasMap list</h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <small class="text-muted" id="pixelMapSentCount">0 items</small>
+                                                    <button class="btn btn-secondary btn-sm" id="saveSentListBtn"
+                                                        title="Download this list as JSON">Save list</button>
+                                                    <button class="btn btn-secondary btn-sm" id="loadSentListBtn" title="Load a saved list (JSON)">Load
+                                                        list</button>
+                                                    <input type="file" id="loadSentListInput" class="d-none" accept=".json,application/json">
+                                                </div>
+                                            </div>
+                                            <div id="pixelMapSentGallery" class="sent-gallery"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1513,7 +1563,7 @@
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <label class="form-label fw-bold">Imported PixelMap</label>
+                                                    <label class="form-label fw-bold">Imported PixelMap List</label>
                                                     <div id="importedMapsGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
                                                 </div>
                                                  <hr style="border-color: var(--border-color);">
@@ -2044,6 +2094,9 @@
                 grayscaleEnabled: false,
                 importedPixelMap: null, // This will now hold the currently displayed map, not the stored ones
                 zoomLevel: 1,
+                // Bottom gallery selection
+                sentActiveId: null,
+                sentScreens: [],
                 
                 // Store panel dimensions for snapping
                 panelPxWidth: 0,
@@ -3134,6 +3187,8 @@
                 coordinatesToggle.textContent = state.canvasMapShowCoordinates ? 'On' : 'Off';
                 // pdfEmailInput.value set above
                 updateObjectPropertiesPanel();
+                // Keep the PixelMap bottom gallery in sync with state
+                if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery();
             };
 
             /**
@@ -3239,11 +3294,12 @@
                 state.removedPanels.clear();
                 state.hoveredPanelCoords = null;
 
-                // Update UI from the reset state
+                // Update UI from the reset state (sentScreens stay persisted)
                 updateUIFromState();
                 
                 // Re-render everything
                 renderImportedMapsGallery();
+                if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery();
                 renderSavedCanvases();
                 updatePixelMap();
                 updateCanvasMap();
@@ -4171,6 +4227,11 @@
             /**
              * Renders the gallery of stored pixel maps in the CanvasMap tab.
              */
+                // Persistence for Stored/Sent maps (single source of truth)
+                const STORED_MAPS_KEY = 'pixelMap.storedMaps.v1';
+                const saveStoredMaps = () => { try { localStorage.setItem(STORED_MAPS_KEY, JSON.stringify(state.storedPixelMaps || [])); } catch { } };
+                const loadStoredMaps = () => { try { const raw = localStorage.getItem(STORED_MAPS_KEY); state.storedPixelMaps = raw ? JSON.parse(raw) : []; } catch { state.storedPixelMaps = []; } };
+
             const renderImportedMapsGallery = () => {
                 importedMapsGallery.innerHTML = ''; // Clear existing gallery
 
@@ -4186,6 +4247,7 @@
                     mapItem.dataset.mapId = map.id; // Store map ID for drag-and-drop
 
                     const img = document.createElement('img');
+                    if (!map.dataUrl) { return; }
                     img.src = map.dataUrl;
                     img.alt = map.filename;
 
@@ -4242,6 +4304,9 @@
                                         obj.filename = newName;
                                     }
                                 });
+                                // Persist and sync bottom list
+                                try { if (typeof saveStoredMaps === 'function') saveStoredMaps(); } catch { }
+                                try { if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery(); } catch { }
                             }
                             filenameLabel.textContent = newName;
                         }
@@ -4263,12 +4328,257 @@
                         // Remove from canvas objects
                         state.canvasMapObjects = state.canvasMapObjects.filter(obj => obj.sourceId !== map.id);
                         
+                        // Persist and sync both lists
+                        try { if (typeof saveStoredMaps === 'function') saveStoredMaps(); } catch { }
                         renderImportedMapsGallery();
+                        try { if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery(); } catch { }
                         redrawCanvasMapObjects();
                     });
                 });
-            };
-            
+                };
+
+                // --- PixelMap Sent Bottom Gallery ---
+                const renderPixelMapSentGallery = () => {
+                    const gallery = document.getElementById('pixelMapSentGallery');
+                    const countEl = document.getElementById('pixelMapSentCount');
+                    if (!gallery) return;
+                    gallery.innerHTML = '';
+
+                    const items = state.storedPixelMaps || [];
+                    if (countEl) countEl.textContent = `${items.length} ${items.length === 1 ? 'item' : 'items'}`;
+                    if (items.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-muted small px-1';
+                        empty.textContent = 'No screens sent yet. Click "Send to CanvasMap" to add.';
+                        gallery.appendChild(empty);
+                        return;
+                    }
+
+                    items.forEach(map => {
+                        const item = document.createElement('div');
+                        item.className = 'sent-item' + (state.sentActiveId === map.id ? ' active' : '');
+                        item.title = 'Double-click to edit';
+                        item.setAttribute('data-bs-toggle', 'tooltip');
+                        item.setAttribute('data-bs-placement', 'top');
+
+                        const img = document.createElement('img');
+                        img.src = map.thumbnailUrl || '';
+                        img.alt = map.filename || 'LED screen';
+                        item.appendChild(img);
+
+                        const title = document.createElement('div');
+                        title.className = 'title';
+                        title.textContent = map.filename || 'Untitled';
+                        item.appendChild(title);
+
+                        const meta = document.createElement('div');
+                        meta.className = 'meta';
+                        const res = map?.details?.resWidth && map?.details?.resHeight
+                            ? `${map.details.resWidth}×${map.details.resHeight}px`
+                            : '';
+                        const panels = map?.details?.panelsWidth && map?.details?.panelsHeight
+                            ? `${map.details.panelsWidth}×${map.details.panelsHeight} panels`
+                            : '';
+                        meta.textContent = [res, panels].filter(Boolean).join(' · ');
+                        item.appendChild(meta);
+
+                        // Actions row: Rename / Delete
+                        const actions = document.createElement('div');
+                        actions.className = 'd-flex gap-1 mt-1';
+                        const renameBtn = document.createElement('button');
+                        renameBtn.className = 'btn btn-secondary btn-sm';
+                        renameBtn.textContent = 'Rename';
+                        renameBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const current = map.filename || '';
+                            const newName = prompt('Rename screen', current);
+                            if (newName && newName.trim()) {
+                                map.filename = newName.trim();
+                                try { state.canvasMapObjects.forEach(obj => { if (obj.sourceId === map.id) obj.filename = map.filename; }); } catch { }
+                                saveStoredMaps();
+                                renderPixelMapSentGallery();
+                                renderImportedMapsGallery();
+                            }
+                        });
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-danger btn-sm';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete this saved screen from the list? This will not remove it from the CanvasMap.')) {
+                                state.storedPixelMaps = (state.storedPixelMaps || []).filter(s => s.id !== map.id);
+                                state.canvasMapObjects = (state.canvasMapObjects || []).filter(obj => obj.sourceId !== map.id);
+                                saveStoredMaps();
+                                renderPixelMapSentGallery();
+                                renderImportedMapsGallery();
+                                redrawCanvasMapObjects();
+                            }
+                        });
+                        actions.appendChild(renameBtn);
+                        actions.appendChild(deleteBtn);
+                        item.appendChild(actions);
+
+                        item.addEventListener('click', () => {
+                            state.sentActiveId = map.id;
+                            // Toggle active state visually
+                            gallery.querySelectorAll('.sent-item').forEach(el => el.classList.remove('active'));
+                            item.classList.add('active');
+                        });
+                        item.addEventListener('dblclick', () => {
+                            loadSentMapForEdit(map);
+                        });
+
+                        gallery.appendChild(item);
+                        try { bootstrap.Tooltip.getOrCreateInstance(item); } catch { }
+                    });
+                };
+
+                // Save/Load list actions (bottom gallery)
+                const saveSentListBtn = document.getElementById('saveSentListBtn');
+                const loadSentListBtn = document.getElementById('loadSentListBtn');
+                const loadSentListInput = document.getElementById('loadSentListInput');
+                if (saveSentListBtn) {
+                    saveSentListBtn.addEventListener('click', () => {
+                        try {
+                            const data = JSON.stringify(state.storedPixelMaps || [], null, 2);
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'screens_list.json';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        } catch (e) { console.warn('Save list failed:', e); }
+                    });
+                }
+                if (loadSentListBtn && loadSentListInput) {
+                    loadSentListBtn.addEventListener('click', () => loadSentListInput.click());
+                    loadSentListInput.addEventListener('change', (e) => {
+                        const file = e.target.files && e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            try {
+                                const parsed = JSON.parse(reader.result);
+                                if (!Array.isArray(parsed)) throw new Error('Invalid list format');
+                                // Basic shape clean-up: ensure required keys
+                                state.storedPixelMaps = parsed.filter(x => x && typeof x === 'object' && x.id && (x.dataUrl || x.thumbnailUrl));
+                                saveStoredMaps?.();
+                                renderImportedMapsGallery();
+                                renderPixelMapSentGallery();
+                                redrawCanvasMapObjects();
+                                showToast('Loaded screens list.', 'success');
+                            } catch (err) {
+                                console.error('Load list failed:', err);
+                                showMessageBox('Failed to load list. Ensure it is a JSON array exported from this app.');
+                            }
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                    });
+                }
+
+                const loadSentMapForEdit = (map) => {
+                    let snap = map?.pixelMapState;
+                    if (!snap) {
+                        // Fallback reconstruction for older items without snapshot
+                        const d = map?.details || {};
+                        const pw = Math.max(1, parseInt(d.panelsWidth || 0, 10) || 0);
+                        const ph = Math.max(1, parseInt(d.panelsHeight || 0, 10) || 0);
+                        const rw = parseInt(d.resWidth || 0, 10) || 0;
+                        const rh = parseInt(d.resHeight || 0, 10) || 0;
+                        const prw = (pw > 0 && rw > 0) ? Math.max(1, Math.round(rw / pw)) : state.panelResWidth;
+                        const prh = (ph > 0 && rh > 0) ? Math.max(1, Math.round(rh / ph)) : state.panelResHeight;
+                        if (!pw || !ph) {
+                            showMessageBox('This item has no editable snapshot. Please resend it once from PixelMap to enable editing.');
+                            return;
+                        }
+                        snap = {
+                            unit: state.unit,
+                            isPanelCountMode: true,
+                            panelsInWidth: pw,
+                            panelsInHeight: ph,
+                            panelResWidth: prw,
+                            panelResHeight: prh,
+                            // Keep current visual settings as defaults
+                            panelWidth: state.panelWidth,
+                            panelHeight: state.panelHeight,
+                            screenWidth: state.screenWidth,
+                            screenHeight: state.screenHeight,
+                            color1: state.color1,
+                            color2: state.color2,
+                            isColor2Brighter: state.isColor2Brighter,
+                            outlineEnabled: state.outlineEnabled,
+                            outlineColor: state.outlineColor,
+                            outlineSize: state.outlineSize,
+                            rasterEnabled: state.rasterEnabled,
+                            rasterColor: state.rasterColor,
+                            rasterSize: state.rasterSize,
+                            circleEffectEnabled: state.circleEffectEnabled,
+                            circleEffectColor: state.circleEffectColor,
+                            circleEffectSize: state.circleEffectSize,
+                            circleEffectThickness: state.circleEffectThickness,
+                            crossLineEffectEnabled: state.crossLineEffectEnabled,
+                            crossLineColor: state.crossLineColor,
+                            crossLineSize: state.crossLineSize,
+                            numberingEnabled: state.numberingEnabled,
+                            numberingFormat: state.numberingFormat,
+                            numberingPosition: state.numberingPosition,
+                            numberingSize: state.numberingSize,
+                            numberingColor: state.numberingColor,
+                            customTextEnabled: state.customTextEnabled,
+                            customText: state.customText,
+                            customTextSize: state.customTextSize,
+                            customTextColor: state.customTextColor,
+                            customTextBgEnabled: state.customTextBgEnabled,
+                            customTextBgColor: state.customTextBgColor,
+                            customTextBgOpacity: state.customTextBgOpacity,
+                            specificationEnabled: state.specificationEnabled,
+                            specificationColor: state.specificationColor,
+                            specificationSize: state.specificationSize,
+                            specificationX: state.specificationX,
+                            specificationY: state.specificationY,
+                            specificationFormat: state.specificationFormat,
+                            specificationBgEnabled: state.specificationBgEnabled,
+                            specificationBgColor: state.specificationBgColor,
+                            oneLineText: state.oneLineText,
+                            removedPanels: []
+                        };
+                    }
+                    // Apply snapshot to current state
+                    const assignIfDefined = (k) => { if (snap[k] !== undefined) state[k] = snap[k]; };
+                    [
+                        'unit', 'screenWidth', 'screenHeight', 'isPanelCountMode', 'panelsInWidth', 'panelsInHeight',
+                        'panelWidth', 'panelHeight', 'panelResWidth', 'panelResHeight',
+                        'color1', 'color2', 'isColor2Brighter',
+                        'outlineEnabled', 'outlineColor', 'outlineSize',
+                        'rasterEnabled', 'rasterColor', 'rasterSize',
+                        'circleEffectEnabled', 'circleEffectColor', 'circleEffectSize', 'circleEffectThickness',
+                        'crossLineEffectEnabled', 'crossLineColor', 'crossLineSize',
+                        'numberingEnabled', 'numberingFormat', 'numberingPosition', 'numberingSize', 'numberingColor',
+                        'customTextEnabled', 'customText', 'customTextSize', 'customTextColor',
+                        'customTextBgEnabled', 'customTextBgColor', 'customTextBgOpacity',
+                        'specificationEnabled', 'specificationColor', 'specificationSize', 'specificationX', 'specificationY', 'specificationFormat',
+                        'specificationBgEnabled', 'specificationBgColor', 'oneLineText'
+                    ].forEach(assignIfDefined);
+                    // Restore removed panels set
+                    try { state.removedPanels = new Set(Array.isArray(snap.removedPanels) ? snap.removedPanels : []); } catch { state.removedPanels = new Set(); }
+
+                    // Reset some derived/manual flags sensibly
+                    state.circleEffectSizeManuallySet = true;
+                    state.customTextSizeManuallySet = true;
+                    state.customTextPositionManuallySet = true;
+                    state.specificationSizeManuallySet = true;
+                    state.specificationPositionManuallySet = true;
+
+                    // Sync UI and redraw
+                    updateUIFromState();
+                    updatePixelMap();
+                    showToast(`Loaded "${map.filename || 'screen'}" for editing.`, 'success');
+                };
+                
             // --- Saved Canvas Functions ---
             
             /**
@@ -5460,7 +5770,15 @@
                 state.selectionRect = currentSelection;
                 redrawDrawingOverlay();
 
+                // Full-resolution image for CanvasMap and a small thumbnail for the gallery
                 const dataUrl = combinedCanvas.toDataURL('image/png');
+                const thumbCanvas = document.createElement('canvas');
+                const maxThumbW = 200;
+                const scaleThumb = Math.min(1, maxThumbW / combinedCanvas.width);
+                thumbCanvas.width = Math.max(1, Math.round(combinedCanvas.width * scaleThumb));
+                thumbCanvas.height = Math.max(1, Math.round(combinedCanvas.height * scaleThumb));
+                thumbCanvas.getContext('2d', { alpha: true }).drawImage(combinedCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                const thumbUrl = thumbCanvas.toDataURL('image/png');
                 const filename = (state.customTextEnabled && state.customText.trim() !== '') ? state.customText.trim() : `${state.totalResWidth}x${state.totalResHeight}px`;
                 
                 let numPanelsWidth, numPanelsHeight;
@@ -5501,10 +5819,64 @@
                         unit: state.unit,
                         panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
                         panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
-                    }
+                    },
+                    // PixelMap snapshot to restore editable settings later
+                    pixelMapState: {
+                        unit: state.unit,
+                        screenWidth: state.screenWidth,
+                        screenHeight: state.screenHeight,
+                        isPanelCountMode: state.isPanelCountMode,
+                        panelsInWidth: state.panelsInWidth,
+                        panelsInHeight: state.panelsInHeight,
+                        panelWidth: state.panelWidth,
+                        panelHeight: state.panelHeight,
+                        panelResWidth: state.panelResWidth,
+                        panelResHeight: state.panelResHeight,
+                        color1: state.color1,
+                        color2: state.color2,
+                        isColor2Brighter: state.isColor2Brighter,
+                        outlineEnabled: state.outlineEnabled,
+                        outlineColor: state.outlineColor,
+                        outlineSize: state.outlineSize,
+                        rasterEnabled: state.rasterEnabled,
+                        rasterColor: state.rasterColor,
+                        rasterSize: state.rasterSize,
+                        circleEffectEnabled: state.circleEffectEnabled,
+                        circleEffectColor: state.circleEffectColor,
+                        circleEffectSize: state.circleEffectSize,
+                        circleEffectThickness: state.circleEffectThickness,
+                        crossLineEffectEnabled: state.crossLineEffectEnabled,
+                        crossLineColor: state.crossLineColor,
+                        crossLineSize: state.crossLineSize,
+                        numberingEnabled: state.numberingEnabled,
+                        numberingFormat: state.numberingFormat,
+                        numberingPosition: state.numberingPosition,
+                        numberingSize: state.numberingSize,
+                        numberingColor: state.numberingColor,
+                        customTextEnabled: state.customTextEnabled,
+                        customText: state.customText,
+                        customTextSize: state.customTextSize,
+                        customTextColor: state.customTextColor,
+                        customTextBgEnabled: state.customTextBgEnabled,
+                        customTextBgColor: state.customTextBgColor,
+                        customTextBgOpacity: state.customTextBgOpacity,
+                        specificationEnabled: state.specificationEnabled,
+                        specificationColor: state.specificationColor,
+                        specificationSize: state.specificationSize,
+                        specificationX: state.specificationX,
+                        specificationY: state.specificationY,
+                        specificationFormat: state.specificationFormat,
+                        specificationBgEnabled: state.specificationBgEnabled,
+                        specificationBgColor: state.specificationBgColor,
+                        oneLineText: state.oneLineText,
+                        removedPanels: Array.from(state.removedPanels || []),
+                    },
+                    thumbnailUrl: thumbUrl,
                 };
                 state.storedPixelMaps.push(mapObject);
+                saveStoredMaps();
                 renderImportedMapsGallery(); // Update gallery in CanvasMap tab
+                renderPixelMapSentGallery(); // Update bottom gallery
 
                 // Switch to CanvasMap tab
                 const canvasTabTrigger = new bootstrap.Tab(document.getElementById('canvasmap-tab'));
@@ -7839,6 +8211,8 @@
 
             // Initialize UI with current state
             updateUIFromState();
+                try { if (typeof loadSentScreens === 'function') loadSentScreens(); } catch { }
+                try { if (typeof loadStoredMaps === 'function') loadStoredMaps(); } catch { }
 
             // PDF preview is generated lazily when the PDF tab is opened.
 
