@@ -1333,6 +1333,11 @@
                                                         <label for="numberingFormat" class="form-label">Format</label>
                                                         <select id="numberingFormat" class="form-select">
                                                             <option value="1,1">1,1</option>
+                                                    <div class="mt-3 d-flex gap-2 flex-wrap">
+                                                        <button id="setDefaultMediaproLogoBtn" type="button" class="btn btn-secondary btn-sm">Set as default for
+                                                            MediaPro</button>
+                                                        <small class="settings-hint">Saves the current logo in your browser so MediaPro users get it automatically.</small>
+                                                    </div>
                                                             <option value="1,A">1,A</option>
                                                             <option value="1,2,3,4">1,2,3,4</option>
                                                         </select>
@@ -2615,18 +2620,27 @@
                     }
                     state.pdfPreviewDirty = true; schedulePdfPreview();
                 };
-
                 const loadMediaProLogoAsPngDataUrl = () => new Promise((resolve, reject) => {
-                    if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
-                        resolve(`data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`);
-                        return;
-                    }
                     try {
+                        // 0) User-saved default in localStorage (persisted via UI button)
+                        try {
+                            const saved = localStorage.getItem('mediaproDefaultLogoDataUrl');
+                            if (saved && saved.startsWith('data:image/')) {
+                                resolve(saved);
+                                return;
+                            }
+                        } catch { }
+
+                        // 1) Embedded base64 constant (if provided)
+                        if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
+                            resolve(`data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`);
+                            return;
+                        }
+
                         const fallbackLocal = () => {
                             const tryLocal = (src, onFail) => {
                                 try {
                                     const img = new Image();
-                                    // Note: crossOrigin not needed for same-origin/local file loads
                                     img.onload = () => {
                                         try {
                                             const c = document.createElement('canvas');
@@ -2634,8 +2648,7 @@
                                             c.height = img.naturalHeight || img.height;
                                             const ictx = c.getContext('2d', { alpha: true });
                                             ictx.drawImage(img, 0, 0);
-                                            const dataUrl = c.toDataURL('image/png'); // normalize to PNG for jsPDF
-                                            resolve(dataUrl);
+                                            resolve(c.toDataURL('image/png'));
                                         } catch (e) { onFail(e); }
                                     };
                                     img.onerror = () => onFail(new Error('Local image failed to load: ' + src));
@@ -2646,70 +2659,21 @@
                             tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
                         };
 
-                        // Prefer cloud asset if available
-                        if (!window.__IS_DEMO__ && firebase?.storage) {
-                            try {
-                                const tryStorage = (path, onFail) => {
+                        // 2) Prefer cloud asset if available
+                        if (!window.__IS_DEMO__ && window.firebase?.storage) {
+                            const tryStorage = (path, onFail) => {
+                                try {
                                     const ref = firebase.storage().ref(path);
                                     ref.getDownloadURL()
                                         .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
                                         .catch(() => onFail());
-                                };
-                                // Try PNG firs                                const loadMediaProLogoAsPngDataUrl = () => new Promise((resolve, reject) => {
-                                    if (MEDIAPRO_LOGO_BASE64 && MEDIAPRO_LOGO_BASE64.length > 100) {
-                                        resolve(`data:image/png;base64,${MEDIAPRO_LOGO_BASE64}`);
-                                        return;
-                                    }
-                                    try {
-                                        const fallbackLocal = () => {
-                                            const tryLocal = (src, onFail) => {
-                                                try {
-                                                    const img = new Image();
-                                                    // Note: crossOrigin not needed for same-origin/local file loads
-                                                    img.onload = () => {
-                                                        try {
-                                                            const c = document.createElement('canvas');
-                                                            c.width = img.naturalWidth || img.width;
-                                                            c.height = img.naturalHeight || img.height;
-                                                            const ictx = c.getContext('2d', { alpha: true });
-                                                            ictx.drawImage(img, 0, 0);
-                                                            const dataUrl = c.toDataURL('image/png'); // normalize to PNG for jsPDF
-                                                            resolve(dataUrl);
-                                                        } catch (e) { onFail(e); }
-                                                    };
-                                                    img.onerror = () => onFail(new Error('Local image failed to load: ' + src));
-                                                    img.src = src;
-                                                } catch (e) { onFail(e); }
-                                            };
-                                            // Prefer PNG, then WEBP
-                                            tryLocal('./mediapro-logo.png', () => tryLocal('./mediapro-logo.webp', () => reject(new Error('Could not load MediaPro logo'))));
-                                        };
-                                
-                                        // Prefer cloud asset if available
-                                        if (!window.__IS_DEMO__ && firebase?.storage) {
-                                            try {
-                                                const tryStorage = (path, onFail) => {
-                                                    const ref = firebase.storage().ref(path);
-                                                    ref.getDownloadURL()
-                                                        .then((url) => fetchToPngDataUrl(url).then(resolve).catch(onFail))
-                                                        .catch(() => onFail());
-                                                };
-                                                // Try PNG first, then WEBP
-                                                tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
-                                                return; // attempt made; handlers will resolve or fallback
-                                            } catch { /* fall through to local */ }
-                                        }
-                                
-                                        // If cloud unavailable, try local fallback immediately
-                                        fallbackLocal();
-                                    } catch (e) { reject(e); }
-                                });t, then WEBP
-                                tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
-                                return; // attempt made; handlers will resolve or fallback
-                            } catch { /* fall through to local */ }
+                                } catch (e) { onFail(e); }
+                            };
+                            tryStorage('branding/mediapro/logo.png', () => tryStorage('branding/mediapro/logo.webp', () => fallbackLocal()));
+                            return; // Handlers will resolve or fallback
                         }
 
-                        // If cloud unavailable, try local fallback immediately
+                        // 3) If cloud unavailable, use local files
                         fallbackLocal();
                     } catch (e) { reject(e); }
                 });
@@ -5563,6 +5527,17 @@
                     reader.readAsDataURL(file);
                 }
             });
+                const setDefaultMediaproLogoBtn = document.getElementById('setDefaultMediaproLogoBtn');
+                if (setDefaultMediaproLogoBtn) {
+                    setDefaultMediaproLogoBtn.addEventListener('click', () => {
+                        if (state.logoDataUrl && state.logoDataUrl.startsWith('data:image')) {
+                            try { localStorage.setItem('mediaproDefaultLogoDataUrl', state.logoDataUrl); showToast('Saved default MediaPro logo', 'success'); }
+                            catch { showToast('Failed to save default logo', 'danger'); }
+                        } else {
+                            showToast('No logo to save. Upload, URL, or paste base64 first.', 'warning');
+                        }
+                    });
+                }
                 if (logoUrlInput) {
                     logoUrlInput.addEventListener('change', async (e) => {
                         const url = (e.target.value || '').trim();
