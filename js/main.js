@@ -2111,7 +2111,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 updateUIFromState();
-                updatePixelMap();
+                setTimeout(() => {
+                    updatePixelMap();
+                    window.dispatchEvent(new Event('resize'));
+                }, 50);
 
                 const gallery = document.getElementById('pixelMapSentGallery');
                 if (gallery) {
@@ -3069,17 +3072,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const mapObject = {
-                    id: Date.now(), // Unique ID
+                    id: Date.now(),
                     type: 'image',
                     dataUrl: dataUrl,
                     filename: filename,
-                    x: 0, // Default position
-                    y: 0, // Default position
                     width: state.totalResWidth,
                     height: state.totalResHeight,
-                    rotation: 0,
-                    selected: false,
-                    image: null, // Image object will be loaded on render
                     details: {
                         totalPanels: numPanelsWidth * numPanelsHeight,
                         panelsWidth: numPanelsWidth,
@@ -3092,8 +3090,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
                         panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
                     },
-                    // Store the full pixelmap state for later editing
-                    ...JSON.parse(JSON.stringify(state))
+                    savedState: JSON.parse(JSON.stringify(state))
                 };
                 state.storedPixelMaps.push(mapObject);
                 renderImportedMapsGallery(); // Update gallery in CanvasMap tab
