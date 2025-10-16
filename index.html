@@ -1984,6 +1984,9 @@
                                             <button id="pdfRefreshPreviewBtn" class="btn btn-outline-secondary" title="Refresh PDF Preview">
                                                 Refresh
                                             </button>
+                                            <button id="pdfLitePreviewToggle" class="btn btn-outline-secondary" title="Toggle lite preview">
+                                                Lite Preview: On
+                                            </button>
                                             <div id="pdfPreviewStatus" class="text-muted small d-none">
                                                 <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                                                 Generating preview…
@@ -2442,6 +2445,7 @@
                 pdfPreviewDirty: true,
                 pdfPreviewReady: false,
                 lastPdfPreviewUrl: null,
+                pdfPreviewLite: true, // Lite preview mode: faster rendering
                 
                 // Panel removal state
                 removedPanels: new Set(), // Store coordinates of removed panels as a Set of "row,col" strings
@@ -2845,6 +2849,7 @@
             const exportCanvasXmlBtn = document.getElementById('exportCanvasXmlBtn');
             // PDF Preview
             const generatePdfPreviewBtn = document.getElementById('generatePdfPreviewBtn');
+                const pdfLitePreviewToggle = document.getElementById('pdfLitePreviewToggle');
 
             // Object Properties Panel
             const noObjectSelectedMessage = document.getElementById('noObjectSelectedMessage');
@@ -7395,37 +7400,38 @@
                     });
                 }
 
-                const imgData = obj.dataUrl;
-                 try {
-                    const imgProps = doc.getImageProperties(imgData);
-                    
-                    const rightColumnX = pageWidth - 138;
-                    const availableX = 10;
-                    const availableY = 10;
-                    const availableWidth = rightColumnX - 15;
-                    const availableHeight = detailsBoxY - 15;
-
-                    const aspectRatio = imgProps.width / imgProps.height;
-                    
-                    let imgWidth = availableWidth;
-                    let imgHeight = imgWidth / aspectRatio;
-
-                    if (imgHeight > availableHeight) {
-                        imgHeight = availableHeight;
-                        imgWidth = imgHeight * aspectRatio;
+                // Center image or draw a lightweight placeholder in lite mode
+                const rightColumnX = pageWidth - 138;
+                const availableX = 10;
+                const availableY = 10;
+                const availableWidth = rightColumnX - 15;
+                const availableHeight = detailsBoxY - 15;
+                if (state.pdfPreviewLite) {
+                    // Draw a subtle placeholder box to keep preview light
+                    doc.setDrawColor(200);
+                    doc.setFillColor(245, 245, 245);
+                    doc.rect(availableX + 6, availableY + 6, availableWidth - 12, availableHeight - 12, 'FD');
+                    doc.setTextColor(140);
+                    doc.setFontSize(18);
+                    doc.text('Lite Preview', availableX + availableWidth / 2, availableY + availableHeight / 2, { align: 'center' });
+                    doc.setTextColor(0);
+                } else {
+                    const imgData = obj.dataUrl;
+                    try {
+                        const imgProps = doc.getImageProperties(imgData);
+                        const aspectRatio = imgProps.width / imgProps.height;
+                        let imgWidth = availableWidth;
+                        let imgHeight = imgWidth / aspectRatio;
+                        if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                        // Apply an extra scale-down for performance in normal preview too
+                        imgWidth *= 0.7; imgHeight *= 0.7;
+                        const imgX = availableX + (availableWidth - imgWidth) / 2;
+                        const imgY = availableY + (availableHeight - imgHeight) / 2;
+                        doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                    } catch (e) {
+                        console.error('Could not add PixelMap image to PDF', e);
                     }
-                    
-                    imgWidth *= 0.7;
-                    imgHeight *= 0.7;
-
-                    const imgX = availableX + (availableWidth - imgWidth) / 2;
-                    const imgY = availableY + (availableHeight - imgHeight) / 2;
-
-                    doc.addImage(imgData, 'PNG', imgX, imgY, imgWidth, imgHeight);
-
-                 } catch(e) {
-                     console.error("Could not add PixelMap image to PDF", e);
-                 }
+                }
             };
 
             const exportDetailedCanvasPdf = () => {
@@ -8018,6 +8024,19 @@
                 const pdfCanvasSelectionCount = document.getElementById('pdfCanvasSelectionCount');
                 const pdfCanvasFilterInput = document.getElementById('pdfCanvasFilter');
 
+                // Lite preview toggle wiring
+                if (pdfLitePreviewToggle) {
+                    const reflectLite = () => {
+                        pdfLitePreviewToggle.textContent = `Lite Preview: ${state.pdfPreviewLite ? 'On' : 'Off'}`;
+                    };
+                    reflectLite();
+                    pdfLitePreviewToggle.addEventListener('click', () => {
+                        state.pdfPreviewLite = !state.pdfPreviewLite;
+                        reflectLite();
+                        state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                    });
+                }
+
                 // Track selected canvases for PDF (default: all saved)
                 if (!Array.isArray(state.pdfSelectedCanvasIds)) state.pdfSelectedCanvasIds = [];
                 const ensureSelectedDefaults = () => {
@@ -8190,6 +8209,7 @@
             if (!Array.isArray(state.canvasMapObjects)) state.canvasMapObjects = [];
             if (!Array.isArray(state.savedCanvases)) state.savedCanvases = [];
             const useSaved = state.savedCanvases.length > 0; // prefer saved canvases for preview
+            const lite = !!state.pdfPreviewLite;
             // Filter saved by selection if available
             let selectedSaved = [];
             if (useSaved) {
@@ -8197,6 +8217,12 @@
                     const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
                     selectedSaved = (sel.size > 0) ? state.savedCanvases.filter(c => sel.has(String(c.id))) : state.savedCanvases.slice();
                 } catch { selectedSaved = state.savedCanvases.slice(); }
+            }
+            // In lite preview, cap number of canvases to speed generation
+            const MAX_LITE_CANVASES = 3;
+            const MAX_LITE_SCREENS_PER_CANVAS = 2;
+            if (lite && useSaved) {
+                selectedSaved = selectedSaved.slice(0, MAX_LITE_CANVASES);
             }
             const hasObjects = useSaved ? selectedSaved.length > 0 : state.canvasMapObjects.length > 0;
 
@@ -8213,8 +8239,8 @@
             // Yield to the browser to render the spinner before heavy work
             setTimeout(() => {
             try {
-                // Smaller/faster PDF for preview (export uses A0)
-                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+                // Smaller/faster PDF for preview (export uses A0). Lite uses A4 for speed.
+                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: lite ? 'a4' : 'a3' });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -8228,11 +8254,13 @@
                             : Array.from({ length: selectedSaved.length }, (_, i) => i);
                         order.forEach((ordIdx) => {
                             const savedCanvas = selectedSaved[ordIdx];
-                            totalPages += (savedCanvas.objects || []).length;
+                            const objs = savedCanvas.objects || [];
+                            const countObjs = lite ? Math.min(objs.length, MAX_LITE_SCREENS_PER_CANVAS) : objs.length;
+                            totalPages += countObjs;
                             if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // per-canvas map page if enabled
                         });
                     } else {
-                        totalPages += state.canvasMapObjects.length;
+                        totalPages += lite ? Math.min(state.canvasMapObjects.length, MAX_LITE_SCREENS_PER_CANVAS) : state.canvasMapObjects.length;
                         if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // single map page when not using saved canvases
                     }
 
@@ -8243,7 +8271,8 @@
                             : Array.from({ length: selectedSaved.length }, (_, i) => i);
                         order.forEach((ordIdx, blockIdx) => {
                             const savedCanvas = selectedSaved[ordIdx];
-                            const objs = savedCanvas.objects || [];
+                            const objsAll = savedCanvas.objects || [];
+                            const objs = lite ? objsAll.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : objsAll;
                             objs.forEach((obj, i) => {
                                 if (pageCounter > 1) doc.addPage();
                                 drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
@@ -8269,7 +8298,7 @@
                                     } catch { }
                                 });
                                 // Synchronous best effort: add immediately (images may be pending but this is preview)
-                                const scale = Math.min(1, 800 / Math.max(tempCanvas.width, tempCanvas.height));
+                                const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
                                 const previewCanvas = document.createElement('canvas');
                                 previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
                                 previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
@@ -8292,7 +8321,9 @@
                         });
                     } else {
                         // Fallback: current canvas objects
-                        state.canvasMapObjects.forEach((obj, index) => {
+                        const objsAll = state.canvasMapObjects || [];
+                        const objs = lite ? objsAll.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : objsAll;
+                        objs.forEach((obj, index) => {
                             if (pageCounter > 1) doc.addPage();
                             drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
                             pageCounter++;
@@ -8322,6 +8353,13 @@
                 // Final spec page
                 drawMediaServerSpecPage(doc, totalPages);
 
+                // In lite mode, hint what is being shown
+                try {
+                    if (lite) {
+                        const hint = 'Lite preview: reduced pages and placeholder images for speed';
+                        showPdfToast?.(hint);
+                    }
+                } catch { }
                 // Generate PDF blob and display via object URL for better reliability
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
