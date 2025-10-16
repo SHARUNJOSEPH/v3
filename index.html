@@ -666,7 +666,23 @@
             align-items: flex-start;
             padding-bottom: 28px; /* space for horizontal scrollbar so buttons are not covered */
             scrollbar-gutter: stable; /* reserve space for scrollbar in supporting browsers */
+            position: relative;
         }
+        /* Subtle scroll shadows */
+        .sent-gallery::before,
+        .sent-gallery::after {
+            content: '';
+            position: sticky;
+            top: 0;
+            bottom: 0;
+            width: 18px;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .sent-gallery::before { left: 0; background: linear-gradient(90deg, var(--card-bg), transparent); opacity: 0; transition: opacity .2s; }
+        .sent-gallery::after { right: 0; background: linear-gradient(270deg, var(--card-bg), transparent); opacity: 0; transition: opacity .2s; }
+        .sent-gallery.has-left-shadow::before { opacity: .6; }
+        .sent-gallery.has-right-shadow::after { opacity: .6; }
         .sent-item {
             flex: 0 0 auto;
             width: 260px; /* increased width so buttons fit comfortably */
@@ -687,16 +703,20 @@
         .sent-item .sent-actions { margin-top: auto; }
         .sent-item:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); }
         .sent-item.active { outline: 2px solid var(--accent-color); }
-    .sent-item img { width: 100%; height: 60px; object-fit: contain; border-radius: 4px; background: #fff; }
+    .sent-thumb { position: relative; background: #fff; border-radius: 6px; padding: 6px; }
+    .sent-thumb img { width: 100%; height: 60px; object-fit: contain; display: block; }
+    .sent-badges { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+    .badge-chip { font-size: .65rem; padding: 2px 6px; border-radius: 10px; background: rgba(0,0,0,.65); color: #fff; backdrop-filter: saturate(150%) blur(2px); }
     .sent-item .sent-title { font-size: .8rem; text-align: center; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
     .sent-item .sent-meta { font-size: .7rem; color: var(--secondary-text-color); text-align: center; }
     .sent-item .sent-actions { display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%; margin-bottom: 2px; }
     .sent-item .sent-actions .btn { padding: .25rem .5rem; font-size: .75rem; width: 100%; }
     .sent-item .sent-actions .btn-primary { grid-column: 1 / -1; }
     /* Actions layout to prevent overlap */
-    .sent-item .sent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+    .sent-item .sent-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; width: 100%; }
     .sent-item .sent-actions .btn { padding: .2rem .45rem; font-size: .75rem; }
     .sent-item .sent-actions .btn-primary { grid-column: 1 / -1; }
+    .sent-item .btn-success { --bs-btn-bg: #16a34a; --bs-btn-border-color: #16a34a; }
 
         /* Glass blur backdrop for Login modal */
         .modal-backdrop.login-blur {
@@ -1552,14 +1572,27 @@
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <div class="card p-2">
-                                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-                                                <h6 class="m-0">Screens sent to CanvasMap list</h6>
+                                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 px-1">
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <small class="text-muted" id="pixelMapSentCount">0 items</small>
-                                                    <button class="btn btn-secondary btn-sm" id="saveSentListBtn"
-                                                        title="Download this list as JSON">Save list</button>
-                                                    <button class="btn btn-secondary btn-sm" id="loadSentListBtn" title="Load a saved list (JSON)">Load
-                                                        list</button>
+                                                    <h6 class="m-0">Screens sent to CanvasMap list</h6>
+                                                    <span class="badge text-bg-secondary" id="pixelMapSentCount">0 items</span>
+                                                    </div>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                                        <div class="input-group input-group-sm" style="width: 220px;">
+                                                            <span class="input-group-text">Search</span>
+                                                            <input type="text" id="sentSearchInput" class="form-control" placeholder="name or size...">
+                                                        </div>
+                                                        <div class="input-group input-group-sm" style="width: 220px;">
+                                                            <span class="input-group-text">Sort</span>
+                                                            <select id="sentSortSelect" class="form-select">
+                                                                <option value="recent">Most recent</option>
+                                                                <option value="name">Name</option>
+                                                                <option value="res">Resolution</option>
+                                                            </select>
+                                                        </div>
+                                                        <button class="btn btn-outline-danger btn-sm" id="clearSentListBtn" title="Remove all from list">Clear all</button>
+                                                        <button class="btn btn-secondary btn-sm" id="saveSentListBtn" title="Download this list as JSON">Save list</button>
+                                                        <button class="btn btn-secondary btn-sm" id="loadSentListBtn" title="Load a saved list (JSON)">Load list</button>
                                                     <input type="file" id="loadSentListInput" class="d-none" accept=".json,application/json">
                                                 </div>
                                             </div>
@@ -3151,11 +3184,9 @@
                     const toDark = '#000000';
                     if (isDark) {
                         if (asHex(state.customTextColor) === '#000000') state.customTextColor = toLight;
-                        if (asHex(state.numberingColor) === '#000000') state.numberingColor = toLight;
                         if (asHex(state.specificationColor) === '#000000') state.specificationColor = toLight;
                     } else {
                         if (asHex(state.customTextColor) === '#ffffff') state.customTextColor = toDark;
-                        if (asHex(state.numberingColor) === '#ffffff') state.numberingColor = toDark;
                         // Specification text is often overlayed; switch back only if it was pure white
                         if (asHex(state.specificationColor) === '#ffffff') state.specificationColor = toDark;
                     }
@@ -4406,6 +4437,9 @@
                 const STORED_MAPS_KEY = 'pixelMap.storedMaps.v1';
                 const saveStoredMaps = () => { try { localStorage.setItem(STORED_MAPS_KEY, JSON.stringify(state.storedPixelMaps || [])); } catch { } };
                 const loadStoredMaps = () => { try { const raw = localStorage.getItem(STORED_MAPS_KEY); state.storedPixelMaps = raw ? JSON.parse(raw) : []; } catch { state.storedPixelMaps = []; } };
+                // UX: list filter/sort state
+                if (state.sentSearchQuery === undefined) state.sentSearchQuery = '';
+                if (state.sentSortBy === undefined) state.sentSortBy = 'recent';
 
             const renderImportedMapsGallery = () => {
                 importedMapsGallery.innerHTML = ''; // Clear existing gallery
@@ -4528,7 +4562,32 @@
                     gallery.innerHTML = '';
 
                     const items = state.storedPixelMaps || [];
-                    if (countEl) countEl.textContent = `${items.length} ${items.length === 1 ? 'item' : 'items'}`;
+                    const searchQ = (state.sentSearchQuery || '').trim().toLowerCase();
+                    let shown = items.filter(m => {
+                        if (!searchQ) return true;
+                        const name = (m.filename || '').toLowerCase();
+                        const res = m?.details ? `${m.details.resWidth}x${m.details.resHeight}` : '';
+                        const panels = m?.details ? `${m.details.panelsWidth}x${m.details.panelsHeight}` : '';
+                        return name.includes(searchQ) || res.includes(searchQ) || panels.includes(searchQ);
+                    });
+                    switch (state.sentSortBy) {
+                        case 'name':
+                            shown.sort((a, b) => (a.filename || '').localeCompare(b.filename || ''));
+                            break;
+                        case 'res':
+                            shown.sort((a, b) => ((b?.details?.resWidth || 0) * (b?.details?.resHeight || 0)) - ((a?.details?.resWidth || 0) * (a?.details?.resHeight || 0)));
+                            break;
+                        default:
+                            // recent by id (timestamp)
+                            shown.sort((a, b) => (b.id || 0) - (a.id || 0));
+                    }
+
+                    if (countEl) {
+                        const total = items.length;
+                        const text = searchQ ? `${shown.length} shown · ${total} total` : `${total} ${total === 1 ? 'item' : 'items'}`;
+                        countEl.textContent = text;
+                        countEl.classList.add('badge');
+                    }
                     if (items.length === 0) {
                         const empty = document.createElement('div');
                         empty.className = 'text-muted small px-1';
@@ -4537,7 +4596,7 @@
                         return;
                     }
 
-                    items.forEach(map => {
+                    shown.forEach(map => {
                         const item = document.createElement('div');
                         item.className = 'sent-item' + (state.sentActiveId === map.id ? ' active' : '');
                         item.draggable = true;
@@ -4546,18 +4605,35 @@
                         item.setAttribute('data-bs-toggle', 'tooltip');
                         item.setAttribute('data-bs-placement', 'top');
 
+                        // Thumbnail + badges
+                        const thumbWrap = document.createElement('div');
+                        thumbWrap.className = 'sent-thumb';
                         const img = document.createElement('img');
                         img.src = map.thumbnailUrl || '';
                         img.alt = map.filename || 'LED screen';
-                        item.appendChild(img);
+                        thumbWrap.appendChild(img);
+                        const badgeWrap = document.createElement('div');
+                        badgeWrap.className = 'sent-badges';
+                        const resBadge = document.createElement('span');
+                        const resTxt = (map?.details?.resWidth && map?.details?.resHeight) ? `${map.details.resWidth}×${map.details.resHeight}` : '';
+                        resBadge.className = 'badge-chip';
+                        if (resTxt) resBadge.textContent = resTxt;
+                        const pnlBadge = document.createElement('span');
+                        const pnlTxt = (map?.details?.panelsWidth && map?.details?.panelsHeight) ? `${map.details.panelsWidth}×${map.details.panelsHeight}` : '';
+                        pnlBadge.className = 'badge-chip';
+                        if (pnlTxt) pnlBadge.textContent = pnlTxt;
+                        if (resTxt) badgeWrap.appendChild(resBadge);
+                        if (pnlTxt) badgeWrap.appendChild(pnlBadge);
+                        thumbWrap.appendChild(badgeWrap);
+                        item.appendChild(thumbWrap);
 
                         const title = document.createElement('div');
-                        title.className = 'title';
+                        title.className = 'sent-title';
                         title.textContent = map.filename || 'Untitled';
                         item.appendChild(title);
 
                         const meta = document.createElement('div');
-                        meta.className = 'meta';
+                        meta.className = 'sent-meta';
                         const res = map?.details?.resWidth && map?.details?.resHeight
                             ? `${map.details.resWidth}×${map.details.resHeight}px`
                             : '';
@@ -4569,7 +4645,7 @@
 
                         // Actions row: Load / Save / Rename / Delete
                         const actions = document.createElement('div');
-                        actions.className = 'd-flex gap-1 mt-1';
+                        actions.className = 'sent-actions mt-1';
                         const loadBtn = document.createElement('button');
                         loadBtn.className = 'btn btn-primary btn-sm';
                         loadBtn.textContent = 'Load';
@@ -4836,6 +4912,59 @@
                         e.target.value = '';
                     });
                 }
+
+                // --- UX controls for Sent gallery ---
+                const sentSearchInput = document.getElementById('sentSearchInput');
+                const sentSortSelect = document.getElementById('sentSortSelect');
+                const clearSentListBtn = document.getElementById('clearSentListBtn');
+                if (sentSearchInput) {
+                    sentSearchInput.value = state.sentSearchQuery || '';
+                    sentSearchInput.addEventListener('input', (e) => {
+                        state.sentSearchQuery = e.target.value;
+                        renderPixelMapSentGallery();
+                    });
+                }
+                if (sentSortSelect) {
+                    sentSortSelect.value = state.sentSortBy || 'recent';
+                    sentSortSelect.addEventListener('change', (e) => {
+                        state.sentSortBy = e.target.value;
+                        renderPixelMapSentGallery();
+                    });
+                }
+                if (clearSentListBtn) {
+                    clearSentListBtn.addEventListener('click', async () => {
+                        const ok = await showConfirm({
+                            title: 'Clear all saved screens?',
+                            text: 'This removes all items from the list. CanvasMap objects already placed are not affected.',
+                            okText: 'Clear all',
+                            cancelText: 'Cancel',
+                            okVariant: 'danger'
+                        });
+                        if (!ok) return;
+                        state.storedPixelMaps = [];
+                        saveStoredMaps?.();
+                        renderImportedMapsGallery();
+                        renderPixelMapSentGallery();
+                        redrawCanvasMapObjects();
+                    });
+                }
+
+                // Scroll shadows on the horizontal gallery
+                const attachScrollShadows = () => {
+                    const g = document.getElementById('pixelMapSentGallery');
+                    if (!g) return;
+                    const updateShadows = () => {
+                        const left = g.scrollLeft > 0;
+                        const right = Math.ceil(g.scrollLeft + g.clientWidth) < g.scrollWidth;
+                        g.classList.toggle('has-left-shadow', left);
+                        g.classList.toggle('has-right-shadow', right);
+                    };
+                    g.addEventListener('scroll', updateShadows);
+                    const ro = new ResizeObserver(updateShadows);
+                    try { ro.observe(g); } catch { }
+                    updateShadows();
+                };
+                attachScrollShadows();
 
                 const loadSentMapForEdit = (map) => {
                     let snap = map?.pixelMapState;
