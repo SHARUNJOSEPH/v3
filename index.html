@@ -4437,6 +4437,26 @@
                 const STORED_MAPS_KEY = 'pixelMap.storedMaps.v1';
                 const saveStoredMaps = () => { try { localStorage.setItem(STORED_MAPS_KEY, JSON.stringify(state.storedPixelMaps || [])); } catch { } };
                 const loadStoredMaps = () => { try { const raw = localStorage.getItem(STORED_MAPS_KEY); state.storedPixelMaps = raw ? JSON.parse(raw) : []; } catch { state.storedPixelMaps = []; } };
+                // Persistence for Saved Canvases
+                const SAVED_CANVASES_KEY = 'canvasMap.savedCanvases.v1';
+                const saveSavedCanvases = () => {
+                    try {
+                        localStorage.setItem(SAVED_CANVASES_KEY, JSON.stringify(state.savedCanvases || []));
+                    } catch (e) {
+                        console.warn('Saving savedCanvases failed:', e);
+                        try { showToast('Could not persist saved canvases (storage full?).', 'danger'); } catch { }
+                    }
+                };
+                const loadSavedCanvases = () => {
+                    try {
+                        const raw = localStorage.getItem(SAVED_CANVASES_KEY);
+                        const parsed = raw ? JSON.parse(raw) : [];
+                        state.savedCanvases = Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        console.warn('Loading savedCanvases failed:', e);
+                        state.savedCanvases = [];
+                    }
+                };
                 // UX: list filter/sort state
                 if (state.sentSearchQuery === undefined) state.sentSearchQuery = '';
                 if (state.sentSortBy === undefined) state.sentSortBy = 'recent';
@@ -5150,6 +5170,7 @@
                         }
                         renameInput.style.display = 'none';
                         nameLabel.style.display = 'block';
+                        try { saveSavedCanvases?.(); } catch { }
                     };
                     
                     renameInput.addEventListener('blur', finishRename);
@@ -5210,6 +5231,7 @@
              */
             const deleteSavedCanvas = (canvasId) => {
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
+                try { saveSavedCanvases?.(); } catch { }
                 renderSavedCanvases();
             };
             
@@ -5233,6 +5255,7 @@
                 state.customText = duplicated.name;
                 renderSavedCanvases();
                 updateCanvasMap();
+                try { saveSavedCanvases?.(); } catch { }
                 showMessageBox(`Duplicated canvas: "${duplicated.name}"`);
             };
             
@@ -8564,6 +8587,7 @@
                 state.currentCanvasId = newSavedCanvas.id;
                 state.customText = name; // Set custom text to the canvas name
                 renderSavedCanvases(); // Update the UI to show the new saved canvas
+                try { saveSavedCanvases?.(); } catch { }
 
                 // Clear the current CanvasMap workspace for the next design
                 state.canvasMapObjects = [];
@@ -8671,6 +8695,10 @@
             const hasSavedCanvases = () => Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
             setPdfSettingsEnabled(hasSavedCanvases());
 
+                // Load persisted data
+                try { if (typeof loadSavedCanvases === 'function') loadSavedCanvases(); } catch { }
+                try { if (typeof loadStoredMaps === 'function') loadStoredMaps(); } catch { }
+
             // Initial renders
             updatePixelMap();
             updateCanvasMap();
@@ -8706,7 +8734,6 @@
             // Initialize UI with current state
             updateUIFromState();
                 try { if (typeof loadSentScreens === 'function') loadSentScreens(); } catch { }
-                try { if (typeof loadStoredMaps === 'function') loadStoredMaps(); } catch { }
 
             // PDF preview is generated lazily when the PDF tab is opened.
 
