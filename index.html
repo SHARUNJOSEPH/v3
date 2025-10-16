@@ -212,6 +212,14 @@
         #pixelMapCanvas {
             z-index: 1; /* Base layer */
         }
+        /* Accordion polish for right-side menus */
+        .collapse-header { display: flex; justify-content: space-between; align-items: center; transition: background-color 0.2s ease; }
+        .collapse-header .toggle-icon { display: inline-block; transition: transform 160ms ease; }
+        .collapse-header[aria-expanded="true"] { background: rgba(13,110,253,0.06); }
+        .collapse-header[aria-expanded="true"] .toggle-icon { transform: rotate(45deg) scale(1.05); }
+    /* Subtle fade when a section opens (Bootstrap handles height) */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .collapse.show { animation: fadeIn 180ms ease; }
         /* Drop highlight for PixelMap canvas container */
         #canvasContainer.drop-target {
             outline: 2px dashed var(--accent-color, #0d6efd);
@@ -1237,12 +1245,12 @@
 
                             <div class="col-12 col-md-2">
                                 <div class="card p-3 h-100">
-                                    <div class="right-menu-card-body">
+                                    <div class="right-menu-card-body" id="pixelmapRightAccordion">
                                         <button class="collapse-header" type="button" data-bs-toggle="collapse" data-bs-target="#effectsMenuCollapse" aria-expanded="false" aria-controls="effectsMenuCollapse">
                                             Effects Menu
                                             <span class="toggle-icon">+</span>
                                         </button>
-                                        <div class="collapse" id="effectsMenuCollapse">
+                                        <div class="collapse" id="effectsMenuCollapse" data-bs-parent="#pixelmapRightAccordion">
                                             <div class="d-flex flex-column gap-3">
                                                 <div>
                                                     <label class="form-label fw-bold">Outline Effects</label>
@@ -1326,7 +1334,7 @@
                                             Color Settings
                                             <span class="toggle-icon">+</span>
                                         </button>
-                                        <div class="collapse" id="colorSettingsCollapse">
+                                        <div class="collapse" id="colorSettingsCollapse" data-bs-parent="#pixelmapRightAccordion">
                                             <div class="d-flex flex-column gap-3">
                                                 <div>
                                                     <label class="form-label fw-bold">Color 1 (Odd rows/panels)</label>
@@ -1363,44 +1371,9 @@
                                             Text & Numbering Settings
                                             <span class="toggle-icon">+</span>
                                         </button>
-                                        <div class="collapse" id="textNumberingCollapse">
+                                        <div class="collapse" id="textNumberingCollapse" data-bs-parent="#pixelmapRightAccordion">
                                             <div class="d-flex flex-column gap-3">
-                                                <div>
-                                                    <label class="form-label fw-bold">Panel Numbering</label>
-                                                    <button id="numberingToggle" class="btn btn-secondary w-100 mb-2">Off</button>
-                                                    <div class="mb-2">
-                                                        <label for="numberingFormat" class="form-label">Format</label>
-                                                        <select id="numberingFormat" class="form-select">
-                                                            <option value="1,1">1,1</option>
-                                                    <div class="mt-3 d-flex gap-2 flex-wrap">
-                                                        <button id="setDefaultMediaproLogoBtn" type="button" class="btn btn-secondary btn-sm">Set as default for
-                                                            MediaPro</button>
-                                                        <small class="settings-hint">Saves the current logo in your browser so MediaPro users get it automatically.</small>
-                                                    </div>
-                                                            <option value="1,A">1,A</option>
-                                                            <option value="1,2,3,4">1,2,3,4</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="mb-2">
-                                                        <label for="numberingPosition" class="form-label">Position</label>
-                                                        <select id="numberingPosition" class="form-select">
-                                                            <option value="top-left" selected>Top Left</option>
-                                                            <option value="center">Center</option>
-                                                            <option value="top-right">Top Right</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="two-column-row">
-                                                        <div>
-                                                            <label for="numberingSizeInput" class="form-label">Size (px)</label>
-                                                            <input type="number" id="numberingSizeInput" class="form-control" value="30" min="1" step="1">
-                                                        </div>
-                                                        <div>
-                                                            <label for="numberingColorInput" class="form-label">Color</label>
-                                                            <input type="color" id="numberingColorInput" class="form-control form-control-color p-0" value="#000000">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <hr style="border-color: var(--border-color);">
+                                                <!-- Custom Text controls moved to top -->
                                                 <div>
                                                     <label class="form-label fw-bold">Custom Text</label>
                                                     <button id="customTextToggle" class="btn btn-secondary w-100 mb-2">Off</button>
@@ -1426,7 +1399,8 @@
                                                         <button id="customTextBgToggle" class="btn btn-secondary">BG On</button>
                                                     </div>
                                                     <div class="mt-2">
-                                                        <label for="customTextBgOpacityInput" class="form-label">Background Opacity: <span id="customTextBgOpacityValue">50</span>%</label>
+                                                        <label for="customTextBgOpacityInput" class="form-label">Background Opacity: <span
+                                                                id="customTextBgOpacityValue">50</span>%</label>
                                                         <input type="range" id="customTextBgOpacityInput" class="form-range" value="50" min="0" max="100" step="1">
                                                     </div>
                                                     <div class="mt-2">
@@ -1436,6 +1410,37 @@
                                                     <div class="mt-2">
                                                         <label for="customTextYInput" class="form-label">Y Pos (px): <span id="customTextYValue">0</span></label>
                                                         <input type="range" id="customTextYInput" class="form-range" value="0" min="0" max="2000" step="1">
+                                                    </div>
+                                                </div>
+                                                <!-- Panel Numbering and related controls follow -->
+                                                <div>
+                                                    <label class="form-label fw-bold">Panel Numbering</label>
+                                                    <button id="numberingToggle" class="btn btn-secondary w-100 mb-2">Off</button>
+                                                    <div class="mb-2">
+                                                        <label for="numberingFormat" class="form-label">Format</label>
+                                                        <select id="numberingFormat" class="form-select">
+                                                            <option value="1,1">1,1</option>
+                                                            <option value="1,A">1,A</option>
+                                                            <option value="1,2,3,4">1,2,3,4</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label for="numberingPosition" class="form-label">Position</label>
+                                                        <select id="numberingPosition" class="form-select">
+                                                            <option value="top-left" selected>Top Left</option>
+                                                            <option value="center">Center</option>
+                                                            <option value="top-right">Top Right</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="two-column-row">
+                                                        <div>
+                                                            <label for="numberingSizeInput" class="form-label">Size (px)</label>
+                                                            <input type="number" id="numberingSizeInput" class="form-control" value="30" min="1" step="1">
+                                                        </div>
+                                                        <div>
+                                                            <label for="numberingColorInput" class="form-label">Color</label>
+                                                            <input type="color" id="numberingColorInput" class="form-control form-control-color p-0" value="#000000">
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <hr style="border-color: var(--border-color);">
@@ -1482,7 +1487,7 @@
                                             Manual Drawing Tools
                                             <span class="toggle-icon">+</span>
                                         </button>
-                                        <div class="collapse" id="drawingToolsCollapse">
+                                        <div class="collapse" id="drawingToolsCollapse" data-bs-parent="#pixelmapRightAccordion">
                                             <div class="d-flex flex-column gap-3">
                                                 <div>
                                                     <label class="form-label fw-bold">Draw Mode</label>
