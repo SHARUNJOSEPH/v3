@@ -4587,6 +4587,10 @@
                         try { if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery(); } catch { }
                         redrawCanvasMapObjects();
                         try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
+                        // Keep PDF Settings aligned with CanvasMap enablement and saved canvases count
+                        try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && ((state.storedPixelMaps || []).length > 0)); } catch { }
+                        // If list became empty while on CanvasMap, send user to PixelMap
+                        try { redirectToPixelMapIfNoSentScreens?.(); } catch { }
                     });
                 });
                 };
@@ -4883,6 +4887,8 @@
                                 renderImportedMapsGallery();
                                 redrawCanvasMapObjects();
                                 try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
+                                try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && ((state.storedPixelMaps || []).length > 0)); } catch { }
+                                try { redirectToPixelMapIfNoSentScreens?.(); } catch { }
                             }
                         });
                         actions.appendChild(loadBtn);
@@ -4949,11 +4955,13 @@
                                 renderPixelMapSentGallery();
                                 redrawCanvasMapObjects();
                                 try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
+                                try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && ((state.storedPixelMaps || []).length > 0)); } catch { }
                                 showToast('Loaded screens list.', 'success');
                             } catch (err) {
                                 console.error('Load list failed:', err);
                                 showMessageBox('Failed to load list. Ensure it is a JSON array exported from this app.');
                                 try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
+                                try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && ((state.storedPixelMaps || []).length > 0)); } catch { }
                             }
                         };
                         reader.readAsText(file);
@@ -4995,6 +5003,10 @@
                         renderPixelMapSentGallery();
                         redrawCanvasMapObjects();
                         try { setCanvasMapEnabled?.(false); } catch { }
+                        // If CanvasMap is disabled, PDF Settings must also be disabled regardless of saved canvases
+                        try { setPdfSettingsEnabled?.(false); } catch { }
+                        // If user is on CanvasMap, redirect them to PixelMap to create a new screen
+                        try { redirectToPixelMapIfNoSentScreens?.(); } catch { }
                     });
                 }
 
@@ -5036,6 +5048,8 @@
                         state.savedCanvases = [];
                         try { saveSavedCanvases?.(); } catch { }
                         renderSavedCanvases();
+                        // Disable PDF Settings when no saved canvases remain
+                        try { setPdfSettingsEnabled?.(false); } catch { }
                     });
                 }
 
@@ -5273,6 +5287,8 @@
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
                 try { saveSavedCanvases?.(); } catch { }
                 renderSavedCanvases();
+                // Re-evaluate PDF Settings availability after deletion
+                try { setPdfSettingsEnabled?.(Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0); } catch { }
             };
             
             /**
@@ -5296,6 +5312,8 @@
                 renderSavedCanvases();
                 updateCanvasMap();
                 try { saveSavedCanvases?.(); } catch { }
+                // Ensure PDF Settings is enabled since we now have at least one saved canvas
+                try { setPdfSettingsEnabled?.(true); } catch { }
                 showMessageBox(`Duplicated canvas: "${duplicated.name}"`);
             };
             
@@ -6429,6 +6447,7 @@
                 renderImportedMapsGallery(); // Update gallery in CanvasMap tab
                 renderPixelMapSentGallery(); // Update bottom gallery
                 try { setCanvasMapEnabled?.(true); } catch { }
+                try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && true); } catch { }
 
                 // Switch to CanvasMap tab
                 const canvasTabTrigger = new bootstrap.Tab(document.getElementById('canvasmap-tab'));
@@ -6437,6 +6456,7 @@
 
                 // Enable CanvasMap tab once at least one LED screen has been sent
                 setCanvasMapEnabled(true);
+                try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && true); } catch { }
             });
             
             // PixelMap: Export Outline only
@@ -8734,13 +8754,33 @@
             };
 
             const hasSavedCanvases = () => Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
-            setPdfSettingsEnabled(hasSavedCanvases());
+                // PDF Settings requires both: at least one saved canvas and CanvasMap enabled (at least one sent screen)
+                setPdfSettingsEnabled(hasSavedCanvases() && hasSentLedScreen());
+
+                // If CanvasMap is active and there are no sent LED screens, redirect to PixelMap to create one
+                const redirectToPixelMapIfNoSentScreens = () => {
+                    try {
+                        const hasAny = Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
+                        if (hasAny) return;
+                        const canvasBtn = document.getElementById('canvasmap-tab');
+                        const canvasPane = document.getElementById('canvasmap-pane');
+                        const isActive = !!(canvasBtn?.classList.contains('active') || canvasPane?.classList.contains('active'));
+                        if (!isActive) return;
+                        const pxBtn = document.getElementById('pixelmap-tab');
+                        if (pxBtn) {
+                            try { showToast?.('No screens in CanvasMap. Switching to PixelMap to create one.', 'info'); } catch { }
+                            try { bootstrap?.Tab?.getOrCreateInstance(pxBtn)?.show(); } catch { try { pxBtn.click?.(); } catch { } }
+                        }
+                    } catch { }
+                };
 
                 // Load persisted data
                 try { if (typeof loadSavedCanvases === 'function') loadSavedCanvases(); } catch { }
                 try { if (typeof loadStoredMaps === 'function') loadStoredMaps(); } catch { }
                 // After loading, update CanvasMap availability and galleries
                 try { setCanvasMapEnabled?.(Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0); } catch { }
+                // After loading, update PDF Settings availability based on both conditions
+                try { setPdfSettingsEnabled?.((Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) && (Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0)); } catch { }
                 try { renderImportedMapsGallery?.(); } catch { }
                 try { renderPixelMapSentGallery?.(); } catch { }
 
