@@ -637,6 +637,39 @@
             flex: 1 1 auto;
             display: block;
         }
+            /* PDF page sidebar */
+            .pdf-page-sidebar {
+                width: 220px;
+                min-width: 220px;
+                max-height: 100%;
+                overflow: auto;
+                border-left: 1px dashed var(--bs-border-color, #dee2e6);
+                padding-left: 8px;
+            }
+            .pdf-page-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .pdf-page-thumb {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px;
+                border: 1px solid var(--bs-border-color, #dee2e6);
+                border-radius: 6px;
+                background: var(--bs-body-bg, #fff);
+                cursor: grab;
+                user-select: none;
+            }
+            .pdf-page-thumb.dragging { opacity: 0.6; }
+            .pdf-page-thumb .thumb {
+                width: 56px; height: 40px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;
+                display: inline-block; flex: 0 0 auto;
+            }
+            .pdf-page-thumb .meta { font-size: 12px; line-height: 1.2; }
+            .pdf-page-thumb .meta .title { font-weight: 600; }
+            .pdf-page-thumb.drop-target { outline: 2px dashed var(--accent-color, #0d6efd); }
 
         /* Placeholder should span full width when visible */
         #pdfPreviewPlaceholder {
@@ -1880,22 +1913,42 @@
                             </div>
                             <div class="col-12 col-md-10">
                                 <div class="card p-3 h-100 d-flex flex-column">
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3">
-                                        <button id="exportCanvasPdfBtn" class="btn btn-primary">Export PDF</button>
-                                        <button id="exportCanvasPdfBtnNew" class="btn btn-primary">Export Multi-Canvas PDF</button>
-                                        <button id="exportCanvasXmlBtn" class="btn btn-primary">Export XML</button>
-                                    </div>
-                                    <div class="pdf-preview-container flex-grow-1" id="pdfPreviewContainer">
-                                        <div class="text-center text-muted" id="pdfPreviewPlaceholder">
-                                            <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
-                                            <h5>PDF Preview</h5>
-                                            <p>Configure your settings and click "Generate Preview" to see how your PDF will look.</p>
-                                            <button id="generatePdfPreviewBtn" class="btn btn-primary">Generate Preview</button>
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                        <div class="d-flex justify-content-center flex-wrap gap-2">
+                                            <button id="exportCanvasPdfBtn" class="btn btn-primary">Export PDF</button>
+                                            <button id="exportCanvasPdfBtnNew" class="btn btn-primary">Export Multi-Canvas PDF</button>
+                                            <button id="exportCanvasXmlBtn" class="btn btn-primary">Export XML</button>
                                         </div>
-                                        <div id="pdfPreviewContent" class="d-none">
-                                            <iframe id="pdfPreviewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+                                        <div class="ms-auto d-flex align-items-center gap-2">
+                                            <button id="pdfRefreshPreviewBtn" class="btn btn-outline-secondary" title="Refresh PDF Preview">
+                                                Refresh
+                                            </button>
                                         </div>
-                                    </div>
+                                        </div>
+                                        <div class="d-flex flex-grow-1 gap-3">
+                                        <div class="pdf-preview-container flex-grow-1" id="pdfPreviewContainer">
+                                            <div class="text-center text-muted" id="pdfPreviewPlaceholder">
+                                                <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+                                                <h5>PDF Preview</h5>
+                                                <p>Configure your settings and click "Generate Preview" to see how your PDF will look.</p>
+                                                <button id="generatePdfPreviewBtn" class="btn btn-primary">Generate Preview</button>
+                                            </div>
+                                            <div id="pdfPreviewContent" class="d-none">
+                                                <iframe id="pdfPreviewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+                                            </div>
+                                        </div>
+                                        <aside id="pdfPageSidebar" class="pdf-page-sidebar" aria-label="PDF pages">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <div class="fw-bold small">Pages</div>
+                                                <button id="pdfResetOrderBtn" class="btn btn-sm btn-outline-secondary" title="Reset page order">Reset</button>
+                                            </div>
+                                            <div id="pdfPageList" class="pdf-page-list"></div>
+                                            <div class="small text-muted mt-2">
+                                                • Drag to reorder object pages<br>
+                                                • Spec page is fixed at the end
+                                            </div>
+                                        </aside>
+                                        </div>
                                 </div>
                             </div>
                         </div>
@@ -5273,6 +5326,8 @@
                     redrawCanvasMapObjects();
                     updateCanvasMap();
                     showMessageBox(`Loaded canvas: "${savedState.name}"`);
+                    try { state.pdfPageOrder = Array.from({ length: state.canvasMapObjects.length }, (_, i) => i); } catch { }
+                    try { buildPdfPageSidebar?.(); } catch { }
                 }).catch(err => {
                     console.error("Error loading images for canvas state:", err);
                     showMessageBox("Could not load one or more images for the saved canvas.");
@@ -5312,6 +5367,8 @@
                 renderSavedCanvases();
                 updateCanvasMap();
                 try { saveSavedCanvases?.(); } catch { }
+                try { state.pdfPageOrder = Array.from({ length: state.canvasMapObjects.length }, (_, i) => i); } catch { }
+                try { buildPdfPageSidebar?.(); } catch { }
                 // Ensure PDF Settings is enabled since we now have at least one saved canvas
                 try { setPdfSettingsEnabled?.(true); } catch { }
                 showMessageBox(`Duplicated canvas: "${duplicated.name}"`);
@@ -7535,6 +7592,77 @@
         exportCanvasPdfBtn.addEventListener('click', exportDetailedCanvasPdf);
         exportCanvasPdfBtnNew.addEventListener('click', showMultiExportModal);
 
+                // PDF page sidebar state: maintain an order of object indices for preview/export
+                if (!Array.isArray(state.pdfPageOrder)) state.pdfPageOrder = [];
+
+                const pdfRefreshPreviewBtn = document.getElementById('pdfRefreshPreviewBtn');
+                if (pdfRefreshPreviewBtn) {
+                    pdfRefreshPreviewBtn.addEventListener('click', () => {
+                        state.pdfPreviewDirty = true;
+                        generatePdfPreview();
+                    });
+                }
+
+                const pdfResetOrderBtn = document.getElementById('pdfResetOrderBtn');
+                const pdfPageList = document.getElementById('pdfPageList');
+                const buildPdfPageSidebar = () => {
+                    if (!pdfPageList) return;
+                    pdfPageList.innerHTML = '';
+                    // Initialize order if empty (0..n-1)
+                    const n = (state.canvasMapObjects || []).length;
+                    if (!Array.isArray(state.pdfPageOrder) || state.pdfPageOrder.length !== n) {
+                        state.pdfPageOrder = Array.from({ length: n }, (_, i) => i);
+                    }
+                    state.pdfPageOrder.forEach((objIdx, displayIdx) => {
+                        const obj = state.canvasMapObjects[objIdx] || {};
+                        const li = document.createElement('div');
+                        li.className = 'pdf-page-thumb';
+                        li.setAttribute('draggable', 'true');
+                        li.dataset.idx = String(displayIdx);
+                        const thumb = document.createElement('span'); thumb.className = 'thumb';
+                        const meta = document.createElement('div'); meta.className = 'meta';
+                        const title = document.createElement('div'); title.className = 'title'; title.textContent = obj.filename || `Screen ${objIdx + 1}`;
+                        const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = `Page ${displayIdx + 1}`;
+                        meta.appendChild(title); meta.appendChild(sub);
+                        li.appendChild(thumb); li.appendChild(meta);
+                        // Drag handlers
+                        li.addEventListener('dragstart', (e) => {
+                            li.classList.add('dragging');
+                            e.dataTransfer.setData('text/plain', li.dataset.idx || '0');
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+                        li.addEventListener('dragend', () => li.classList.remove('dragging'));
+                        li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('drop-target'); });
+                        li.addEventListener('dragleave', () => li.classList.remove('drop-target'));
+                        li.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            li.classList.remove('drop-target');
+                            const fromStr = e.dataTransfer.getData('text/plain');
+                            const from = parseInt(fromStr, 10);
+                            const to = parseInt(li.dataset.idx || '0', 10);
+                            if (isNaN(from) || isNaN(to) || from === to) return;
+                            // Reorder state.pdfPageOrder by moving item from -> to
+                            const order = state.pdfPageOrder.slice();
+                            const [moved] = order.splice(from, 1);
+                            order.splice(to, 0, moved);
+                            state.pdfPageOrder = order;
+                            buildPdfPageSidebar();
+                            // Mark preview dirty and optionally auto-refresh quickly
+                            state.pdfPreviewDirty = true;
+                            schedulePdfPreview?.();
+                        });
+                        pdfPageList.appendChild(li);
+                    });
+                };
+                if (pdfResetOrderBtn) {
+                    pdfResetOrderBtn.addEventListener('click', () => {
+                        const n = (state.canvasMapObjects || []).length;
+                        state.pdfPageOrder = Array.from({ length: n }, (_, i) => i);
+                        buildPdfPageSidebar();
+                        state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                    });
+                }
+
         /**
          * Generates a PDF preview and displays it in the iframe.
          */
@@ -7557,10 +7685,11 @@
             setTimeout(() => {
             try {
                 // Create a smaller/faster PDF for preview only (export uses A0)
+                // Use smaller page size for preview to speed up (export uses larger sizing)
                 const doc = new window.jspdf.jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a0'
+                    format: 'a3'
                 });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
@@ -7568,9 +7697,13 @@
                 let totalPages = (hasObjects ? state.canvasMapObjects.length : 0) + 1; // +1 for spec page
                 if (state.pdfIncludeCanvasSnapshot) totalPages++;
 
-                // Create a page for each object
+                // Create a page for each object using current sidebar order (if set)
                 if (hasObjects) {
-                    state.canvasMapObjects.forEach((obj, index) => {
+                    const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === state.canvasMapObjects.length)
+                        ? state.pdfPageOrder.slice()
+                        : Array.from({ length: state.canvasMapObjects.length }, (_, i) => i);
+                    order.forEach((objIdx, index) => {
+                        const obj = state.canvasMapObjects[objIdx];
                         const pageNum = index + 1;
                         if (index > 0) doc.addPage();
                         drawDetailedObjectPage(doc, obj, pageNum, totalPages);
@@ -7587,7 +7720,8 @@
                     // --- Center: Canvas Snapshot Image ---
                     // Downscale snapshot for preview to speed up encoding and embedding
                     const fullCanvas = createExportCanvas(true);
-                    const scale = Math.min(1, 1200 / Math.max(fullCanvas.width, fullCanvas.height));
+                    // Stronger downscale for preview to keep encode fast
+                    const scale = Math.min(1, 800 / Math.max(fullCanvas.width, fullCanvas.height));
                     const previewCanvas = document.createElement('canvas');
                     previewCanvas.width = Math.max(1, Math.round(fullCanvas.width * scale));
                     previewCanvas.height = Math.max(1, Math.round(fullCanvas.height * scale));
@@ -7691,6 +7825,8 @@
                         setTimeout(generatePdfPreview, 50);
                     }
                 }
+                // Rebuild the thumbnails sidebar on activation
+                buildPdfPageSidebar?.();
             });
             pdfTab.addEventListener('hidden.bs.tab', () => { __pdfTabActive = false; });
         }
