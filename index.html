@@ -3183,10 +3183,10 @@
                     const toLight = '#ffffff';
                     const toDark = '#000000';
                     if (isDark) {
-                        if (asHex(state.customTextColor) === '#000000') state.customTextColor = toLight;
+                        // Keep user's custom text color unchanged; do not auto-flip.
                         if (asHex(state.specificationColor) === '#000000') state.specificationColor = toLight;
                     } else {
-                        if (asHex(state.customTextColor) === '#ffffff') state.customTextColor = toDark;
+                        // Keep user's custom text color unchanged; do not auto-flip.
                         // Specification text is often overlayed; switch back only if it was pure white
                         if (asHex(state.specificationColor) === '#ffffff') state.specificationColor = toDark;
                     }
