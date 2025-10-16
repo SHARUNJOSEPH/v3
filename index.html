@@ -639,17 +639,36 @@
         }
             /* PDF page sidebar */
             .pdf-page-sidebar {
-                width: 220px;
-                min-width: 220px;
+                width: 260px;
+                min-width: 260px;
                 max-height: 100%;
                 overflow: auto;
                 border-left: 1px dashed var(--bs-border-color, #dee2e6);
                 padding-left: 8px;
             }
+            /* Sticky toolbar at top of sidebar */
+            .pdf-sidebar-toolbar {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: var(--bs-body-bg, #fff);
+                padding-top: 4px;
+                padding-bottom: 6px;
+                border-bottom: 1px dashed var(--bs-border-color, #dee2e6);
+            }
+            .dark-mode .pdf-sidebar-toolbar { background: #1f2225; border-bottom-color: #3a3f44; }
+            /* Active tab visual emphasis */
+            #pdfPageSidebar .btn-outline-secondary.active {
+                background-color: var(--accent-color, #0d6efd);
+                color: #fff;
+                border-color: var(--accent-color, #0d6efd);
+            }
+            #pdfPageSidebar .btn-outline-secondary { transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
             .pdf-page-list {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
+                padding-bottom: 12px;
             }
             .pdf-page-thumb {
                 display: flex;
@@ -661,15 +680,35 @@
                 background: var(--bs-body-bg, #fff);
                 cursor: grab;
                 user-select: none;
+                transition: box-shadow .15s ease, transform .06s ease;
             }
             .pdf-page-thumb.dragging { opacity: 0.6; }
             .pdf-page-thumb .thumb {
-                width: 56px; height: 40px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;
+                width: 56px; height: 40px;
+                background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 6px, #eeeeee 6px, #eeeeee 12px);
+                border: 1px solid #ddd; border-radius: 4px;
                 display: inline-block; flex: 0 0 auto;
             }
+            .pdf-page-thumb:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+            .pdf-page-thumb:active { transform: scale(0.995); }
             .pdf-page-thumb .meta { font-size: 12px; line-height: 1.2; }
             .pdf-page-thumb .meta .title { font-weight: 600; }
             .pdf-page-thumb.drop-target { outline: 2px dashed var(--accent-color, #0d6efd); }
+
+            /* Canvas list rows */
+            #pdfCanvasListBody label.pdf-canvas-row {
+                padding: 6px 8px;
+                border: 1px solid var(--bs-border-color, #dee2e6);
+                border-radius: 6px;
+                background: var(--bs-body-bg, #fff);
+                transition: background-color .15s ease, box-shadow .15s ease;
+            }
+            #pdfCanvasListBody label.pdf-canvas-row:hover { background: var(--input-bg, #f8f9fa); box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+            .dark-mode #pdfCanvasListBody label.pdf-canvas-row { background: #1f2225; border-color: #3a3f44; }
+            .dark-mode #pdfCanvasListBody label.pdf-canvas-row:hover { background: #23272b; }
+            /* Selection count badge */
+            #pdfCanvasSelectionCount.badge { font-weight: 600; }
+            .dark-mode #pdfCanvasSelectionCount { background: #2b2f33; color: #c9d1d9; border-color: #3a3f44; }
 
             /* Floating toast for PDF generation */
             .pdf-toast {
@@ -1964,14 +2003,40 @@
                                             </div>
                                         </div>
                                         <aside id="pdfPageSidebar" class="pdf-page-sidebar" aria-label="PDF pages">
-                                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                                <div class="fw-bold small">Pages</div>
+                                            <div class="pdf-sidebar-toolbar d-flex align-items-center justify-content-between mb-2">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="Sidebar tabs">
+                                                    <button id="pdfSidebarTabCanvas" type="button" class="btn btn-outline-secondary active">Canvas List</button>
+                                                    <button id="pdfSidebarTabPages" type="button" class="btn btn-outline-secondary">Pages</button>
+                                                </div>
                                                 <button id="pdfResetOrderBtn" class="btn btn-sm btn-outline-secondary" title="Reset page order">Reset</button>
                                             </div>
-                                            <div id="pdfPageList" class="pdf-page-list"></div>
-                                            <div class="small text-muted mt-2">
-                                                • Drag to reorder object pages<br>
-                                                • Spec page is fixed at the end
+                                            <div id="pdfCanvasList" class="d-block">
+                                                <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="fw-bold small">Saved Output Maps</div>
+                                                        <span id="pdfCanvasSelectionCount" class="badge text-bg-light border">0 selected</span>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <button id="pdfCanvasSelectAll" type="button" class="btn btn-outline-secondary">Select All</button>
+                                                        <button id="pdfCanvasClearAll" type="button" class="btn btn-outline-secondary">Clear</button>
+                                                    </div>
+                                                </div>
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <span class="input-group-text" id="pdfCanvasFilterIcon" title="Filter"><i class="bi bi-search"></i></span>
+                                                    <input id="pdfCanvasFilter" type="text" class="form-control" placeholder="Filter canvases..."
+                                                        aria-label="Filter canvases" />
+                                                </div>
+                                                <div id="pdfCanvasListBody" class="d-flex flex-column gap-2"></div>
+                                                <div id="pdfCanvasListEmpty" class="text-muted small d-none">No saved output maps.</div>
+                                            </div>
+                                            <div id="pdfPageListContainer" class="d-none">
+                                                <div class="fw-bold small mb-2">Pages</div>
+                                                <div id="pdfPageList" class="pdf-page-list"></div>
+                                                <div class="small text-muted mt-2">
+                                                    • Drag to reorder canvas blocks<br>
+                                                    • Per-canvas screens follow their saved order<br>
+                                                    • Spec page is fixed at the end
+                                                    </div>
                                             </div>
                                         </aside>
                                         </div>
@@ -6787,7 +6852,7 @@
             pdfIncludeCanvasSnapshotToggle.addEventListener('click', () => {
                 state.pdfIncludeCanvasSnapshot = !state.pdfIncludeCanvasSnapshot;
                 pdfIncludeCanvasSnapshotToggle.textContent = state.pdfIncludeCanvasSnapshot ? 'On' : 'Off';
-                state.pdfPreviewDirty = true; schedulePdfPreview();
+                state.pdfPreviewDirty = true; schedulePdfPreview?.();
             });
 
 
@@ -7776,8 +7841,135 @@
                     }
                 };
 
-                // Wire main Export PDF button to export all saved canvases by default
-                exportCanvasPdfBtn.addEventListener('click', exportAllSavedCanvasesPdf);
+                // Export only the canvases selected in the PDF Settings > Canvas List, respecting the sidebar order
+                const exportSelectedCanvasesPdf = async () => {
+                    if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) {
+                        showMessageBox('Please save at least one canvas in CanvasMap before exporting.');
+                        return;
+                    }
+                    // Build the selected dataset
+                    let selectedSaved = [];
+                    try {
+                        const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
+                        selectedSaved = (sel.size > 0) ? state.savedCanvases.filter(c => sel.has(String(c.id))) : state.savedCanvases.slice();
+                    } catch { selectedSaved = state.savedCanvases.slice(); }
+
+                    if (selectedSaved.length === 0) {
+                        showMessageBox('No canvases selected in the Canvas List. Select at least one to export.');
+                        return;
+                    }
+
+                    try {
+                        const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a0' });
+                        // Compute total pages: for each selected canvas, add all LED screens, plus optional map page; finally a single spec page
+                        const useMap = !!state.pdfIncludeCanvasSnapshot;
+                        let totalPages = 1; // final global spec page
+                        const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                            ? state.pdfPageOrder.slice()
+                            : Array.from({ length: selectedSaved.length }, (_, i) => i);
+                        order.forEach((ordIdx) => {
+                            const sc = selectedSaved[ordIdx];
+                            totalPages += (sc?.objects?.length || 0);
+                            if (useMap) totalPages += 1;
+                        });
+
+                        let pageCounter = 1;
+                        for (const ordIdx of order) {
+                            const savedCanvas = selectedSaved[ordIdx];
+                            const objs = savedCanvas?.objects || [];
+                            // 1) Per-screen detailed pages
+                            for (let i = 0; i < objs.length; i++) {
+                                const obj = objs[i];
+                                if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                                drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                pageCounter++;
+                            }
+                            // 2) Optional: Output Map page per canvas
+                            if (useMap) {
+                                if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                                const pageTitleObj = { filename: (savedCanvas?.name || `Canvas ${savedCanvas?.id}`) + ' - Output Map' };
+                                drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+
+                                // Render a snapshot of this saved canvas
+                                const tempCanvas = document.createElement('canvas');
+                                const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                tempCanvas.width = (typeof canvasMapCanvas?.width === 'number' && canvasMapCanvas.width > 0) ? canvasMapCanvas.width : fallbackW;
+                                tempCanvas.height = (typeof canvasMapCanvas?.height === 'number' && canvasMapCanvas.height > 0) ? canvasMapCanvas.height : fallbackH;
+                                const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                tctx.fillStyle = 'white';
+                                tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+                                // Load all images for this canvas objects and draw them in order
+                                const imageLoadPromises = objs.map(objData => new Promise((resolve, reject) => {
+                                    try {
+                                        const img = new Image();
+                                        img.onload = () => resolve({ img, data: objData });
+                                        img.onerror = () => reject(new Error('Failed to load image for ' + (objData?.filename || 'object')));
+                                        img.src = objData.dataUrl;
+                                    } catch (e) { reject(e); }
+                                }));
+                                const results = await Promise.allSettled(imageLoadPromises);
+                                results.forEach(r => {
+                                    if (r.status !== 'fulfilled') return;
+                                    const { img, data } = r.value;
+                                    tctx.save();
+                                    const cx = (data?.x || 0) + (data?.width || 0) / 2;
+                                    const cy = (data?.y || 0) + (data?.height || 0) / 2;
+                                    tctx.translate(cx, cy);
+                                    const rot = (data?.rotation || 0) * Math.PI / 180;
+                                    tctx.rotate(rot);
+                                    tctx.drawImage(img, -(data?.width || 0) / 2, -(data?.height || 0) / 2, (data?.width || 0), (data?.height || 0));
+                                    if (state.canvasMapShowCoordinates) {
+                                        const positionText = `(${Math.round(data?.x || 0)}, ${Math.round(data?.y || 0)})`;
+                                        tctx.font = '16px Segoe UI';
+                                        const textMetrics = tctx.measureText(positionText);
+                                        const textWidth = textMetrics.width;
+                                        const textHeight = 16; const padding = 5;
+                                        const rectX = -(data?.width || 0) / 2;
+                                        const rectY = -(data?.height || 0) / 2;
+                                        tctx.fillStyle = 'rgba(23, 162, 184, 0.85)';
+                                        tctx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2);
+                                        tctx.fillStyle = 'white';
+                                        tctx.textBaseline = 'top';
+                                        tctx.fillText(positionText, rectX + padding, rectY + padding);
+                                    }
+                                    tctx.restore();
+                                });
+
+                                // Add the generated snapshot to the PDF page
+                                const canvasImage = tempCanvas.toDataURL('image/png');
+                                try {
+                                    const imgProps = doc.getImageProperties(canvasImage);
+                                    const pageWidth = doc.internal.pageSize.getWidth();
+                                    const pageHeight = doc.internal.pageSize.getHeight();
+                                    const rightColumnX = pageWidth - 138;
+                                    const availableX = 10; const availableY = 10;
+                                    const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
+                                    const aspectRatio = imgProps.width / imgProps.height;
+                                    let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                                    if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                                    const imgX = availableX + (availableWidth - imgWidth) / 2;
+                                    const imgY = availableY + (availableHeight - imgHeight) / 2;
+                                    doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                                } catch { /* ignore image placement errors */ }
+                                pageCounter++;
+                            }
+                        }
+
+                        // 3) Final global spec page
+                        drawMediaServerSpecPage(doc, totalPages);
+
+                        const finalFilename = state.pdfFilename.trim() ? `${state.pdfFilename}_selected` : 'selected_canvases';
+                        doc.save(`${finalFilename}.pdf`);
+                    } catch (e) {
+                        console.error('Export selected canvases failed:', e);
+                        showMessageBox(e?.message || 'Failed to export selected canvases.');
+                    }
+                };
+
+                // Wire main Export PDF button to export the selection from Canvas List
+                exportCanvasPdfBtn.addEventListener('click', exportSelectedCanvasesPdf);
         exportCanvasPdfBtnNew.addEventListener('click', showMultiExportModal);
 
                 // Simple floating toast for PDF generation status
@@ -7815,13 +8007,119 @@
 
                 const pdfResetOrderBtn = document.getElementById('pdfResetOrderBtn');
                 const pdfPageList = document.getElementById('pdfPageList');
+                const pdfSidebarTabCanvas = document.getElementById('pdfSidebarTabCanvas');
+                const pdfSidebarTabPages = document.getElementById('pdfSidebarTabPages');
+                const pdfCanvasList = document.getElementById('pdfCanvasList');
+                const pdfPageListContainer = document.getElementById('pdfPageListContainer');
+                const pdfCanvasListBody = document.getElementById('pdfCanvasListBody');
+                const pdfCanvasListEmpty = document.getElementById('pdfCanvasListEmpty');
+                const pdfCanvasSelectAll = document.getElementById('pdfCanvasSelectAll');
+                const pdfCanvasClearAll = document.getElementById('pdfCanvasClearAll');
+                const pdfCanvasSelectionCount = document.getElementById('pdfCanvasSelectionCount');
+                const pdfCanvasFilterInput = document.getElementById('pdfCanvasFilter');
+
+                // Track selected canvases for PDF (default: all saved)
+                if (!Array.isArray(state.pdfSelectedCanvasIds)) state.pdfSelectedCanvasIds = [];
+                const ensureSelectedDefaults = () => {
+                    if (!Array.isArray(state.savedCanvases)) state.savedCanvases = [];
+                    if (state.pdfSelectedCanvasIds.length === 0 && state.savedCanvases.length > 0) {
+                        state.pdfSelectedCanvasIds = state.savedCanvases.map(c => String(c.id));
+                    }
+                };
+
+                const setSidebarMode = (mode) => {
+                    // mode: 'canvas' | 'pages'
+                    const isCanvas = mode === 'canvas';
+                    pdfSidebarTabCanvas?.classList.toggle('active', isCanvas);
+                    pdfSidebarTabPages?.classList.toggle('active', !isCanvas);
+                    pdfCanvasList?.classList.toggle('d-none', !isCanvas);
+                    pdfCanvasList?.classList.toggle('d-block', isCanvas);
+                    pdfPageListContainer?.classList.toggle('d-none', isCanvas);
+                    if (!isCanvas) buildPdfPageSidebar();
+                };
+
+                pdfSidebarTabCanvas?.addEventListener('click', () => setSidebarMode('canvas'));
+                pdfSidebarTabPages?.addEventListener('click', () => setSidebarMode('pages'));
+
+                const renderPdfCanvasList = () => {
+                    if (!pdfCanvasListBody || !pdfCanvasListEmpty) return;
+                    ensureSelectedDefaults();
+                    pdfCanvasListBody.innerHTML = '';
+                    let canvases = Array.isArray(state.savedCanvases) ? state.savedCanvases.slice() : [];
+                    // Apply filter if present
+                    const q = (pdfCanvasFilterInput?.value || '').trim().toLowerCase();
+                    if (q) {
+                        canvases = canvases.filter(c => (c.name || ('Canvas ' + c.id)).toLowerCase().includes(q));
+                    }
+                    if (canvases.length === 0) {
+                        pdfCanvasListEmpty.classList.remove('d-none');
+                        if (pdfCanvasSelectionCount) pdfCanvasSelectionCount.textContent = '0 selected';
+                        return;
+                    }
+                    pdfCanvasListEmpty.classList.add('d-none');
+                    let selectedCount = 0;
+                    canvases.forEach(c => {
+                        const row = document.createElement('label');
+                        row.className = 'd-flex align-items-center gap-2 small pdf-canvas-row';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input';
+                        cb.value = String(c.id);
+                        cb.checked = state.pdfSelectedCanvasIds.includes(String(c.id));
+                        if (cb.checked) selectedCount++;
+                        cb.addEventListener('change', () => {
+                            const id = String(c.id);
+                            if (cb.checked) {
+                                if (!state.pdfSelectedCanvasIds.includes(id)) state.pdfSelectedCanvasIds.push(id);
+                            } else {
+                                state.pdfSelectedCanvasIds = state.pdfSelectedCanvasIds.filter(x => x !== id);
+                            }
+                            if (pdfCanvasSelectionCount) {
+                                const selSet = new Set(state.pdfSelectedCanvasIds.map(String));
+                                pdfCanvasSelectionCount.textContent = `${selSet.size} selected`;
+                            }
+                            // When selection changes, rebuild order to only include selected
+                            buildPdfPageSidebar();
+                            state.pdfPreviewDirty = true;
+                            schedulePdfPreview?.();
+                        });
+                        const name = document.createElement('span');
+                        name.textContent = c.name || `Canvas ${c.id}`;
+                        row.appendChild(cb);
+                        row.appendChild(name);
+                        pdfCanvasListBody.appendChild(row);
+                    });
+                    if (pdfCanvasSelectionCount) pdfCanvasSelectionCount.textContent = `${selectedCount} selected`;
+                };
+
+                pdfCanvasSelectAll?.addEventListener('click', () => {
+                    if (!Array.isArray(state.savedCanvases)) return;
+                    state.pdfSelectedCanvasIds = state.savedCanvases.map(c => String(c.id));
+                    renderPdfCanvasList();
+                    buildPdfPageSidebar();
+                    state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                });
+                pdfCanvasClearAll?.addEventListener('click', () => {
+                    state.pdfSelectedCanvasIds = [];
+                    renderPdfCanvasList();
+                    buildPdfPageSidebar();
+                    state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                });
+                pdfCanvasFilterInput?.addEventListener('input', () => {
+                    renderPdfCanvasList();
+                });
                 const buildPdfPageSidebar = () => {
                     if (!pdfPageList) return;
                     pdfPageList.innerHTML = '';
-                    // Choose dataset: prefer saved canvases; else fall back to current canvas objects
-                    const dataset = (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0)
-                        ? state.savedCanvases
-                        : (state.canvasMapObjects || []);
+                    // Choose dataset: prefer saved canvases filtered by selection; else current canvas objects
+                    let dataset = [];
+                    if (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) {
+                        ensureSelectedDefaults();
+                        const sel = new Set(state.pdfSelectedCanvasIds.map(String));
+                        dataset = state.savedCanvases.filter(c => sel.has(String(c.id)));
+                    } else {
+                        dataset = (state.canvasMapObjects || []);
+                    }
                     const n = dataset.length;
                     // Initialize order if empty/mismatched (0..n-1)
                     if (!Array.isArray(state.pdfPageOrder) || state.pdfPageOrder.length !== n) {
@@ -7879,6 +8177,12 @@
                     });
                 }
 
+                // Initialize sidebar with Canvas tab and render once for better UX
+                try {
+                    setSidebarMode('canvas');
+                    renderPdfCanvasList();
+                } catch { }
+
         /**
          * Generates a PDF preview and displays it in the iframe.
          */
@@ -7886,7 +8190,15 @@
             if (!Array.isArray(state.canvasMapObjects)) state.canvasMapObjects = [];
             if (!Array.isArray(state.savedCanvases)) state.savedCanvases = [];
             const useSaved = state.savedCanvases.length > 0; // prefer saved canvases for preview
-            const hasObjects = useSaved ? state.savedCanvases.length > 0 : state.canvasMapObjects.length > 0;
+            // Filter saved by selection if available
+            let selectedSaved = [];
+            if (useSaved) {
+                try {
+                    const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
+                    selectedSaved = (sel.size > 0) ? state.savedCanvases.filter(c => sel.has(String(c.id))) : state.savedCanvases.slice();
+                } catch { selectedSaved = state.savedCanvases.slice(); }
+            }
+            const hasObjects = useSaved ? selectedSaved.length > 0 : state.canvasMapObjects.length > 0;
 
             const pdfPreviewContainer = document.getElementById('pdfPreviewContainer');
             const pdfPreviewIframe = document.getElementById('pdfPreviewFrame');
@@ -7906,65 +8218,68 @@
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
 
-                const datasetLen = useSaved ? state.savedCanvases.length : state.canvasMapObjects.length;
-                let totalPages = (hasObjects ? datasetLen : 0) + 1; // +1 for spec page
-
+                // Build pages: for each selected saved canvas, add per-screen pages; if include map, add a map page. Finally spec page.
+                let totalPages = 1; // spec page at end
                 if (hasObjects) {
-                    const expectedOrderLen = datasetLen;
-                    const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === expectedOrderLen)
-                        ? state.pdfPageOrder.slice()
-                        : Array.from({ length: expectedOrderLen }, (_, i) => i);
+                    // Count pages: sum of screens per canvas + optional map per canvas
+                    if (useSaved) {
+                        const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                            ? state.pdfPageOrder.slice()
+                            : Array.from({ length: selectedSaved.length }, (_, i) => i);
+                        order.forEach((ordIdx) => {
+                            const savedCanvas = selectedSaved[ordIdx];
+                            totalPages += (savedCanvas.objects || []).length;
+                            if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // per-canvas map page if enabled
+                        });
+                    } else {
+                        totalPages += state.canvasMapObjects.length;
+                        if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // single map page when not using saved canvases
+                    }
 
-                    order.forEach((idx, index) => {
-                        const pageNum = index + 1;
-                        if (index > 0) doc.addPage();
-                        if (useSaved) {
-                            const savedCanvas = state.savedCanvases[idx];
-                            drawTemplateElements(doc, pageNum, totalPages, { filename: savedCanvas.name });
-                            // Compose a downscaled snapshot for preview
-                            const tempCanvas = document.createElement('canvas');
-                            const fallbackW = Math.max(1, Math.round((savedCanvas.objects || []).reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
-                            const fallbackH = Math.max(1, Math.round((savedCanvas.objects || []).reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
-                            tempCanvas.width = canvasMapCanvas?.width || fallbackW;
-                            tempCanvas.height = canvasMapCanvas?.height || fallbackH;
-                            const tctx = tempCanvas.getContext('2d', { alpha: true });
-                            tctx.fillStyle = 'white';
-                            tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                            const imageLoadPromises = (savedCanvas.objects || []).map(objData => new Promise((resolve, reject) => {
-                                const img = new Image();
-                                img.onload = () => resolve({ img, data: objData });
-                                img.onerror = () => resolve(null); // skip bad images for preview
-                                img.src = objData.dataUrl;
-                            }));
-                            // Best-effort load (ignore failures)
-                            Promise.all(imageLoadPromises).then(items => {
-                                (items || []).forEach(entry => {
-                                    if (!entry) return;
-                                    const { img, data } = entry;
-                                    tctx.save();
-                                    const cx = (data?.x || 0) + (data?.width || 0) / 2;
-                                    const cy = (data?.y || 0) + (data?.height || 0) / 2;
-                                    tctx.translate(cx, cy);
-                                    const rot = (data?.rotation || 0) * Math.PI / 180;
-                                    tctx.rotate(rot);
-                                    tctx.drawImage(img, -(data?.width || 0) / 2, -(data?.height || 0) / 2, (data?.width || 0), (data?.height || 0));
-                                    tctx.restore();
+                    let pageCounter = 1;
+                    if (useSaved) {
+                        const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                            ? state.pdfPageOrder.slice()
+                            : Array.from({ length: selectedSaved.length }, (_, i) => i);
+                        order.forEach((ordIdx, blockIdx) => {
+                            const savedCanvas = selectedSaved[ordIdx];
+                            const objs = savedCanvas.objects || [];
+                            objs.forEach((obj, i) => {
+                                if (pageCounter > 1) doc.addPage();
+                                drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                pageCounter++;
+                            });
+                            if (state.pdfIncludeCanvasSnapshot) {
+                                if (pageCounter > 1) doc.addPage();
+                                const pageTitleObj = { filename: savedCanvas.name + ' - Output Map' };
+                                drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+                                // Render snapshot of this canvas
+                                const tempCanvas = document.createElement('canvas');
+                                const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                tempCanvas.width = canvasMapCanvas?.width || fallbackW;
+                                tempCanvas.height = canvasMapCanvas?.height || fallbackH;
+                                const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                objs.forEach(objData => {
+                                    try {
+                                        const img = new Image();
+                                        img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
+                                        img.src = objData.dataUrl;
+                                    } catch { }
                                 });
-                                // Downscale
+                                // Synchronous best effort: add immediately (images may be pending but this is preview)
                                 const scale = Math.min(1, 800 / Math.max(tempCanvas.width, tempCanvas.height));
                                 const previewCanvas = document.createElement('canvas');
                                 previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
                                 previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
-                                const pctx = previewCanvas.getContext('2d', { alpha: true });
-                                pctx.drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                                previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                                 const canvasImage = previewCanvas.toDataURL('image/png');
                                 try {
                                     const imgProps = doc.getImageProperties(canvasImage);
                                     const rightColumnX = pageWidth - 138;
-                                    const availableX = 10;
-                                    const availableY = 10;
-                                    const availableWidth = rightColumnX - 15;
-                                    const availableHeight = pageHeight - 20;
+                                    const availableX = 10; const availableY = 10;
+                                    const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
                                     const aspectRatio = imgProps.width / imgProps.height;
                                     let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
                                     if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
@@ -7972,13 +8287,36 @@
                                     const imgY = availableY + (availableHeight - imgHeight) / 2;
                                     doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
                                 } catch { }
-                                // Note: This inner async won't delay status toggles—preview will still show the first pages; for full correctness, a synchronous render could be implemented.
-                            });
-                        } else {
-                            const obj = state.canvasMapObjects[idx];
-                            drawDetailedObjectPage(doc, obj, pageNum, totalPages);
+                                pageCounter++;
+                            }
+                        });
+                    } else {
+                        // Fallback: current canvas objects
+                        state.canvasMapObjects.forEach((obj, index) => {
+                            if (pageCounter > 1) doc.addPage();
+                            drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                            pageCounter++;
+                        });
+                        if (state.pdfIncludeCanvasSnapshot) {
+                            if (pageCounter > 1) doc.addPage();
+                            const snapshotObj = { filename: 'Canvas Layout Snapshot' };
+                            drawTemplateElements(doc, pageCounter, totalPages, snapshotObj);
+                            const canvasImage = createExportCanvas(true).toDataURL('image/png');
+                            try {
+                                const imgProps = doc.getImageProperties(canvasImage);
+                                const rightColumnX = pageWidth - 138;
+                                const availableX = 10; const availableY = 10;
+                                const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
+                                const aspectRatio = imgProps.width / imgProps.height;
+                                let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                                if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                                const imgX = availableX + (availableWidth - imgWidth) / 2;
+                                const imgY = availableY + (availableHeight - imgHeight) / 2;
+                                doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                            } catch { }
+                            pageCounter++;
                         }
-                    });
+                    }
                 }
 
                 // Final spec page
@@ -8049,7 +8387,9 @@
             pdfTab.addEventListener('shown.bs.tab', () => {
                 __pdfTabActive = true;
                 // Rebuild the thumbnails sidebar on activation immediately for instant UI
+                try { renderPdfCanvasList?.(); } catch { }
                 buildPdfPageSidebar?.();
+                try { setSidebarMode?.('canvas'); } catch { }
                 const ph = document.getElementById('pdfPreviewPlaceholder');
                 const ct = document.getElementById('pdfPreviewContent');
                 const container = document.getElementById('pdfPreviewContainer');
@@ -8118,7 +8458,9 @@
                     if (activeTab && activeTab.id === 'pdfsettings-tab') {
                         __pdfTabActive = true;
                         // Build sidebar immediately so UI is complete on first paint
+                        try { renderPdfCanvasList?.(); } catch { }
                         try { buildPdfPageSidebar?.(); } catch { }
+                        try { setSidebarMode?.('canvas'); } catch { }
                         const ph = document.getElementById('pdfPreviewPlaceholder');
                         const ct = document.getElementById('pdfPreviewContent');
                         const container = document.getElementById('pdfPreviewContainer');
