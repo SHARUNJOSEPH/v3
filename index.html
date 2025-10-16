@@ -1852,6 +1852,17 @@
         <button id="closeMessageBtn" class="btn btn-primary">OK</button>
     </div>
 
+    <!-- Reusable Confirm Box (nicer UX than browser confirm) -->
+    <div id="confirmBox" class="message-box card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle"
+        aria-describedby="confirmText" style="display: none;">
+        <h5 id="confirmTitle" class="mb-2">Are you sure?</h5>
+        <p id="confirmText" class="text-muted mb-3">This action cannot be undone.</p>
+        <div class="d-flex justify-content-end gap-2">
+            <button id="confirmCancelBtn" class="btn btn-secondary">Cancel</button>
+            <button id="confirmOkBtn" class="btn btn-danger">Confirm</button>
+        </div>
+    </div>
+
     <div id="saveCanvasModal" class="message-box card">
         <h5 class="mb-3">Save Canvas Layout</h5>
         <div class="mb-3">
@@ -2700,6 +2711,40 @@
                     hideBackdrop();
                 }
             };
+
+                // Promise-based confirm dialog with nicer UX than window.confirm
+                const confirmBox = document.getElementById('confirmBox');
+                const confirmTitle = document.getElementById('confirmTitle');
+                const confirmText = document.getElementById('confirmText');
+                const confirmOkBtn = document.getElementById('confirmOkBtn');
+                const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+                let confirmResolve = null;
+
+                const showConfirm = (opts = {}) => {
+                    const { title = 'Are you sure?', text = 'This action cannot be undone.', okText = 'Confirm', cancelText = 'Cancel', okVariant = 'danger' } = opts;
+                    confirmTitle.textContent = title;
+                    confirmText.textContent = text;
+                    confirmOkBtn.textContent = okText;
+                    confirmCancelBtn.textContent = cancelText;
+                    // Style primary action
+                    confirmOkBtn.classList.remove('btn-primary', 'btn-danger', 'btn-secondary');
+                    confirmOkBtn.classList.add(okVariant === 'danger' ? 'btn-danger' : 'btn-primary');
+                    showBackdrop();
+                    confirmBox.style.display = 'block';
+                    setTimeout(() => confirmBox.classList.add('visible'), 0);
+                    return new Promise((resolve) => {
+                        confirmResolve = resolve;
+                    });
+                };
+
+                const hideConfirm = () => {
+                    confirmBox.classList.remove('visible');
+                    setTimeout(() => { confirmBox.style.display = 'none'; hideBackdrop(); }, 150);
+                    if (confirmResolve) { confirmResolve = null; }
+                };
+
+                confirmOkBtn.addEventListener('click', () => { if (confirmResolve) confirmResolve(true); hideConfirm(); });
+                confirmCancelBtn.addEventListener('click', () => { if (confirmResolve) confirmResolve(false); hideConfirm(); });
 
             // Non-blocking global toast notifications (always on top)
             const showToast = (message, variant = 'primary', delayMs = 2200) => {
@@ -4449,6 +4494,14 @@
                     const gallery = document.getElementById('pixelMapSentGallery');
                     const countEl = document.getElementById('pixelMapSentCount');
                     if (!gallery) return;
+                    // Dispose any existing tooltips attached to current items before clearing
+                    try {
+                        const tipEls = gallery.querySelectorAll('[data-bs-toggle="tooltip"]');
+                        tipEls.forEach(el => {
+                            const inst = bootstrap.Tooltip.getInstance(el);
+                            if (inst) inst.dispose();
+                        });
+                    } catch { }
                     gallery.innerHTML = '';
 
                     const items = state.storedPixelMaps || [];
@@ -4500,6 +4553,8 @@
                         loadBtn.title = 'Load this screen into PixelMap for editing';
                         loadBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
+                            // Hide tooltip if visible
+                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
                             loadSentMapForEdit(map);
                             // Set active highlight
                             state.sentActiveId = map.id;
@@ -4511,6 +4566,7 @@
                         renameBtn.textContent = 'Rename';
                         renameBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
+                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
                             const current = map.filename || '';
                             const newName = prompt('Rename screen', current);
                             if (newName && newName.trim()) {
@@ -4524,9 +4580,18 @@
                         const deleteBtn = document.createElement('button');
                         deleteBtn.className = 'btn btn-danger btn-sm';
                         deleteBtn.textContent = 'Delete';
-                        deleteBtn.addEventListener('click', (e) => {
+                        deleteBtn.addEventListener('click', async (e) => {
                             e.stopPropagation();
-                            if (confirm('Delete this saved screen from the list? This will not remove it from the CanvasMap.')) {
+                            const ok = await showConfirm({
+                                title: 'Delete saved screen?',
+                                text: 'This removes it from the list only. Your CanvasMap items stay intact.',
+                                okText: 'Delete',
+                                cancelText: 'Cancel',
+                                okVariant: 'danger'
+                            });
+                            if (ok) {
+                                // Dispose tooltip for this item to avoid lingering hover bubble
+                                try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.dispose(); } catch { }
                                 state.storedPixelMaps = (state.storedPixelMaps || []).filter(s => s.id !== map.id);
                                 state.canvasMapObjects = (state.canvasMapObjects || []).filter(obj => obj.sourceId !== map.id);
                                 saveStoredMaps();
@@ -4557,7 +4622,7 @@
                         });
 
                         gallery.appendChild(item);
-                        try { bootstrap.Tooltip.getOrCreateInstance(item); } catch { }
+                        try { bootstrap.Tooltip.getOrCreateInstance(item, { container: 'body' }); } catch { }
                     });
                 };
 
