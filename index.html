@@ -718,6 +718,20 @@
     .sent-item .sent-actions .btn-primary { grid-column: 1 / -1; }
     .sent-item .btn-success { --bs-btn-bg: #16a34a; --bs-btn-border-color: #16a34a; }
 
+    /* Saved Canvases polished grid */
+    .saved-gallery { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px; border: 1px dashed var(--border-color); border-radius: .5rem; background: var(--input-bg); }
+    .saved-card { width: 260px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); padding: 8px; display: flex; flex-direction: column; gap: 6px; transition: transform .1s ease, box-shadow .15s ease; }
+    .saved-card:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); }
+    .saved-thumb { background: #fff; border-radius: 6px; padding: 6px; }
+    .saved-thumb img { width: 100%; height: 90px; object-fit: contain; display: block; }
+    .saved-title { font-size: .85rem; text-align: center; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .saved-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .saved-actions .btn { padding: .25rem .5rem; font-size: .75rem; }
+
+    /* Section title visibility */
+    .section-title { color: var(--text-color); font-weight: 600; letter-spacing: .2px; }
+    body.dark-mode .section-title { color: var(--accent-color); }
+
         /* Glass blur backdrop for Login modal */
         .modal-backdrop.login-blur {
             backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
@@ -801,9 +815,9 @@
             background-color: var(--accent-color) !important;
             color: #fff !important;
         }
-        /* Dropdown header styling in dark mode: use accent for better contrast */
-        body.dark-mode .dropdown-menu .dropdown-header,
-        body.dark-mode .dropdown-menu .dropdown-item.dropdown-header {
+        /* Dropdown header styling: ensure visibility in both themes */
+        .dropdown-menu .dropdown-header,
+        .dropdown-menu .dropdown-item.dropdown-header {
             color: var(--accent-color) !important;
             font-weight: 600;
             letter-spacing: .2px;
@@ -1572,9 +1586,9 @@
                                 <div class="row mt-3">
                                     <div class="col-12">
                                         <div class="card p-2">
-                                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 px-1">
+                                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 px-1">
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <h6 class="m-0">Screens sent to CanvasMap list</h6>
+                                                    <h6 class="m-0 section-title">Screens sent to CanvasMap list</h6>
                                                     <span class="badge text-bg-secondary" id="pixelMapSentCount">0 items</span>
                                                     </div>
                                                     <div class="d-flex flex-wrap align-items-center gap-2">
@@ -1750,24 +1764,34 @@
                                             <canvas id="canvasMapCanvas"></canvas>
                                         </div>
                                     </div>
-                                    <!-- Bottom: Tabs under CanvasMap for Saved Canvases -->
-                                    <ul class="nav nav-tabs mt-3" role="tablist">
-                                        <li class="nav-item" role="presentation">
-                                            <button class="nav-link active" id="cm-saved-tab" data-bs-toggle="tab" data-bs-target="#cm-saved-pane"
-                                                type="button" role="tab" aria-controls="cm-saved-pane" aria-selected="true">Saved Canvases</button>
-                                        </li>
-                                    </ul>
-                                    <div class="tab-content border border-1 rounded-bottom p-2"
-                                        style="border-color: var(--border-color); border-top: none !important;">
-                                        <div class="tab-pane fade show active" id="cm-saved-pane" role="tabpanel" aria-labelledby="cm-saved-tab"
-                                            tabindex="0">
-                                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-                                                <h6 class="m-0">Saved Canvases</h6>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <small class="text-muted" id="savedCanvasesCount">0 items</small>
-                                                </div>
-                                            </div>
-                                            <div id="savedCanvasesGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
+                                    <!-- Bottom: Saved Canvases section (separate card like PixelMap list) -->
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <div class="card p-2">
+                                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 px-1">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <h6 class="m-0 section-title">Saved Canvases</h6>
+                                                        <span class="badge text-bg-secondary" id="savedCanvasesCount">0 items</span>
+                                                        </div>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                                        <div class="input-group input-group-sm" style="width: 220px;">
+                                                            <span class="input-group-text">Search</span>
+                                                            <input type="text" id="savedSearchInput" class="form-control" placeholder="name...">
+                                                        </div>
+                                                        <div class="input-group input-group-sm" style="width: 200px;">
+                                                            <span class="input-group-text">Sort</span>
+                                                            <select id="savedSortSelect" class="form-select">
+                                                                <option value="recent">Most recent</option>
+                                                                <option value="name">Name</option>
+                                                                <option value="count">Objects count</option>
+                                                            </select>
+                                                        </div>
+                                                        <button class="btn btn-outline-danger btn-sm" id="clearSavedListBtn" title="Remove all saved canvases">Clear
+                                                            all</button>
+                                                        </div>
+                                                        </div>
+                                                        <div id="savedCanvasesGallery" class="saved-gallery"></div>
+                                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -4562,6 +4586,7 @@
                         renderImportedMapsGallery();
                         try { if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery(); } catch { }
                         redrawCanvasMapObjects();
+                        try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
                     });
                 });
                 };
@@ -4857,6 +4882,7 @@
                                 renderPixelMapSentGallery();
                                 renderImportedMapsGallery();
                                 redrawCanvasMapObjects();
+                                try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
                             }
                         });
                         actions.appendChild(loadBtn);
@@ -4922,10 +4948,12 @@
                                 renderImportedMapsGallery();
                                 renderPixelMapSentGallery();
                                 redrawCanvasMapObjects();
+                                try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
                                 showToast('Loaded screens list.', 'success');
                             } catch (err) {
                                 console.error('Load list failed:', err);
                                 showMessageBox('Failed to load list. Ensure it is a JSON array exported from this app.');
+                                try { setCanvasMapEnabled?.((state.storedPixelMaps || []).length > 0); } catch { }
                             }
                         };
                         reader.readAsText(file);
@@ -4966,6 +4994,7 @@
                         renderImportedMapsGallery();
                         renderPixelMapSentGallery();
                         redrawCanvasMapObjects();
+                        try { setCanvasMapEnabled?.(false); } catch { }
                     });
                 }
 
@@ -4985,6 +5014,30 @@
                     updateShadows();
                 };
                 attachScrollShadows();
+
+                // --- Saved Canvases controls wiring ---
+                if (state.savedSearchQuery === undefined) state.savedSearchQuery = '';
+                if (state.savedSortBy === undefined) state.savedSortBy = 'recent';
+                const savedSearchInput = document.getElementById('savedSearchInput');
+                const savedSortSelect = document.getElementById('savedSortSelect');
+                const clearSavedListBtn = document.getElementById('clearSavedListBtn');
+                if (savedSearchInput) {
+                    savedSearchInput.value = state.savedSearchQuery;
+                    savedSearchInput.addEventListener('input', (e) => { state.savedSearchQuery = e.target.value; renderSavedCanvases(); });
+                }
+                if (savedSortSelect) {
+                    savedSortSelect.value = state.savedSortBy;
+                    savedSortSelect.addEventListener('change', (e) => { state.savedSortBy = e.target.value; renderSavedCanvases(); });
+                }
+                if (clearSavedListBtn) {
+                    clearSavedListBtn.addEventListener('click', async () => {
+                        const ok = await showConfirm({ title: 'Clear all saved canvases?', text: 'This removes all saved layouts from this list. This does not change the current canvas.', okText: 'Clear all', cancelText: 'Cancel', okVariant: 'danger' });
+                        if (!ok) return;
+                        state.savedCanvases = [];
+                        try { saveSavedCanvases?.(); } catch { }
+                        renderSavedCanvases();
+                    });
+                }
 
                 const loadSentMapForEdit = (map) => {
                     let snap = map?.pixelMapState;
@@ -5091,101 +5144,88 @@
              * Renders the gallery of saved canvas layouts.
              */
             const renderSavedCanvases = () => {
-                savedCanvasesGallery.innerHTML = ''; // Clear existing gallery
+                const gallery = document.getElementById('savedCanvasesGallery');
+                if (!gallery) return;
+                gallery.innerHTML = '';
 
-                if (state.savedCanvases.length === 0) {
-                    savedCanvasesGallery.textContent = 'No canvases saved yet.';
-                    try { const c = document.getElementById('savedCanvasesCount'); if (c) c.textContent = '0 items'; } catch { }
+                const searchQ = (state.savedSearchQuery || '').trim().toLowerCase();
+                let items = Array.isArray(state.savedCanvases) ? [...state.savedCanvases] : [];
+                if (searchQ) items = items.filter(c => (c.name || '').toLowerCase().includes(searchQ));
+                switch (state.savedSortBy || 'recent') {
+                    case 'name': items.sort((a, b) => (a.name || '').localeCompare(b.name || '')); break;
+                    case 'count': items.sort((a, b) => (b.objects?.length || 0) - (a.objects?.length || 0)); break;
+                    default: items.sort((a, b) => (b.id || 0) - (a.id || 0));
+                }
+
+                const countEl = document.getElementById('savedCanvasesCount');
+                if (countEl) countEl.textContent = (state.savedCanvases?.length || 0) + (searchQ ? ` shown ${items.length}/${state.savedCanvases.length}` : ' items');
+
+                if (items.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'text-muted small px-1';
+                    empty.textContent = 'No canvases saved yet.';
+                    gallery.appendChild(empty);
                     return;
                 }
 
-                try { const c = document.getElementById('savedCanvasesCount'); if (c) c.textContent = `${state.savedCanvases.length} ${state.savedCanvases.length === 1 ? 'item' : 'items'}`; } catch { }
-                state.savedCanvases.forEach(savedCanvas => {
-                    const item = document.createElement('div');
-                    item.className = 'saved-canvas-item';
+                items.forEach(savedCanvas => {
+                    const card = document.createElement('div');
+                    card.className = 'saved-card';
 
+                    const thumb = document.createElement('div');
+                    thumb.className = 'saved-thumb';
                     const img = document.createElement('img');
                     img.src = savedCanvas.thumbnailUrl;
                     img.alt = savedCanvas.name;
+                    thumb.appendChild(img);
+                    card.appendChild(thumb);
 
-                    const nameContainer = document.createElement('div');
-                    const nameLabel = document.createElement('span');
-                    nameLabel.className = 'filename-label';
+                    const nameRow = document.createElement('div');
+                    const nameLabel = document.createElement('div');
+                    nameLabel.className = 'saved-title';
                     nameLabel.textContent = savedCanvas.name;
-
                     const renameInput = document.createElement('input');
                     renameInput.type = 'text';
-                    renameInput.className = 'rename-input';
+                    renameInput.className = 'form-control form-control-sm';
                     renameInput.value = savedCanvas.name;
                     renameInput.style.display = 'none';
+                    nameRow.appendChild(nameLabel);
+                    nameRow.appendChild(renameInput);
+                    card.appendChild(nameRow);
 
-                    nameContainer.appendChild(nameLabel);
-                    nameContainer.appendChild(renameInput);
-
-                    const controls = document.createElement('div');
-                    controls.className = 'saved-canvas-controls';
-
-                    const loadBtn = document.createElement('button');
-                    loadBtn.textContent = 'Load';
-                    loadBtn.className = 'btn btn-secondary btn-sm';
-                    loadBtn.onclick = () => loadCanvasState(savedCanvas.id);
-
-                    const exportBtn = document.createElement('button');
-                    exportBtn.textContent = 'Export';
-                    exportBtn.className = 'btn btn-secondary btn-sm';
-                    exportBtn.onclick = () => exportSavedCanvas(savedCanvas.id);
-                    
-                    const duplicateBtn = document.createElement('button');
-                    duplicateBtn.textContent = 'Duplicate';
-                    duplicateBtn.className = 'btn btn-secondary btn-sm';
-                    duplicateBtn.onclick = () => duplicateSavedCanvas(savedCanvas.id);
-                    
-                    const renameBtn = document.createElement('button');
-                    renameBtn.textContent = 'Rename';
-                    renameBtn.className = 'btn btn-secondary btn-sm';
-                    renameBtn.onclick = () => {
-                        nameLabel.style.display = 'none';
-                        renameInput.style.display = 'block';
-                        renameInput.focus();
+                    const actions = document.createElement('div');
+                    actions.className = 'saved-actions';
+                    const loadBtn = document.createElement('button'); loadBtn.className = 'btn btn-primary btn-sm'; loadBtn.textContent = 'Load'; loadBtn.onclick = () => loadCanvasState(savedCanvas.id);
+                    const exportBtn = document.createElement('button'); exportBtn.className = 'btn btn-secondary btn-sm'; exportBtn.textContent = 'Export'; exportBtn.onclick = () => exportSavedCanvas(savedCanvas.id);
+                    const dupBtn = document.createElement('button'); dupBtn.className = 'btn btn-secondary btn-sm'; dupBtn.textContent = 'Duplicate'; dupBtn.onclick = () => duplicateSavedCanvas(savedCanvas.id);
+                    const renBtn = document.createElement('button'); renBtn.className = 'btn btn-secondary btn-sm'; renBtn.textContent = 'Rename'; renBtn.onclick = () => { nameLabel.style.display = 'none'; renameInput.style.display = 'block'; renameInput.focus(); };
+                    const delBtn = document.createElement('button'); delBtn.className = 'btn btn-danger btn-sm'; delBtn.textContent = 'Delete'; delBtn.onclick = async () => {
+                        const ok = await showConfirm({ title: 'Delete saved canvas?', text: 'This only removes it from the list.', okText: 'Delete', cancelText: 'Cancel', okVariant: 'danger' });
+                        if (!ok) return; deleteSavedCanvas(savedCanvas.id);
                     };
+                    actions.appendChild(loadBtn);
+                    actions.appendChild(exportBtn);
+                    actions.appendChild(dupBtn);
+                    actions.appendChild(renBtn);
+                    actions.appendChild(delBtn);
+                    card.appendChild(actions);
 
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = 'Delete';
-                    deleteBtn.className = 'btn btn-danger btn-sm';
-                    deleteBtn.onclick = () => deleteSavedCanvas(savedCanvas.id);
-                    
                     const finishRename = () => {
                         const newName = renameInput.value.trim();
-                        if (newName) {
-                            const canvasToUpdate = state.savedCanvases.find(c => c.id === savedCanvas.id);
-                            if (canvasToUpdate) {
-                                canvasToUpdate.name = newName;
-                if (state.currentCanvasId === savedCanvas.id) {
-                                    state.customText = newName; // Update custom text if this is the current canvas
-                                    updatePixelMap(); // Redraw to show new name
-                                    updateCanvasMap();
-                                }
-                            }
+                        if (newName && newName !== savedCanvas.name) {
+                            const c = state.savedCanvases.find(x => x.id === savedCanvas.id);
+                            if (c) c.name = newName;
                             nameLabel.textContent = newName;
+                            if (state.currentCanvasId === savedCanvas.id) { state.customText = newName; updatePixelMap(); updateCanvasMap(); }
+                            try { saveSavedCanvases?.(); } catch { }
                         }
                         renameInput.style.display = 'none';
                         nameLabel.style.display = 'block';
-                        try { saveSavedCanvases?.(); } catch { }
                     };
-                    
                     renameInput.addEventListener('blur', finishRename);
                     renameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') finishRename(); });
 
-                    controls.appendChild(loadBtn);
-                    controls.appendChild(exportBtn);
-                    controls.appendChild(duplicateBtn);
-                    controls.appendChild(renameBtn);
-                    controls.appendChild(deleteBtn);
-
-                    item.appendChild(img);
-                    item.appendChild(nameContainer);
-                    item.appendChild(controls);
-                    savedCanvasesGallery.appendChild(item);
+                    gallery.appendChild(card);
                 });
             };
             
@@ -6388,6 +6428,7 @@
                 saveStoredMaps();
                 renderImportedMapsGallery(); // Update gallery in CanvasMap tab
                 renderPixelMapSentGallery(); // Update bottom gallery
+                try { setCanvasMapEnabled?.(true); } catch { }
 
                 // Switch to CanvasMap tab
                 const canvasTabTrigger = new bootstrap.Tab(document.getElementById('canvasmap-tab'));
@@ -8698,6 +8739,10 @@
                 // Load persisted data
                 try { if (typeof loadSavedCanvases === 'function') loadSavedCanvases(); } catch { }
                 try { if (typeof loadStoredMaps === 'function') loadStoredMaps(); } catch { }
+                // After loading, update CanvasMap availability and galleries
+                try { setCanvasMapEnabled?.(Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0); } catch { }
+                try { renderImportedMapsGallery?.(); } catch { }
+                try { renderPixelMapSentGallery?.(); } catch { }
 
             // Initial renders
             updatePixelMap();
