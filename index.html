@@ -3238,10 +3238,19 @@
 
                 // View Options
                 // Default Validation Email from Profile email
-                if (!state.pdfEmail && prof?.email) state.pdfEmail = String(prof.email);
+                try {
+                    const profLocal = getStoredProfile();
+                    if (!state.pdfEmail && profLocal?.email) state.pdfEmail = String(profLocal.email);
+                } catch { }
                 if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail || '';
                 // Lock Drawn By and Validation Email when company is MediaPro
-                const lockPdfPersonal = isMediaPro((prof?.company || state.pdfCompany || '').trim());
+                let lockPdfPersonal = false;
+                try {
+                    const profLocal = getStoredProfile();
+                    lockPdfPersonal = isMediaPro((profLocal?.company || state.pdfCompany || '').trim());
+                } catch {
+                    lockPdfPersonal = isMediaPro((state.pdfCompany || '').trim());
+                }
                 if (lockPdfPersonal) {
                     if (pdfDrawnByInput) {
                         pdfDrawnByInput.setAttribute('readonly', 'true');
