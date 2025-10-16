@@ -710,6 +710,22 @@
             #pdfCanvasSelectionCount.badge { font-weight: 600; }
             .dark-mode #pdfCanvasSelectionCount { background: #2b2f33; color: #c9d1d9; border-color: #3a3f44; }
 
+            /* Pages tab nested items */
+            .pdf-page-sub {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 6px 6px 22px;
+                border: 1px dashed transparent;
+                border-radius: 6px;
+                margin-top: 4px;
+                color: var(--bs-secondary-color, #6c757d);
+                font-size: 12px;
+            }
+            .pdf-page-sub .thumb { width: 40px; height: 28px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; }
+            .pdf-page-sub .meta { font-size: 12px; }
+            .pdf-page-sub .meta .title { font-weight: 500; }
+
             /* Floating toast for PDF generation */
             .pdf-toast {
                 position: fixed;
@@ -6857,6 +6873,7 @@
             pdfIncludeCanvasSnapshotToggle.addEventListener('click', () => {
                 state.pdfIncludeCanvasSnapshot = !state.pdfIncludeCanvasSnapshot;
                 pdfIncludeCanvasSnapshotToggle.textContent = state.pdfIncludeCanvasSnapshot ? 'On' : 'Off';
+                try { buildPdfPageSidebar?.(); } catch { }
                 state.pdfPreviewDirty = true; schedulePdfPreview?.();
             });
 
@@ -8130,60 +8147,99 @@
                 const buildPdfPageSidebar = () => {
                     if (!pdfPageList) return;
                     pdfPageList.innerHTML = '';
-                    // Choose dataset: prefer saved canvases filtered by selection; else current canvas objects
+                    // Build a full visual outline of the resulting PDF: per selected canvas → its screens → optional map
+                    const usingSaved = Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
                     let dataset = [];
-                    if (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) {
+                    if (usingSaved) {
                         ensureSelectedDefaults();
                         const sel = new Set(state.pdfSelectedCanvasIds.map(String));
                         dataset = state.savedCanvases.filter(c => sel.has(String(c.id)));
                     } else {
-                        dataset = (state.canvasMapObjects || []);
+                        // Single block representing current PixelMap objects
+                        dataset = [{ name: 'Current Canvas', objects: (state.canvasMapObjects || []) }];
                     }
+
                     const n = dataset.length;
-                    // Initialize order if empty/mismatched (0..n-1)
                     if (!Array.isArray(state.pdfPageOrder) || state.pdfPageOrder.length !== n) {
                         state.pdfPageOrder = Array.from({ length: n }, (_, i) => i);
                     }
+
+                    let pageNumberCounter = 1;
                     state.pdfPageOrder.forEach((idxInDataset, displayIdx) => {
-                        const item = dataset[idxInDataset] || {};
-                        const li = document.createElement('div');
-                        li.className = 'pdf-page-thumb';
-                        li.setAttribute('draggable', 'true');
-                        li.dataset.idx = String(displayIdx);
-                        const thumb = document.createElement('span'); thumb.className = 'thumb';
-                        const meta = document.createElement('div'); meta.className = 'meta';
-                        const title = document.createElement('div'); title.className = 'title';
-                        // Title: saved canvas name or object filename
-                        title.textContent = (item.name || item.filename || `Page ${idxInDataset + 1}`);
-                        const sub = document.createElement('div'); sub.className = 'sub'; sub.textContent = `Page ${displayIdx + 1}`;
-                        meta.appendChild(title); meta.appendChild(sub);
-                        li.appendChild(thumb); li.appendChild(meta);
-                        // Drag handlers
-                        li.addEventListener('dragstart', (e) => {
-                            li.classList.add('dragging');
-                            e.dataTransfer.setData('text/plain', li.dataset.idx || '0');
-                            e.dataTransfer.effectAllowed = 'move';
-                        });
-                        li.addEventListener('dragend', () => li.classList.remove('dragging'));
-                        li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('drop-target'); });
-                        li.addEventListener('dragleave', () => li.classList.remove('drop-target'));
-                        li.addEventListener('drop', (e) => {
-                            e.preventDefault();
-                            li.classList.remove('drop-target');
+                        const block = dataset[idxInDataset] || { objects: [] };
+                        const objs = Array.isArray(block.objects) ? block.objects : [];
+
+                        // Draggable canvas header (reorders blocks)
+                        const header = document.createElement('div');
+                        header.className = 'pdf-page-thumb';
+                        header.setAttribute('draggable', 'true');
+                        header.dataset.idx = String(displayIdx);
+                        const hThumb = document.createElement('span'); hThumb.className = 'thumb';
+                        const hMeta = document.createElement('div'); hMeta.className = 'meta';
+                        const hTitle = document.createElement('div'); hTitle.className = 'title';
+                        hTitle.textContent = (block.name || block.filename || `Canvas ${displayIdx + 1}`);
+                        const hSub = document.createElement('div'); hSub.className = 'sub'; hSub.textContent = `Starts at page ${pageNumberCounter}`;
+                        hMeta.appendChild(hTitle); hMeta.appendChild(hSub);
+                        header.appendChild(hThumb); header.appendChild(hMeta);
+                        // Drag handlers for header
+                        header.addEventListener('dragstart', (e) => { header.classList.add('dragging'); e.dataTransfer.setData('text/plain', header.dataset.idx || '0'); e.dataTransfer.effectAllowed = 'move'; });
+                        header.addEventListener('dragend', () => header.classList.remove('dragging'));
+                        header.addEventListener('dragover', (e) => { e.preventDefault(); header.classList.add('drop-target'); });
+                        header.addEventListener('dragleave', () => header.classList.remove('drop-target'));
+                        header.addEventListener('drop', (e) => {
+                            e.preventDefault(); header.classList.remove('drop-target');
                             const fromStr = e.dataTransfer.getData('text/plain');
                             const from = parseInt(fromStr, 10);
-                            const to = parseInt(li.dataset.idx || '0', 10);
+                            const to = parseInt(header.dataset.idx || '0', 10);
                             if (isNaN(from) || isNaN(to) || from === to) return;
                             const order = state.pdfPageOrder.slice();
                             const [moved] = order.splice(from, 1);
                             order.splice(to, 0, moved);
                             state.pdfPageOrder = order;
                             buildPdfPageSidebar();
-                            state.pdfPreviewDirty = true;
-                            schedulePdfPreview?.();
+                            state.pdfPreviewDirty = true; schedulePdfPreview?.();
                         });
-                        pdfPageList.appendChild(li);
+                        pdfPageList.appendChild(header);
+
+                        // Non-draggable sub-items for each screen in this canvas
+                        objs.forEach((obj, i) => {
+                            const sub = document.createElement('div');
+                            sub.className = 'pdf-page-sub';
+                            const sThumb = document.createElement('span'); sThumb.className = 'thumb';
+                            const sMeta = document.createElement('div'); sMeta.className = 'meta';
+                            const sTitle = document.createElement('div'); sTitle.className = 'title'; sTitle.textContent = (obj.filename || `Screen ${i + 1}`);
+                            const sSub = document.createElement('div'); sSub.className = 'sub'; sSub.textContent = `Page ${pageNumberCounter}`;
+                            sMeta.appendChild(sTitle); sMeta.appendChild(sSub);
+                            sub.appendChild(sThumb); sub.appendChild(sMeta);
+                            pdfPageList.appendChild(sub);
+                            pageNumberCounter++;
+                        });
+
+                        // Optional Output Map page indicator per canvas
+                        if (state.pdfIncludeCanvasSnapshot) {
+                            const mapSub = document.createElement('div');
+                            mapSub.className = 'pdf-page-sub';
+                            const mThumb = document.createElement('span'); mThumb.className = 'thumb';
+                            const mMeta = document.createElement('div'); mMeta.className = 'meta';
+                            const mTitle = document.createElement('div'); mTitle.className = 'title'; mTitle.textContent = (block.name || `Canvas ${displayIdx + 1}`) + ' - Output Map';
+                            const mSub = document.createElement('div'); mSub.className = 'sub'; mSub.textContent = `Page ${pageNumberCounter}`;
+                            mMeta.appendChild(mTitle); mMeta.appendChild(mSub);
+                            mapSub.appendChild(mThumb); mapSub.appendChild(mMeta);
+                            pdfPageList.appendChild(mapSub);
+                            pageNumberCounter++;
+                        }
                     });
+
+                    // Final spec page indicator
+                    const spec = document.createElement('div');
+                    spec.className = 'pdf-page-sub';
+                    const spThumb = document.createElement('span'); spThumb.className = 'thumb';
+                    const spMeta = document.createElement('div'); spMeta.className = 'meta';
+                    const spTitle = document.createElement('div'); spTitle.className = 'title'; spTitle.textContent = 'Media Server Specification';
+                    const spSub = document.createElement('div'); spSub.className = 'sub'; spSub.textContent = `Page ${pageNumberCounter}`;
+                    spMeta.appendChild(spTitle); spMeta.appendChild(spSub);
+                    spec.appendChild(spThumb); spec.appendChild(spMeta);
+                    pdfPageList.appendChild(spec);
                 };
                 if (pdfResetOrderBtn) {
                     pdfResetOrderBtn.addEventListener('click', () => {
