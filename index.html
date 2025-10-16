@@ -9554,6 +9554,54 @@
                 try { renderImportedMapsGallery?.(); } catch { }
                 try { renderPixelMapSentGallery?.(); } catch { }
 
+                // Persist and restore the last active top-level tab (PixelMap / CanvasMap / PDF Settings)
+                const ACTIVE_TAB_KEY = 'ui.activeTabId.v1';
+                // Save active tab on change
+                try {
+                    document.querySelectorAll('#myTab .nav-link').forEach(btn => {
+                        btn.addEventListener('shown.bs.tab', (e) => {
+                            try { localStorage.setItem(ACTIVE_TAB_KEY, e.target.id); } catch { }
+                        });
+                    });
+                } catch { }
+                // Determine if a tab is allowed based on current gating
+                const isTabAllowed = (tabId) => {
+                    switch (tabId) {
+                        case 'pdfsettings-tab':
+                            return (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) && (Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0);
+                        case 'canvasmap-tab':
+                            return Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
+                        case 'pixelmap-tab':
+                        default:
+                            return true;
+                    }
+                };
+                // Restore saved tab after gating is evaluated
+                const restoreActiveTab = () => {
+                    let desired = null;
+                    try { desired = localStorage.getItem(ACTIVE_TAB_KEY); } catch { desired = null; }
+                    const currentActive = document.querySelector('#myTab .nav-link.active')?.id;
+                    // If current is already a valid choice and equals desired, nothing to do
+                    if (desired && currentActive === desired && isTabAllowed(desired)) return;
+                    // Choose the best tab to show
+                    let toShow = 'pixelmap-tab';
+                    if (desired && isTabAllowed(desired)) {
+                        toShow = desired;
+                    } else if (isTabAllowed('canvasmap-tab')) {
+                        toShow = 'canvasmap-tab';
+                    } else {
+                        toShow = 'pixelmap-tab';
+                    }
+                    // If already active, skip
+                    if (currentActive === toShow) return;
+                    const btn = document.getElementById(toShow);
+                    if (btn) {
+                        try { bootstrap?.Tab?.getOrCreateInstance(btn)?.show(); } catch { try { btn.click?.(); } catch { } }
+                    }
+                };
+                // Attempt restore once on load
+                try { restoreActiveTab(); } catch { }
+
             // Initial renders
             updatePixelMap();
             updateCanvasMap();
