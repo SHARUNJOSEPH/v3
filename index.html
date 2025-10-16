@@ -656,31 +656,46 @@
             display: flex;
             gap: 10px;
             overflow-x: auto;
+            overflow-y: hidden; /* prevent controls from spilling under scrollbar */
             padding: 6px 8px;
             border: 1px dashed var(--border-color);
             border-radius: 0.5rem;
             background: var(--input-bg);
-            min-height: 90px;
+            min-height: 190px; /* accommodate actions and text without overflow */
+            align-items: flex-start;
+            padding-bottom: 28px; /* space for horizontal scrollbar so buttons are not covered */
+            scrollbar-gutter: stable; /* reserve space for scrollbar in supporting browsers */
         }
         .sent-item {
             flex: 0 0 auto;
-            width: 140px;
+            width: 260px; /* increased width so buttons fit comfortably */
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background: var(--card-bg);
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             gap: 6px;
             padding: 6px;
             cursor: pointer;
             transition: transform .1s ease, box-shadow .15s ease;
+            overflow: hidden; /* keep buttons inside rounded border */
+            box-sizing: border-box;
         }
+        .sent-item .sent-title, .sent-item .sent-meta { margin-bottom: 2px; }
+        .sent-item .sent-actions { margin-top: auto; }
         .sent-item:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(0,0,0,.35); }
         .sent-item.active { outline: 2px solid var(--accent-color); }
-        .sent-item img { width: 100%; height: 70px; object-fit: contain; border-radius: 4px; background: #fff; }
-        .sent-item .sent-title { font-size: .75rem; text-align: center; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        .sent-item .sent-meta { font-size: .68rem; color: var(--secondary-text-color); }
+    .sent-item img { width: 100%; height: 60px; object-fit: contain; border-radius: 4px; background: #fff; }
+    .sent-item .sent-title { font-size: .8rem; text-align: center; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+    .sent-item .sent-meta { font-size: .7rem; color: var(--secondary-text-color); text-align: center; }
+    .sent-item .sent-actions { display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%; margin-bottom: 2px; }
+    .sent-item .sent-actions .btn { padding: .25rem .5rem; font-size: .75rem; width: 100%; }
+    .sent-item .sent-actions .btn-primary { grid-column: 1 / -1; }
+    /* Actions layout to prevent overlap */
+    .sent-item .sent-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+    .sent-item .sent-actions .btn { padding: .2rem .45rem; font-size: .75rem; }
+    .sent-item .sent-actions .btn-primary { grid-column: 1 / -1; }
 
         /* Glass blur backdrop for Login modal */
         .modal-backdrop.login-blur {
@@ -1579,10 +1594,6 @@
                                                 </div>
                                                  <hr style="border-color: var(--border-color);">
                                                 <button id="saveCanvasBtn" class="btn btn-primary w-100">Save Current Canvas</button>
-                                                <div>
-                                                    <label class="form-label fw-bold">Saved Canvases</label>
-                                                    <div id="savedCanvasesGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
-                                                </div>
                                             </div>
                                         </div>
 
@@ -1700,6 +1711,26 @@
                                         <div class="ruler-vertical" id="rulerVertical"></div>
                                         <div class="canvas-container" id="canvasMapContainer">
                                             <canvas id="canvasMapCanvas"></canvas>
+                                        </div>
+                                    </div>
+                                    <!-- Bottom: Tabs under CanvasMap for Saved Canvases -->
+                                    <ul class="nav nav-tabs mt-3" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="cm-saved-tab" data-bs-toggle="tab" data-bs-target="#cm-saved-pane"
+                                                type="button" role="tab" aria-controls="cm-saved-pane" aria-selected="true">Saved Canvases</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content border border-1 rounded-bottom p-2"
+                                        style="border-color: var(--border-color); border-top: none !important;">
+                                        <div class="tab-pane fade show active" id="cm-saved-pane" role="tabpanel" aria-labelledby="cm-saved-tab"
+                                            tabindex="0">
+                                            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                                <h6 class="m-0">Saved Canvases</h6>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <small class="text-muted" id="savedCanvasesCount">0 items</small>
+                                                </div>
+                                            </div>
+                                            <div id="savedCanvasesGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -4453,6 +4484,18 @@
                         // Actions row: Rename / Delete
                         const actions = document.createElement('div');
                         actions.className = 'd-flex gap-1 mt-1';
+                        const loadBtn = document.createElement('button');
+                        loadBtn.className = 'btn btn-primary btn-sm';
+                        loadBtn.textContent = 'Load';
+                        loadBtn.title = 'Load this screen into PixelMap for editing';
+                        loadBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadSentMapForEdit(map);
+                            // Set active highlight
+                            state.sentActiveId = map.id;
+                            gallery.querySelectorAll('.sent-item').forEach(el => el.classList.remove('active'));
+                            item.classList.add('active');
+                        });
                         const renameBtn = document.createElement('button');
                         renameBtn.className = 'btn btn-secondary btn-sm';
                         renameBtn.textContent = 'Rename';
@@ -4482,6 +4525,7 @@
                                 redrawCanvasMapObjects();
                             }
                         });
+                        actions.appendChild(loadBtn);
                         actions.appendChild(renameBtn);
                         actions.appendChild(deleteBtn);
                         item.appendChild(actions);
@@ -4663,9 +4707,11 @@
 
                 if (state.savedCanvases.length === 0) {
                     savedCanvasesGallery.textContent = 'No canvases saved yet.';
+                    try { const c = document.getElementById('savedCanvasesCount'); if (c) c.textContent = '0 items'; } catch { }
                     return;
                 }
 
+                try { const c = document.getElementById('savedCanvasesCount'); if (c) c.textContent = `${state.savedCanvases.length} ${state.savedCanvases.length === 1 ? 'item' : 'items'}`; } catch { }
                 state.savedCanvases.forEach(savedCanvas => {
                     const item = document.createElement('div');
                     item.className = 'saved-canvas-item';
@@ -8150,7 +8196,13 @@
                 state.currentCanvasId = newSavedCanvas.id;
                 state.customText = name; // Set custom text to the canvas name
                 renderSavedCanvases(); // Update the UI to show the new saved canvas
+
+                // Clear the current CanvasMap workspace for the next design
+                state.canvasMapObjects = [];
+                selectedCanvasMapObject = null;
+                updateObjectPropertiesPanel();
                 updateCanvasMap();
+                try { showToast('Canvas saved. Workspace cleared for a new design.', 'success'); } catch { }
 
                 // Hide the modal
                 saveCanvasModal.classList.remove('visible');
