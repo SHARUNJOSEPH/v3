@@ -671,6 +671,28 @@
             .pdf-page-thumb .meta .title { font-weight: 600; }
             .pdf-page-thumb.drop-target { outline: 2px dashed var(--accent-color, #0d6efd); }
 
+            /* Floating toast for PDF generation */
+            .pdf-toast {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                z-index: 1060; /* above offcanvas/modals backdrop */
+                background: var(--bs-body-bg, #fff);
+                color: var(--bs-body-color, #212529);
+                border: 1px solid var(--bs-border-color, #dee2e6);
+                border-radius: .5rem;
+                box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+                padding: .5rem .75rem;
+                display: flex;
+                align-items: center;
+                gap: .5rem;
+            }
+            .dark-mode .pdf-toast {
+                background: #2b2f33;
+                color: #e9ecef;
+                border-color: #3a3f44;
+            }
+
         /* Placeholder should span full width when visible */
         #pdfPreviewPlaceholder {
             width: 100%;
@@ -1919,10 +1941,14 @@
                                             <button id="exportCanvasPdfBtnNew" class="btn btn-primary">Export Multi-Canvas PDF</button>
                                             <button id="exportCanvasXmlBtn" class="btn btn-primary">Export XML</button>
                                         </div>
-                                        <div class="ms-auto d-flex align-items-center gap-2">
+                                        <div class="ms-auto d-flex flex-column align-items-end gap-1">
                                             <button id="pdfRefreshPreviewBtn" class="btn btn-outline-secondary" title="Refresh PDF Preview">
                                                 Refresh
                                             </button>
+                                            <div id="pdfPreviewStatus" class="text-muted small d-none">
+                                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                                Generating preview…
+                                            </div>
                                         </div>
                                         </div>
                                         <div class="d-flex flex-grow-1 gap-3">
@@ -1964,6 +1990,9 @@
         <p id="messageText" class="mb-3"></p>
         <button id="closeMessageBtn" class="btn btn-primary">OK</button>
     </div>
+
+    <!-- PDF Preview Toast Container -->
+    <div id="pdfToastContainer" class="d-none"></div>
 
     <!-- Reusable Confirm Box (nicer UX than browser confirm) -->
     <div id="confirmBox" class="message-box card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle"
@@ -5263,6 +5292,7 @@
                     const actions = document.createElement('div');
                     actions.className = 'saved-actions';
                     const loadBtn = document.createElement('button'); loadBtn.className = 'btn btn-primary btn-sm'; loadBtn.textContent = 'Load'; loadBtn.onclick = () => loadCanvasState(savedCanvas.id);
+                    const updateBtn = document.createElement('button'); updateBtn.className = 'btn btn-success btn-sm'; updateBtn.textContent = 'Update'; updateBtn.title = 'Update this saved canvas with the current CanvasMap'; updateBtn.onclick = () => updateSavedCanvas(savedCanvas.id);
                     const exportBtn = document.createElement('button'); exportBtn.className = 'btn btn-secondary btn-sm'; exportBtn.textContent = 'Export'; exportBtn.onclick = () => exportSavedCanvas(savedCanvas.id);
                     const dupBtn = document.createElement('button'); dupBtn.className = 'btn btn-secondary btn-sm'; dupBtn.textContent = 'Duplicate'; dupBtn.onclick = () => duplicateSavedCanvas(savedCanvas.id);
                     const renBtn = document.createElement('button'); renBtn.className = 'btn btn-secondary btn-sm'; renBtn.textContent = 'Rename'; renBtn.onclick = () => { nameLabel.style.display = 'none'; renameInput.style.display = 'block'; renameInput.focus(); };
@@ -5271,6 +5301,7 @@
                         if (!ok) return; deleteSavedCanvas(savedCanvas.id);
                     };
                     actions.appendChild(loadBtn);
+                    actions.appendChild(updateBtn);
                     actions.appendChild(exportBtn);
                     actions.appendChild(dupBtn);
                     actions.appendChild(renBtn);
@@ -5420,6 +5451,32 @@
                     showMessageBox("Failed to export saved canvas. An image may be corrupted.");
                 }
             };
+
+                /**
+                 * Updates a saved canvas with the current CanvasMap state (objects + thumbnail).
+                 */
+                const updateSavedCanvas = (canvasId) => {
+                    const entry = state.savedCanvases.find(c => c.id === canvasId);
+                    if (!entry) return;
+                    // Snapshot current CanvasMap objects
+                    const updatedObjects = JSON.parse(JSON.stringify(state.canvasMapObjects || []));
+                    // Build fresh thumbnail from current export canvas
+                    const thumbnailCanvas = document.createElement('canvas');
+                    const thumbSize = 120;
+                    const aspectRatio = (canvasMapCanvas.width || 1) / (canvasMapCanvas.height || 1);
+                    thumbnailCanvas.width = thumbSize;
+                    thumbnailCanvas.height = Math.max(1, Math.round(thumbSize / aspectRatio));
+                    const thumbCtx = thumbnailCanvas.getContext('2d');
+                    const exportCanvasEl = createExportCanvas(true);
+                    thumbCtx.drawImage(exportCanvasEl, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+                    const newThumbUrl = thumbnailCanvas.toDataURL('image/jpeg', 0.8);
+
+                    entry.objects = updatedObjects;
+                    entry.thumbnailUrl = newThumbUrl;
+                    try { saveSavedCanvases?.(); } catch { }
+                    renderSavedCanvases();
+                    try { showToast('Saved canvas updated with current layout.', 'success'); } catch { }
+                };
 
 
             // --- Event Listeners ---
@@ -7592,6 +7649,28 @@
         exportCanvasPdfBtn.addEventListener('click', exportDetailedCanvasPdf);
         exportCanvasPdfBtnNew.addEventListener('click', showMultiExportModal);
 
+                // Simple floating toast for PDF generation status
+                const showPdfToast = (text) => {
+                    try {
+                        const container = document.getElementById('pdfToastContainer');
+                        if (!container) return;
+                        container.innerHTML = '';
+                        const el = document.createElement('div');
+                        el.className = 'pdf-toast';
+                        el.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${text}`;
+                        container.appendChild(el);
+                        container.classList.remove('d-none');
+                    } catch { }
+                };
+                const hidePdfToast = () => {
+                    try {
+                        const container = document.getElementById('pdfToastContainer');
+                        if (!container) return;
+                        container.classList.add('d-none');
+                        container.innerHTML = '';
+                    } catch { }
+                };
+
                 // PDF page sidebar state: maintain an order of object indices for preview/export
                 if (!Array.isArray(state.pdfPageOrder)) state.pdfPageOrder = [];
 
@@ -7680,6 +7759,8 @@
 
             // Show loading state
             if (pdfPreviewContainer) pdfPreviewContainer.classList.add('loading');
+            try { document.getElementById('pdfPreviewStatus')?.classList.remove('d-none'); } catch { }
+            try { showPdfToast('Generating PDF preview…'); } catch { }
             pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
             // Yield to the browser to render the spinner before heavy work
             setTimeout(() => {
@@ -7776,6 +7857,8 @@
                 state.pdfPreviewReady = true;
                 state.pdfPreviewDirty = false;
                 if (pdfPreviewContainer) pdfPreviewContainer.classList.remove('loading');
+                try { document.getElementById('pdfPreviewStatus')?.classList.add('d-none'); } catch { }
+                try { hidePdfToast(); } catch { }
 
             } catch (error) {
                 console.error("Error generating PDF preview:", error);
@@ -7783,6 +7866,8 @@
                 pdfPreviewContent.classList.add('d-none');
                 pdfPreviewPlaceholder.style.display = 'block';
                 if (pdfPreviewContainer) pdfPreviewContainer.classList.remove('loading');
+                try { document.getElementById('pdfPreviewStatus')?.classList.add('d-none'); } catch { }
+                try { hidePdfToast(); } catch { }
             }
             }, 0);
         };
@@ -7819,14 +7904,30 @@
             });
             pdfTab.addEventListener('shown.bs.tab', () => {
                 __pdfTabActive = true;
-                // Only generate if we have content and preview area exists and at least one saved canvas
-                if (document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) {
-                    if (!state.pdfPreviewReady || state.pdfPreviewDirty) {
-                        setTimeout(generatePdfPreview, 50);
+                // Show structure immediately: placeholder visible, content hidden
+                try {
+                    const ph = document.getElementById('pdfPreviewPlaceholder');
+                    const ct = document.getElementById('pdfPreviewContent');
+                    if (ph) ph.style.display = 'block';
+                    if (ct) ct.classList.add('d-none');
+                } catch { }
+                // Rebuild the thumbnails sidebar on activation immediately
+                buildPdfPageSidebar?.();
+                // Kick off preview generation after UI settles, to avoid blocking initial paint
+                const canPreview = !!document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+                const kickoff = () => { if (!state.pdfPreviewReady || state.pdfPreviewDirty) generatePdfPreview(); };
+                if (canPreview) {
+                    try { showPdfToast('Generating PDF preview…'); } catch { }
+                    try {
+                        if (typeof window.requestIdleCallback === 'function') {
+                            window.requestIdleCallback(kickoff, { timeout: 700 });
+                        } else {
+                            setTimeout(kickoff, 250);
+                        }
+                    } catch {
+                        setTimeout(kickoff, 250);
                     }
                 }
-                // Rebuild the thumbnails sidebar on activation
-                buildPdfPageSidebar?.();
             });
             pdfTab.addEventListener('hidden.bs.tab', () => { __pdfTabActive = false; });
         }
