@@ -7896,6 +7896,9 @@
         // Auto-generate preview when switching to the PDF Settings tab
         const pdfTab = document.getElementById('pdfsettings-tab');
         if (pdfTab) {
+            // Track any scheduled kickoff so we can cancel when leaving the tab
+            let __pdfPreviewIdleHandle = null;
+            let __pdfPreviewIdleIsTimeout = false;
             pdfTab.addEventListener('show.bs.tab', (e) => {
                 if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) {
                     e.preventDefault();
@@ -7904,32 +7907,60 @@
             });
             pdfTab.addEventListener('shown.bs.tab', () => {
                 __pdfTabActive = true;
-                // Show structure immediately: placeholder visible, content hidden
+                // Rebuild the thumbnails sidebar on activation immediately for instant UI
+                buildPdfPageSidebar?.();
+                const ph = document.getElementById('pdfPreviewPlaceholder');
+                const ct = document.getElementById('pdfPreviewContent');
+                const container = document.getElementById('pdfPreviewContainer');
+                const canPreview = !!document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+                // If we already have a ready, not-dirty preview, show it immediately and bail
+                if (canPreview && state.pdfPreviewReady && !state.pdfPreviewDirty) {
+                    try {
+                        if (ct) ct.classList.remove('d-none');
+                        if (ph) ph.style.display = 'none';
+                        container?.classList.remove('loading');
+                        document.getElementById('pdfPreviewStatus')?.classList.add('d-none');
+                        hidePdfToast?.();
+                    } catch { }
+                    return;
+                }
+                // Otherwise, show placeholder quickly and schedule generation
                 try {
-                    const ph = document.getElementById('pdfPreviewPlaceholder');
-                    const ct = document.getElementById('pdfPreviewContent');
                     if (ph) ph.style.display = 'block';
                     if (ct) ct.classList.add('d-none');
                 } catch { }
-                // Rebuild the thumbnails sidebar on activation immediately
-                buildPdfPageSidebar?.();
-                // Kick off preview generation after UI settles, to avoid blocking initial paint
-                const canPreview = !!document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
-                const kickoff = () => { if (!state.pdfPreviewReady || state.pdfPreviewDirty) generatePdfPreview(); };
+                const kickoff = () => { __pdfPreviewIdleHandle = null; __pdfPreviewIdleIsTimeout = false; if (!state.pdfPreviewReady || state.pdfPreviewDirty) generatePdfPreview(); };
                 if (canPreview) {
-                    try { showPdfToast('Generating PDF preview…'); } catch { }
+                    try { showPdfToast?.('Generating PDF preview…'); } catch { }
                     try {
                         if (typeof window.requestIdleCallback === 'function') {
-                            window.requestIdleCallback(kickoff, { timeout: 700 });
+                            __pdfPreviewIdleIsTimeout = false;
+                            __pdfPreviewIdleHandle = window.requestIdleCallback(kickoff, { timeout: 700 });
                         } else {
-                            setTimeout(kickoff, 250);
+                            __pdfPreviewIdleIsTimeout = true;
+                            __pdfPreviewIdleHandle = setTimeout(kickoff, 250);
                         }
                     } catch {
-                        setTimeout(kickoff, 250);
+                        __pdfPreviewIdleIsTimeout = true;
+                        __pdfPreviewIdleHandle = setTimeout(kickoff, 250);
                     }
                 }
             });
-            pdfTab.addEventListener('hidden.bs.tab', () => { __pdfTabActive = false; });
+            pdfTab.addEventListener('hidden.bs.tab', () => {
+                __pdfTabActive = false;
+                // Cancel any pending kickoff when leaving the tab
+                try {
+                    if (__pdfPreviewIdleHandle != null) {
+                        if (__pdfPreviewIdleIsTimeout) {
+                            clearTimeout(__pdfPreviewIdleHandle);
+                        } else if (typeof window.cancelIdleCallback === 'function') {
+                            window.cancelIdleCallback(__pdfPreviewIdleHandle);
+                        }
+                        __pdfPreviewIdleHandle = null;
+                        __pdfPreviewIdleIsTimeout = false;
+                    }
+                } catch { }
+            });
         }
 
         // Also ensure PixelMap redraws when its tab is shown, so sizing/layout is correct
@@ -7945,7 +7976,26 @@
                     const activeTab = document.querySelector('.nav-link.active');
                     if (activeTab && activeTab.id === 'pdfsettings-tab') {
                         __pdfTabActive = true;
-                        schedulePdfPreview();
+                        // Build sidebar immediately so UI is complete on first paint
+                        try { buildPdfPageSidebar?.(); } catch { }
+                        const ph = document.getElementById('pdfPreviewPlaceholder');
+                        const ct = document.getElementById('pdfPreviewContent');
+                        const container = document.getElementById('pdfPreviewContainer');
+                        const canPreview = !!document.getElementById('pdfPreviewFrame') && Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+                        if (canPreview && state.pdfPreviewReady && !state.pdfPreviewDirty) {
+                            // Show existing preview immediately
+                            try {
+                                if (ct) ct.classList.remove('d-none');
+                                if (ph) ph.style.display = 'none';
+                                container?.classList.remove('loading');
+                                document.getElementById('pdfPreviewStatus')?.classList.add('d-none');
+                                hidePdfToast?.();
+                            } catch { }
+                        } else {
+                            // Show placeholder and schedule preview
+                            try { if (ph) ph.style.display = 'block'; if (ct) ct.classList.add('d-none'); } catch { }
+                            schedulePdfPreview();
+                        }
                     }
                 } catch { }
 
