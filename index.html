@@ -781,9 +781,12 @@
             background-color: var(--accent-color) !important;
             color: #fff !important;
         }
-        /* Optional header styling if used */
-        body.dark-mode .dropdown-menu .dropdown-header {
-            color: var(--secondary-text-color) !important;
+        /* Dropdown header styling in dark mode: use accent for better contrast */
+        body.dark-mode .dropdown-menu .dropdown-header,
+        body.dark-mode .dropdown-menu .dropdown-item.dropdown-header {
+            color: var(--accent-color) !important;
+            font-weight: 600;
+            letter-spacing: .2px;
         }
         body.dark-mode .dropdown-divider {
             border-top-color: var(--border-color);
@@ -3139,6 +3142,26 @@
                 uiAccentColorInput.value = state.uiAccentColor;
                 updateUIAccentColor(state.uiAccentColor);
 
+                // Adapt canvas text colors for current theme without overriding custom colors.
+                // Only flip pure black/white to maintain contrast in dark/light modes.
+                const asHex = (c) => (typeof c === 'string' ? c.trim().toLowerCase() : '');
+                const ensureThemeContrast = () => {
+                    const isDark = !!state.isDarkMode;
+                    const toLight = '#ffffff';
+                    const toDark = '#000000';
+                    if (isDark) {
+                        if (asHex(state.customTextColor) === '#000000') state.customTextColor = toLight;
+                        if (asHex(state.numberingColor) === '#000000') state.numberingColor = toLight;
+                        if (asHex(state.specificationColor) === '#000000') state.specificationColor = toLight;
+                    } else {
+                        if (asHex(state.customTextColor) === '#ffffff') state.customTextColor = toDark;
+                        if (asHex(state.numberingColor) === '#ffffff') state.numberingColor = toDark;
+                        // Specification text is often overlayed; switch back only if it was pure white
+                        if (asHex(state.specificationColor) === '#ffffff') state.specificationColor = toDark;
+                    }
+                };
+                try { ensureThemeContrast(); } catch { }
+
                 fontSelectModal.value = fontSelect.value;
                 colorModeToggleModal.textContent = colorModeToggle.textContent;
                 uiAccentColorInputModal.value = uiAccentColorInput.value;
@@ -4544,7 +4567,7 @@
                         meta.textContent = [res, panels].filter(Boolean).join(' · ');
                         item.appendChild(meta);
 
-                        // Actions row: Rename / Delete
+                        // Actions row: Load / Save / Rename / Delete
                         const actions = document.createElement('div');
                         actions.className = 'd-flex gap-1 mt-1';
                         const loadBtn = document.createElement('button');
@@ -4560,6 +4583,146 @@
                             state.sentActiveId = map.id;
                             gallery.querySelectorAll('.sent-item').forEach(el => el.classList.remove('active'));
                             item.classList.add('active');
+                        });
+                        // Save current PixelMap into this stored item
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = 'btn btn-success btn-sm';
+                        saveBtn.textContent = 'Save';
+                        saveBtn.title = 'Save current PixelMap changes to this item';
+                        saveBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
+
+                            // Temporarily hide selection rectangle for saving
+                            const currentSelection = state.selectionRect;
+                            state.selectionRect = null;
+                            redrawDrawingOverlay();
+
+                            // Combine PixelMap base and overlay
+                            const combinedCanvas = document.createElement('canvas');
+                            combinedCanvas.width = state.totalResWidth;
+                            combinedCanvas.height = state.totalResHeight;
+                            const combinedCtx = combinedCanvas.getContext('2d', { alpha: true });
+                            combinedCtx.drawImage(pixelMapCanvas, 0, 0);
+                            combinedCtx.drawImage(drawingOverlayCanvas, 0, 0);
+
+                            // Restore selection rectangle
+                            state.selectionRect = currentSelection;
+                            redrawDrawingOverlay();
+
+                            // Build full image and thumbnail
+                            const dataUrl = combinedCanvas.toDataURL('image/png');
+                            const thumbCanvas = document.createElement('canvas');
+                            const maxThumbW = 200;
+                            const scaleThumb = Math.min(1, maxThumbW / combinedCanvas.width);
+                            thumbCanvas.width = Math.max(1, Math.round(combinedCanvas.width * scaleThumb));
+                            thumbCanvas.height = Math.max(1, Math.round(combinedCanvas.height * scaleThumb));
+                            thumbCanvas.getContext('2d', { alpha: true }).drawImage(combinedCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                            const thumbUrl = thumbCanvas.toDataURL('image/png');
+
+                            // Compute details
+                            let numPanelsWidth, numPanelsHeight;
+                            if (state.isPanelCountMode) {
+                                numPanelsWidth = state.panelsInWidth;
+                                numPanelsHeight = state.panelsInHeight;
+                            } else {
+                                const screenWidthBase = convertUnits(state.screenWidth, state.unit, 'meter');
+                                const screenHeightBase = convertUnits(state.screenHeight, state.unit, 'meter');
+                                const panelWidthBase = state.panelWidth;
+                                const panelHeightBase = state.panelHeight;
+                                numPanelsWidth = Math.floor(screenWidthBase / panelWidthBase);
+                                numPanelsHeight = Math.floor(screenHeightBase / panelHeightBase);
+                            }
+
+                            // Update map object in-place
+                            map.dataUrl = dataUrl;
+                            map.thumbnailUrl = thumbUrl;
+                            map.width = state.totalResWidth;
+                            map.height = state.totalResHeight;
+                            map.details = {
+                                totalPanels: numPanelsWidth * numPanelsHeight,
+                                panelsWidth: numPanelsWidth,
+                                panelsHeight: numPanelsHeight,
+                                resWidth: state.totalResWidth,
+                                resHeight: state.totalResHeight,
+                                actualWidth: state.isPanelCountMode ? numPanelsWidth * state.panelWidth : state.screenWidth,
+                                actualHeight: state.isPanelCountMode ? numPanelsHeight * state.panelHeight : state.screenHeight,
+                                unit: state.unit,
+                                panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
+                                panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
+                            };
+                            map.pixelMapState = {
+                                unit: state.unit,
+                                screenWidth: state.screenWidth,
+                                screenHeight: state.screenHeight,
+                                isPanelCountMode: state.isPanelCountMode,
+                                panelsInWidth: state.panelsInWidth,
+                                panelsInHeight: state.panelsInHeight,
+                                panelWidth: state.panelWidth,
+                                panelHeight: state.panelHeight,
+                                panelResWidth: state.panelResWidth,
+                                panelResHeight: state.panelResHeight,
+                                color1: state.color1,
+                                color2: state.color2,
+                                isColor2Brighter: state.isColor2Brighter,
+                                outlineEnabled: state.outlineEnabled,
+                                outlineColor: state.outlineColor,
+                                outlineSize: state.outlineSize,
+                                rasterEnabled: state.rasterEnabled,
+                                rasterColor: state.rasterColor,
+                                rasterSize: state.rasterSize,
+                                circleEffectEnabled: state.circleEffectEnabled,
+                                circleEffectColor: state.circleEffectColor,
+                                circleEffectSize: state.circleEffectSize,
+                                circleEffectThickness: state.circleEffectThickness,
+                                crossLineEffectEnabled: state.crossLineEffectEnabled,
+                                crossLineColor: state.crossLineColor,
+                                crossLineSize: state.crossLineSize,
+                                numberingEnabled: state.numberingEnabled,
+                                numberingFormat: state.numberingFormat,
+                                numberingPosition: state.numberingPosition,
+                                numberingSize: state.numberingSize,
+                                numberingColor: state.numberingColor,
+                                customTextEnabled: state.customTextEnabled,
+                                customText: state.customText,
+                                customTextSize: state.customTextSize,
+                                customTextColor: state.customTextColor,
+                                customTextBgEnabled: state.customTextBgEnabled,
+                                customTextBgColor: state.customTextBgColor,
+                                customTextBgOpacity: state.customTextBgOpacity,
+                                specificationEnabled: state.specificationEnabled,
+                                specificationColor: state.specificationColor,
+                                specificationSize: state.specificationSize,
+                                specificationX: state.specificationX,
+                                specificationY: state.specificationY,
+                                specificationFormat: state.specificationFormat,
+                                specificationBgEnabled: state.specificationBgEnabled,
+                                specificationBgColor: state.specificationBgColor,
+                                oneLineText: state.oneLineText,
+                                removedPanels: Array.from(state.removedPanels || []),
+                            };
+
+                            // Propagate updates to any CanvasMap instances referencing this source
+                            try {
+                                (state.canvasMapObjects || []).forEach(obj => {
+                                    if (obj.sourceId === map.id) {
+                                        obj.dataUrl = dataUrl;
+                                        obj.width = map.width;
+                                        obj.height = map.height;
+                                        obj.details = map.details;
+                                        obj.filename = map.filename;
+                                        const img = new Image();
+                                        img.onload = () => { obj.image = img; redrawCanvasMapObjects(); };
+                                        img.src = dataUrl;
+                                    }
+                                });
+                            } catch { }
+
+                            saveStoredMaps();
+                            renderPixelMapSentGallery();
+                            renderImportedMapsGallery();
+                            redrawCanvasMapObjects();
+                            showToast('Saved changes to this item.', 'success');
                         });
                         const renameBtn = document.createElement('button');
                         renameBtn.className = 'btn btn-secondary btn-sm';
@@ -4601,6 +4764,7 @@
                             }
                         });
                         actions.appendChild(loadBtn);
+                        actions.appendChild(saveBtn);
                         actions.appendChild(renameBtn);
                         actions.appendChild(deleteBtn);
                         item.appendChild(actions);
