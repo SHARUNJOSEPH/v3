@@ -758,9 +758,9 @@
         }
 
         /* Image-based preview pages */
-        .pdf-image-preview { display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: auto; }
-        .pdf-image-page { background: #fff; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 6px; padding: 8px; display: flex; justify-content: center; }
-        .pdf-image-page img { max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .pdf-image-preview { display: flex; flex-direction: column; gap: 12px; height: 100%; overflow: auto; }
+    .pdf-image-page { background: #fff; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 6px; padding: 8px; display: flex; justify-content: center; overflow: auto; }
+    .pdf-image-page img { max-width: 100%; height: auto; box-shadow: 0 2px 8px rgba(0,0,0,.08); will-change: transform; }
 
         /* Disabled tab look for PDF Settings until a canvas is saved */
         .nav-link.disabled-tab { opacity: 0.5; pointer-events: none; }
@@ -2011,6 +2011,19 @@
                                             <button id="pdfPreviewEngineToggle" class="btn btn-outline-secondary" title="Toggle preview engine">
                                                 Preview Mode: Image
                                             </button>
+                                            <div id="pdfImageZoomControls" class="d-flex gap-2 align-items-center">
+                                                <label for="pdfImageZoomMode" class="form-label m-0 small">Zoom</label>
+                                                <select id="pdfImageZoomMode" class="form-select form-select-sm" style="width: auto;">
+                                                    <option value="fit">Fit to width</option>
+                                                    <option value="scale">Fixed scale</option>
+                                                </select>
+                                                <div id="pdfImageZoomScaleGroup" class="input-group input-group-sm" style="width: 140px; display: none;">
+                                                    <button id="pdfImageZoomOut" class="btn btn-outline-secondary" type="button">-</button>
+                                                    <input id="pdfImageZoomValue" type="text" class="form-control text-center" value="100%"
+                                                        aria-label="Zoom percent">
+                                                    <button id="pdfImageZoomIn" class="btn btn-outline-secondary" type="button">+</button>
+                                                </div>
+                                            </div>
                                             <div id="pdfPreviewStatus" class="text-muted small d-none">
                                                 <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                                                 Generating preview…
@@ -2470,8 +2483,13 @@
                 pdfPreviewDirty: true,
                 pdfPreviewReady: false,
                 lastPdfPreviewUrl: null,
-                pdfPreviewLite: true, // Lite preview mode: faster rendering
+                pdfPreviewLite: false, // Lite preview mode: faster rendering (default Off)
                 pdfPreviewEngine: 'image', // 'image' | 'iframe'
+                // Image preview zoom settings
+                pdfImagePreviewZoomMode: 'scale', // 'fit' | 'scale' (default Fixed scale)
+                pdfImagePreviewScale: 1.0, // used when zoom mode is 'scale'
+                // Pages tab per-canvas screen order
+                pdfScreenOrder: {}, // { [canvasIdOrKey: string]: number[] } indices into canvas.objects
                 
                 // Panel removal state
                 removedPanels: new Set(), // Store coordinates of removed panels as a Set of "row,col" strings
@@ -7910,7 +7928,14 @@
                         let pageCounter = 1;
                         for (const ordIdx of order) {
                             const savedCanvas = selectedSaved[ordIdx];
-                            const objs = savedCanvas?.objects || [];
+                            const objsAll = savedCanvas?.objects || [];
+                            // Apply screen order if present
+                            const canvasKey = String(savedCanvas.id ?? ordIdx);
+                            let objs = objsAll.slice();
+                            const ordArr = state.pdfScreenOrder?.[canvasKey];
+                            if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                objs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                            }
                             // 1) Per-screen detailed pages
                             for (let i = 0; i < objs.length; i++) {
                                 const obj = objs[i];
@@ -8051,6 +8076,11 @@
                 const pdfCanvasClearAll = document.getElementById('pdfCanvasClearAll');
                 const pdfCanvasSelectionCount = document.getElementById('pdfCanvasSelectionCount');
                 const pdfCanvasFilterInput = document.getElementById('pdfCanvasFilter');
+                const pdfImageZoomModeSelect = document.getElementById('pdfImageZoomMode');
+                const pdfImageZoomScaleGroup = document.getElementById('pdfImageZoomScaleGroup');
+                const pdfImageZoomInBtn = document.getElementById('pdfImageZoomIn');
+                const pdfImageZoomOutBtn = document.getElementById('pdfImageZoomOut');
+                const pdfImageZoomValueInput = document.getElementById('pdfImageZoomValue');
 
                 // Lite preview toggle wiring
                 if (pdfLitePreviewToggle) {
@@ -8070,12 +8100,83 @@
                     const reflectEngine = () => {
                         const name = state.pdfPreviewEngine === 'image' ? 'Image' : 'Iframe';
                         pdfPreviewEngineToggle.textContent = `Preview Mode: ${name}`;
+                        // Show zoom controls only in image preview mode
+                        try {
+                            const zc = document.getElementById('pdfImageZoomControls');
+                            if (zc) zc.style.display = (state.pdfPreviewEngine === 'image') ? 'flex' : 'none';
+                        } catch { }
                     };
                     reflectEngine();
                     pdfPreviewEngineToggle.addEventListener('click', () => {
                         state.pdfPreviewEngine = state.pdfPreviewEngine === 'image' ? 'iframe' : 'image';
                         reflectEngine();
                         state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                    });
+                }
+
+                // Image preview zoom wiring
+                const applyImageZoomStyles = () => {
+                    const container = document.getElementById('pdfPreviewImageContent');
+                    if (!container) return;
+                    const imgs = container.querySelectorAll('.pdf-image-page img');
+                    const mode = state.pdfImagePreviewZoomMode || 'fit';
+                    const scale = Math.max(0.25, Math.min(4, Number(state.pdfImagePreviewScale || 1)));
+                    imgs.forEach(img => {
+                        if (mode === 'fit') {
+                            img.style.width = '100%';
+                            img.style.maxWidth = '100%';
+                            img.style.transform = '';
+                            img.style.transformOrigin = '';
+                        } else {
+                            img.style.width = '';
+                            img.style.maxWidth = '';
+                            img.style.transformOrigin = 'top left';
+                            img.style.transform = `scale(${scale})`;
+                        }
+                    });
+                    // Reflect UI controls
+                    if (pdfImageZoomModeSelect) pdfImageZoomModeSelect.value = mode;
+                    if (pdfImageZoomScaleGroup) pdfImageZoomScaleGroup.style.display = (mode === 'scale') ? 'flex' : 'none';
+                    if (pdfImageZoomValueInput) pdfImageZoomValueInput.value = `${Math.round(scale * 100)}%`;
+                };
+                const reflectZoomControlsOnly = () => {
+                    if (pdfImageZoomModeSelect) pdfImageZoomModeSelect.value = state.pdfImagePreviewZoomMode || 'fit';
+                    if (pdfImageZoomScaleGroup) pdfImageZoomScaleGroup.style.display = (state.pdfImagePreviewZoomMode === 'scale') ? 'flex' : 'none';
+                    if (pdfImageZoomValueInput) pdfImageZoomValueInput.value = `${Math.round((state.pdfImagePreviewScale || 1) * 100)}%`;
+                };
+                if (pdfImageZoomModeSelect) {
+                    reflectZoomControlsOnly();
+                    pdfImageZoomModeSelect.addEventListener('change', () => {
+                        state.pdfImagePreviewZoomMode = pdfImageZoomModeSelect.value === 'scale' ? 'scale' : 'fit';
+                        // No need to regenerate preview; just restyle
+                        applyImageZoomStyles();
+                    });
+                }
+                if (pdfImageZoomInBtn) {
+                    pdfImageZoomInBtn.addEventListener('click', () => {
+                        if (state.pdfImagePreviewZoomMode !== 'scale') return;
+                        state.pdfImagePreviewScale = Math.min(4, (state.pdfImagePreviewScale || 1) + 0.25);
+                        applyImageZoomStyles();
+                    });
+                }
+                if (pdfImageZoomOutBtn) {
+                    pdfImageZoomOutBtn.addEventListener('click', () => {
+                        if (state.pdfImagePreviewZoomMode !== 'scale') return;
+                        state.pdfImagePreviewScale = Math.max(0.25, (state.pdfImagePreviewScale || 1) - 0.25);
+                        applyImageZoomStyles();
+                    });
+                }
+                if (pdfImageZoomValueInput) {
+                    pdfImageZoomValueInput.addEventListener('change', () => {
+                        if (state.pdfImagePreviewZoomMode !== 'scale') return;
+                        const val = String(pdfImageZoomValueInput.value || '').trim().replace('%', '');
+                        const num = parseFloat(val);
+                        if (!isNaN(num)) {
+                            state.pdfImagePreviewScale = Math.max(0.25, Math.min(4, num / 100));
+                            applyImageZoomStyles();
+                        } else {
+                            reflectZoomControlsOnly();
+                        }
                     });
                 }
 
@@ -8181,7 +8282,7 @@
                         dataset = state.savedCanvases.filter(c => sel.has(String(c.id)));
                     } else {
                         // Single block representing current PixelMap objects
-                        dataset = [{ name: 'Current Canvas', objects: (state.canvasMapObjects || []) }];
+                        dataset = [{ name: 'Current Canvas', id: 'current', objects: (state.canvasMapObjects || []) }];
                     }
 
                     const n = dataset.length;
@@ -8193,6 +8294,14 @@
                     state.pdfPageOrder.forEach((idxInDataset, displayIdx) => {
                         const block = dataset[idxInDataset] || { objects: [] };
                         const objs = Array.isArray(block.objects) ? block.objects : [];
+                        // Key to track per-canvas screen order
+                        const canvasKey = usingSaved ? String(block.id ?? block._id ?? idxInDataset) : String(block.id || 'current');
+                        if (!state.pdfScreenOrder) state.pdfScreenOrder = {};
+                        // Ensure we have a valid order array for this canvas
+                        if (!Array.isArray(state.pdfScreenOrder[canvasKey]) || state.pdfScreenOrder[canvasKey].length !== objs.length) {
+                            state.pdfScreenOrder[canvasKey] = Array.from({ length: objs.length }, (_, i) => i);
+                        }
+                        const screenOrder = state.pdfScreenOrder[canvasKey].slice();
 
                         // Draggable canvas header (reorders blocks)
                         const header = document.createElement('div');
@@ -8226,16 +8335,45 @@
                         });
                         pdfPageList.appendChild(header);
 
-                        // Non-draggable sub-items for each screen in this canvas
-                        objs.forEach((obj, i) => {
+                        // Draggable sub-items for each screen in this canvas
+                        screenOrder.forEach((objIdx, pos) => {
+                            const obj = objs[objIdx];
                             const sub = document.createElement('div');
                             sub.className = 'pdf-page-sub';
+                            sub.setAttribute('draggable', 'true');
+                            sub.dataset.canvasKey = canvasKey;
+                            sub.dataset.pos = String(pos);
                             const sThumb = document.createElement('span'); sThumb.className = 'thumb';
                             const sMeta = document.createElement('div'); sMeta.className = 'meta';
-                            const sTitle = document.createElement('div'); sTitle.className = 'title'; sTitle.textContent = (obj.filename || `Screen ${i + 1}`);
+                            const sTitle = document.createElement('div'); sTitle.className = 'title'; sTitle.textContent = (obj?.filename || `Screen ${objIdx + 1}`);
                             const sSub = document.createElement('div'); sSub.className = 'sub'; sSub.textContent = `Page ${pageNumberCounter}`;
                             sMeta.appendChild(sTitle); sMeta.appendChild(sSub);
                             sub.appendChild(sThumb); sub.appendChild(sMeta);
+                            // Drag handlers within same canvas
+                            sub.addEventListener('dragstart', (e) => {
+                                sub.classList.add('dragging');
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ canvasKey, from: pos }));
+                                e.dataTransfer.effectAllowed = 'move';
+                            });
+                            sub.addEventListener('dragend', () => sub.classList.remove('dragging'));
+                            sub.addEventListener('dragover', (e) => { e.preventDefault(); sub.classList.add('drop-target'); });
+                            sub.addEventListener('dragleave', () => sub.classList.remove('drop-target'));
+                            sub.addEventListener('drop', (e) => {
+                                e.preventDefault(); sub.classList.remove('drop-target');
+                                try {
+                                    const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                    if (!payload || payload.canvasKey !== canvasKey) return;
+                                    const from = parseInt(payload.from, 10);
+                                    const to = parseInt(sub.dataset.pos || '0', 10);
+                                    if (isNaN(from) || isNaN(to) || from === to) return;
+                                    const ord = (state.pdfScreenOrder[canvasKey] || []).slice();
+                                    const [moved] = ord.splice(from, 1);
+                                    ord.splice(to, 0, moved);
+                                    state.pdfScreenOrder[canvasKey] = ord;
+                                    buildPdfPageSidebar();
+                                    state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                } catch { }
+                            });
                             pdfPageList.appendChild(sub);
                             pageNumberCounter++;
                         });
@@ -8272,6 +8410,8 @@
                             ? state.savedCanvases.length
                             : (state.canvasMapObjects || []).length;
                         state.pdfPageOrder = Array.from({ length: datasetLen }, (_, i) => i);
+                        // Reset per-canvas screen order map
+                        state.pdfScreenOrder = {};
                         buildPdfPageSidebar();
                         state.pdfPreviewDirty = true; schedulePdfPreview?.();
                     });
@@ -8337,7 +8477,14 @@
                             order.forEach((ordIdx) => {
                                 const savedCanvas = selectedSaved[ordIdx];
                                 const objsAll = savedCanvas.objects || [];
-                                const objs = lite ? objsAll.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : objsAll;
+                                // Apply screen order if present
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let orderedObjs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
                                 // Each screen page -> image
                                 objs.forEach((obj) => {
                                     const pageDiv = document.createElement('div');
@@ -8436,6 +8583,9 @@
                     specDiv.appendChild(specLabel);
                     pdfPreviewImageContent.appendChild(specDiv);
 
+                    // Apply current zoom styling to newly created images
+                    try { (typeof applyImageZoomStyles === 'function') ? applyImageZoomStyles() : null; } catch { }
+
                     // Show image content, hide iframe
                     pdfPreviewContent.classList.remove('d-none');
                     pdfPreviewImageContent.classList.remove('d-none');
@@ -8483,7 +8633,14 @@
                         order.forEach((ordIdx, blockIdx) => {
                             const savedCanvas = selectedSaved[ordIdx];
                             const objsAll = savedCanvas.objects || [];
-                            const objs = lite ? objsAll.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : objsAll;
+                            // Apply per-canvas screen order
+                            const canvasKey = String(savedCanvas.id ?? ordIdx);
+                            let orderedObjs = objsAll.slice();
+                            const ordArr = state.pdfScreenOrder?.[canvasKey];
+                            if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                            }
+                            const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
                             objs.forEach((obj, i) => {
                                 if (pageCounter > 1) doc.addPage();
                                 drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
@@ -8533,7 +8690,14 @@
                     } else {
                         // Fallback: current canvas objects
                         const objsAll = state.canvasMapObjects || [];
-                        const objs = lite ? objsAll.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : objsAll;
+                        // Apply order using 'current' key if exists
+                        const currKey = 'current';
+                        let orderedObjs = objsAll.slice();
+                        const ordArr = state.pdfScreenOrder?.[currKey];
+                        if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                            orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                        }
+                        const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
                         objs.forEach((obj, index) => {
                             if (pageCounter > 1) doc.addPage();
                             drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
