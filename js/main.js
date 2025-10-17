@@ -3575,10 +3575,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 doc.setFont('helvetica', 'normal');
                 currentY_fields += largeFieldHeight;
 
-                // Issue Date
+                // Issue Date (date only, no time)
                 doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
                 doc.setFontSize(10); doc.text("Issue Date:", brX + margin, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text(new Date().toLocaleString('en-GB'), col1ValueX, currentY_fields + textYOffset);
+                doc.setFontSize(11); doc.text(new Date().toLocaleDateString('en-GB'), col1ValueX, currentY_fields + textYOffset);
                 currentY_fields += fieldHeight;
 
                 // Scale | Unit | Page #
