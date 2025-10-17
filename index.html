@@ -7647,6 +7647,7 @@
                 const originalButtonText = multiExportConfirmBtn.textContent;
                 multiExportConfirmBtn.disabled = true;
                 multiExportConfirmBtn.textContent = 'Generating...';
+                try { showPdfToast('Generating PDF…'); } catch { }
 
                 try {
                     const doc = new window.jspdf.jsPDF({
@@ -7819,6 +7820,7 @@
                 hideBackdrop();
                 multiExportConfirmBtn.disabled = false;
                 multiExportConfirmBtn.textContent = 'Export Selected';
+                    try { hidePdfToast(); } catch { }
             }
         };
 
@@ -7970,119 +7972,139 @@
                         return;
                     }
 
+                    // Show busy UI while generating
+                    const btn = document.getElementById('exportCanvasPdfBtn');
+                    const prevText = btn ? btn.textContent : '';
                     try {
+                        try { showPdfToast('Generating PDF…'); } catch { }
+                        if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
                         const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a0' });
-                        // Compute total pages: for each selected canvas, add all LED screens, plus optional map page; finally a single spec page
                         const useMap = !!state.pdfIncludeCanvasSnapshot;
-                        let totalPages = 1; // final global spec page
-                        const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
-                            ? state.pdfPageOrder.slice()
-                            : Array.from({ length: selectedSaved.length }, (_, i) => i);
-                        order.forEach((ordIdx) => {
-                            const sc = selectedSaved[ordIdx];
-                            totalPages += (sc?.objects?.length || 0);
-                            if (useMap) totalPages += 1;
-                        });
+                        const arrangeMode = state.pdfArrangeMode || 'flat';
 
-                        let pageCounter = 1;
-                        for (const ordIdx of order) {
-                            const savedCanvas = selectedSaved[ordIdx];
-                            const objsAll = savedCanvas?.objects || [];
-                            // Apply screen order if present
-                            const canvasKey = String(savedCanvas.id ?? ordIdx);
-                            let objs = objsAll.slice();
-                            const ordArr = state.pdfScreenOrder?.[canvasKey];
-                            if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
-                                objs = ordArr.map(i => objsAll[i]).filter(Boolean);
-                            }
-                            // 1) Per-screen detailed pages
-                            for (let i = 0; i < objs.length; i++) {
-                                const obj = objs[i];
-                                if (pageCounter > 1) doc.addPage('a0', 'landscape');
-                                drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
-                                pageCounter++;
-                            }
-                            // 2) Optional: Output Map page per canvas
-                            if (useMap) {
-                                if (pageCounter > 1) doc.addPage('a0', 'landscape');
-                                const pageTitleObj = { filename: (savedCanvas?.name || `Canvas ${savedCanvas?.id}`) + ' - Output Map' };
-                                drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
-
-                                // Render a snapshot of this saved canvas
-                                const tempCanvas = document.createElement('canvas');
-                                const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
-                                const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
-                                tempCanvas.width = (typeof canvasMapCanvas?.width === 'number' && canvasMapCanvas.width > 0) ? canvasMapCanvas.width : fallbackW;
-                                tempCanvas.height = (typeof canvasMapCanvas?.height === 'number' && canvasMapCanvas.height > 0) ? canvasMapCanvas.height : fallbackH;
-                                const tctx = tempCanvas.getContext('2d', { alpha: true });
-                                tctx.fillStyle = 'white';
-                                tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-                                // Load all images for this canvas objects and draw them in order
-                                const imageLoadPromises = objs.map(objData => new Promise((resolve, reject) => {
-                                    try {
-                                        const img = new Image();
-                                        img.onload = () => resolve({ img, data: objData });
-                                        img.onerror = () => reject(new Error('Failed to load image for ' + (objData?.filename || 'object')));
-                                        img.src = objData.dataUrl;
-                                    } catch (e) { reject(e); }
-                                }));
-                                const results = await Promise.allSettled(imageLoadPromises);
-                                results.forEach(r => {
-                                    if (r.status !== 'fulfilled') return;
-                                    const { img, data } = r.value;
-                                    tctx.save();
-                                    const cx = (data?.x || 0) + (data?.width || 0) / 2;
-                                    const cy = (data?.y || 0) + (data?.height || 0) / 2;
-                                    tctx.translate(cx, cy);
-                                    const rot = (data?.rotation || 0) * Math.PI / 180;
-                                    tctx.rotate(rot);
-                                    tctx.drawImage(img, -(data?.width || 0) / 2, -(data?.height || 0) / 2, (data?.width || 0), (data?.height || 0));
-                                    if (state.canvasMapShowCoordinates) {
-                                        const positionText = `(${Math.round(data?.x || 0)}, ${Math.round(data?.y || 0)})`;
-                                        tctx.font = '16px Segoe UI';
-                                        const textMetrics = tctx.measureText(positionText);
-                                        const textWidth = textMetrics.width;
-                                        const textHeight = 16; const padding = 5;
-                                        const rectX = -(data?.width || 0) / 2;
-                                        const rectY = -(data?.height || 0) / 2;
-                                        tctx.fillStyle = 'rgba(23, 162, 184, 0.85)';
-                                        tctx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2);
-                                        tctx.fillStyle = 'white';
-                                        tctx.textBaseline = 'top';
-                                        tctx.fillText(positionText, rectX + padding, rectY + padding);
-                                    }
-                                    tctx.restore();
-                                });
-
-                                // Add the generated snapshot to the PDF page
-                                const canvasImage = tempCanvas.toDataURL('image/png');
+                        if (arrangeMode === 'flat') {
+                            // Use a stable, saved flat sequence if available
+                            let sequence = Array.isArray(state.pdfFlatSequence) ? state.pdfFlatSequence.slice() : null;
+                            // Fallback: rebuild from current order
+                            if (!sequence || sequence.length === 0) {
                                 try {
-                                    const imgProps = doc.getImageProperties(canvasImage);
-                                    const pageWidth = doc.internal.pageSize.getWidth();
-                                    const pageHeight = doc.internal.pageSize.getHeight();
-                                    const rightColumnX = pageWidth - 138;
-                                    const availableX = 10; const availableY = 10;
-                                    const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
-                                    const aspectRatio = imgProps.width / imgProps.height;
-                                    let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
-                                    if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
-                                    const imgX = availableX + (availableWidth - imgWidth) / 2;
-                                    const imgY = availableY + (availableHeight - imgHeight) / 2;
-                                    doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
-                                } catch { /* ignore image placement errors */ }
+                                    const pages = [];
+                                    const canvasOrder = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                                        ? state.pdfPageOrder.slice()
+                                        : Array.from({ length: selectedSaved.length }, (_, i) => i);
+                                    canvasOrder.forEach((ordIdx) => {
+                                        const savedCanvas = selectedSaved[ordIdx];
+                                        const objsAll = savedCanvas?.objects || [];
+                                        const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                        let orderedObjs = objsAll.slice();
+                                        const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                        if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                            orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                        }
+                                        orderedObjs.forEach((_, i) => pages.push({ type: 'screen', canvasId: savedCanvas.id, screenIdx: i }));
+                                        if (useMap) pages.push({ type: 'map', canvasId: savedCanvas.id });
+                                    });
+                                    sequence = pages;
+                                } catch { sequence = []; }
+                            }
+                            const totalPages = sequence.length + 1; // + spec
+                            let pageCounter = 1;
+                            for (const step of sequence) {
+                                if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                                const canvas = selectedSaved.find(c => String(c.id) === String(step.canvasId));
+                                if (!canvas) { continue; }
+                                if (step.type === 'screen') {
+                                    const objsAll = canvas.objects || [];
+                                    const canvasKey = String(canvas.id);
+                                    let orderedObjs = objsAll.slice();
+                                    const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                    if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                        orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                    }
+                                    const obj = orderedObjs[step.screenIdx] || objsAll[step.screenIdx];
+                                    if (obj) drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                } else if (step.type === 'map') {
+                                    const objs = canvas.objects || [];
+                                    const pageTitleObj = { filename: (canvas?.name || `Canvas ${canvas?.id}`) + ' - Output Map' };
+                                    drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+                                    const tempCanvas = document.createElement('canvas');
+                                    const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                    const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                    tempCanvas.width = (typeof canvasMapCanvas?.width === 'number' && canvasMapCanvas.width > 0) ? canvasMapCanvas.width : fallbackW;
+                                    tempCanvas.height = (typeof canvasMapCanvas?.height === 'number' && canvasMapCanvas.height > 0) ? canvasMapCanvas.height : fallbackH;
+                                    const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                    tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                    const imageLoadPromises = objs.map(objData => new Promise((resolve, reject) => {
+                                        try { const img = new Image(); img.onload = () => resolve({ img, data: objData }); img.onerror = () => reject(new Error('Failed to load image for ' + (objData?.filename || 'object'))); img.src = objData.dataUrl; } catch (e) { reject(e); }
+                                    }));
+                                    const results = await Promise.allSettled(imageLoadPromises);
+                                    results.forEach(r => { if (r.status !== 'fulfilled') return; const { img, data } = r.value; tctx.save(); const cx = (data?.x || 0) + (data?.width || 0) / 2; const cy = (data?.y || 0) + (data?.height || 0) / 2; tctx.translate(cx, cy); const rot = (data?.rotation || 0) * Math.PI / 180; tctx.rotate(rot); tctx.drawImage(img, -(data?.width || 0) / 2, -(data?.height || 0) / 2, (data?.width || 0), (data?.height || 0)); if (state.canvasMapShowCoordinates) { const positionText = `(${Math.round(data?.x || 0)}, ${Math.round(data?.y || 0)})`; tctx.font = '16px Segoe UI'; const textMetrics = tctx.measureText(positionText); const textWidth = textMetrics.width; const textHeight = 16; const padding = 5; const rectX = -(data?.width || 0) / 2; const rectY = -(data?.height || 0) / 2; tctx.fillStyle = 'rgba(23, 162, 184, 0.85)'; tctx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2); tctx.fillStyle = 'white'; tctx.textBaseline = 'top'; tctx.fillText(positionText, rectX + padding, rectY + padding); } tctx.restore(); });
+                                    const canvasImage = tempCanvas.toDataURL('image/png');
+                                    try { const imgProps = doc.getImageProperties(canvasImage); const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight(); const rightColumnX = pageWidth - 138; const availableX = 10; const availableY = 10; const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20; const aspectRatio = imgProps.width / imgProps.height; let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio; if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; } const imgX = availableX + (availableWidth - imgWidth) / 2; const imgY = availableY + (availableHeight - imgHeight) / 2; doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight); } catch { }
+                                }
                                 pageCounter++;
                             }
+                            // Final spec page
+                            drawMediaServerSpecPage(doc, totalPages);
+                        } else {
+                            // Grouped mode (existing behavior)
+                            let totalPages = 1; // spec page
+                            const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                                ? state.pdfPageOrder.slice()
+                                : Array.from({ length: selectedSaved.length }, (_, i) => i);
+                            order.forEach((ordIdx) => {
+                                const sc = selectedSaved[ordIdx];
+                                totalPages += (sc?.objects?.length || 0);
+                                if (useMap) totalPages += 1;
+                            });
+                            let pageCounter = 1;
+                            for (const ordIdx of order) {
+                                const savedCanvas = selectedSaved[ordIdx];
+                                const objsAll = savedCanvas?.objects || [];
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let objs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    objs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                for (let i = 0; i < objs.length; i++) {
+                                    const obj = objs[i];
+                                    if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                                    drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                    pageCounter++;
+                                }
+                                if (useMap) {
+                                    if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                                    const pageTitleObj = { filename: (savedCanvas?.name || `Canvas ${savedCanvas?.id}`) + ' - Output Map' };
+                                    drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+                                    const tempCanvas = document.createElement('canvas');
+                                    const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                    const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                    tempCanvas.width = (typeof canvasMapCanvas?.width === 'number' && canvasMapCanvas.width > 0) ? canvasMapCanvas.width : fallbackW;
+                                    tempCanvas.height = (typeof canvasMapCanvas?.height === 'number' && canvasMapCanvas.height > 0) ? canvasMapCanvas.height : fallbackH;
+                                    const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                    tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                    const imageLoadPromises = objs.map(objData => new Promise((resolve, reject) => {
+                                        try { const img = new Image(); img.onload = () => resolve({ img, data: objData }); img.onerror = () => reject(new Error('Failed to load image for ' + (objData?.filename || 'object'))); img.src = objData.dataUrl; } catch (e) { reject(e); }
+                                    }));
+                                    const results = await Promise.allSettled(imageLoadPromises);
+                                    results.forEach(r => { if (r.status !== 'fulfilled') return; const { img, data } = r.value; tctx.save(); const cx = (data?.x || 0) + (data?.width || 0) / 2; const cy = (data?.y || 0) + (data?.height || 0) / 2; tctx.translate(cx, cy); const rot = (data?.rotation || 0) * Math.PI / 180; tctx.rotate(rot); tctx.drawImage(img, -(data?.width || 0) / 2, -(data?.height || 0) / 2, (data?.width || 0), (data?.height || 0)); if (state.canvasMapShowCoordinates) { const positionText = `(${Math.round(data?.x || 0)}, ${Math.round(data?.y || 0)})`; tctx.font = '16px Segoe UI'; const textMetrics = tctx.measureText(positionText); const textWidth = textMetrics.width; const textHeight = 16; const padding = 5; const rectX = -(data?.width || 0) / 2; const rectY = -(data?.height || 0) / 2; tctx.fillStyle = 'rgba(23, 162, 184, 0.85)'; tctx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2); tctx.fillStyle = 'white'; tctx.textBaseline = 'top'; tctx.fillText(positionText, rectX + padding, rectY + padding); } tctx.restore(); });
+                                    const canvasImage = tempCanvas.toDataURL('image/png');
+                                    try { const imgProps = doc.getImageProperties(canvasImage); const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight(); const rightColumnX = pageWidth - 138; const availableX = 10; const availableY = 10; const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20; const aspectRatio = imgProps.width / imgProps.height; let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio; if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; } const imgX = availableX + (availableWidth - imgWidth) / 2; const imgY = availableY + (availableHeight - imgHeight) / 2; doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight); } catch { }
+                                    pageCounter++;
+                                }
+                            }
+                            drawMediaServerSpecPage(doc, totalPages);
                         }
-
-                        // 3) Final global spec page
-                        drawMediaServerSpecPage(doc, totalPages);
 
                         const finalFilename = state.pdfFilename.trim() ? `${state.pdfFilename}_selected` : 'selected_canvases';
                         doc.save(`${finalFilename}.pdf`);
                     } catch (e) {
                         console.error('Export selected canvases failed:', e);
                         showMessageBox(e?.message || 'Failed to export selected canvases.');
+                    } finally {
+                        try { hidePdfToast(); } catch { }
+                        if (btn) { btn.disabled = false; btn.textContent = prevText; }
                     }
                 };
 
@@ -8462,7 +8484,7 @@
                     }
                     const mode = state.pdfArrangeMode || 'flat';
 
-                    // Helper: build flat pages [{type:'screen'|'map'|'spec', canvasIdx, screenIdx, title, data}]
+                    // Helper: build flat pages [{type:'screen'|'map', canvasIdx, canvasId, screenIdx, title, data}]
                     const buildFlat = () => {
                         const pages = [];
                         // Determine canvas order
@@ -8482,10 +8504,10 @@
                             const ord = state.pdfScreenOrder[canvasKey].slice();
                             ord.forEach((objIdx) => {
                                 const obj = objsAll[objIdx];
-                                pages.push({ type: 'screen', canvasIdx: idxInDataset, screenIdx: objIdx, title: obj?.filename || 'Screen', data: obj });
+                                pages.push({ type: 'screen', canvasIdx: idxInDataset, canvasId: block.id, screenIdx: objIdx, title: obj?.filename || 'Screen', data: obj });
                             });
                             if (state.pdfIncludeCanvasSnapshot) {
-                                pages.push({ type: 'map', canvasIdx: idxInDataset, screenIdx: null, title: (block.name || block.filename || 'Canvas') + ' - Output Map', data: { objects: objsAll, block } });
+                                pages.push({ type: 'map', canvasIdx: idxInDataset, canvasId: block.id, screenIdx: null, title: (block.name || block.filename || 'Canvas') + ' - Output Map', data: { objects: objsAll, block } });
                             }
                         });
                         // Spec page is logical; not draggable
@@ -8593,6 +8615,14 @@
                             pdfPageList.appendChild(item);
                             pageNumberCounter++;
                         });
+                        // Persist a stable sequence describing the current order for robust export
+                        try {
+                            state.pdfFlatSequence = (state.pdfFlatOrder || []).map(i => {
+                                const p = pages[i];
+                                const canvasId = (p && p.canvasId != null) ? p.canvasId : (typeof p?.canvasIdx === 'number' ? dataset[p.canvasIdx]?.id : undefined);
+                                return { type: p?.type, canvasId: canvasId, screenIdx: (typeof p?.screenIdx === 'number' ? p.screenIdx : null) };
+                            }).filter(x => x && x.type && x.canvasId != null);
+                        } catch { state.pdfFlatSequence = null; }
                         // Spec page indicator
                         const spec = document.createElement('div');
                         spec.className = 'pdf-page-sub';
