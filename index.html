@@ -672,41 +672,63 @@
             .pdf-page-list {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 10px;
                 padding-bottom: 12px;
                 padding-right: 2px;
             }
-            /* Card-like look for page items */
+            /* Colorful, gradient cards inspired by the reference */
             .pdf-page-thumb,
             .pdf-page-sub {
+                position: relative;
                 display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 10px 10px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+                padding: 12px;
+                border: 0;
+                border-radius: 16px;
+                background: linear-gradient(135deg, var(--page-c1, #6f42c1), var(--page-c2, #b07cff));
+                box-shadow: 0 10px 24px -12px rgba(0,0,0,.35);
+                transition: transform .15s ease, box-shadow .2s ease;
+                cursor: grab;
+                overflow: hidden;
+            }
+            .pdf-page-thumb.dragging { opacity: 0.75; cursor: grabbing; }
+            .pdf-page-thumb:hover, .pdf-page-sub:hover { transform: translateY(-2px) scale(1.01); box-shadow: 0 16px 36px -18px rgba(0,0,0,.5); }
+            .pdf-page-thumb::after,
+            .pdf-page-sub::after {
+                content: '';
+                position: absolute;
+                inset: 48% 0 0 0; /* white lower pad */
                 background: var(--card-bg, #fff);
-                border: 1px solid var(--border-color, #dee2e6);
+                border-top-left-radius: 16px;
+                border-top-right-radius: 16px;
+                z-index: 0;
+                pointer-events: none;
+            }
+            .dark-mode .pdf-page-thumb::after, .dark-mode .pdf-page-sub::after { background: #1f2225; }
+            .pdf-page-thumb .thumb, .pdf-page-sub .thumb {
+                width: 72px; height: 52px;
+                align-self: center;
+                background: rgba(255,255,255,.2);
+                border: 1px solid rgba(255,255,255,.4);
                 border-radius: 10px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-                transition: box-shadow .2s ease, transform .06s ease, border-color .2s ease;
-                cursor: pointer;
+                display: inline-flex; align-items: center; justify-content: center;
+                box-shadow: inset 0 2px 8px rgba(0,0,0,.08);
+                position: relative; z-index: 1;
             }
-            .dark-mode .pdf-page-thumb, .dark-mode .pdf-page-sub { background: #1f2225; border-color: #2b2f33; }
-            .pdf-page-thumb { cursor: grab; user-select: none; }
-            .pdf-page-thumb.dragging { opacity: 0.6; }
-            .pdf-page-thumb .thumb {
-                width: 56px; height: 40px;
-                background: repeating-linear-gradient(45deg, #f5f5f5, #f5f5f5 6px, #eeeeee 6px, #eeeeee 12px);
-                border: 1px solid #ddd; border-radius: 4px;
-                display: inline-block; flex: 0 0 auto;
-            }
-            .pdf-page-thumb:hover,
-            .pdf-page-sub:hover { box-shadow: 0 8px 20px rgba(0,0,0,.10); }
-            .pdf-page-thumb:active { transform: scale(0.995); }
-            .pdf-page-thumb .meta { font-size: 12px; line-height: 1.2; }
-            .pdf-page-thumb .meta .title { font-weight: 600; }
-            .pdf-page-thumb.drop-target { outline: 2px dashed var(--accent-color, #0d6efd); }
             .pdf-page-thumb .thumb img,
-            .pdf-page-sub .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 2px; }
+            .pdf-page-sub .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 8px; }
+            .pdf-page-thumb .meta, .pdf-page-sub .meta { font-size: 12px; line-height: 1.3; position: relative; z-index: 1; }
+            .pdf-page-thumb .meta .title, .pdf-page-sub .meta .title { font-weight: 700; }
+            .pdf-page-thumb .sub, .pdf-page-sub .sub { background: transparent; border: 0; color: var(--secondary-text-color, #6c757d); padding-left: 0; }
+            .pdf-page-thumb.drop-target { outline: 2px dashed rgba(255,255,255,.75); outline-offset: -6px; }
+            /* Per-kind color themes */
+            .pdf-page-thumb[data-kind="canvas"], .pdf-page-sub[data-kind="screen"] { --page-c1: #0d6efd; --page-c2: #53a2ff; }
+            .pdf-page-sub[data-kind="map"], .pdf-page-thumb[data-kind="map"] { --page-c1: #20c997; --page-c2: #5be0bf; }
+            .pdf-page-sub[data-kind="spec"], .pdf-page-thumb[data-kind="spec"] { --page-c1: #6f42c1; --page-c2: #b07cff; }
+            /* Light content plate inside (white lower area) */
+            .pdf-page-thumb .content, .pdf-page-sub .content { position: relative; z-index: 1; }
 
             /* Canvas list rows */
             #pdfCanvasListBody label.pdf-canvas-row {
@@ -723,45 +745,19 @@
             #pdfCanvasSelectionCount.badge { font-weight: 600; }
             .dark-mode #pdfCanvasSelectionCount { background: #2b2f33; color: #c9d1d9; border-color: #3a3f44; }
 
-            /* Pages tab nested items */
-            .pdf-page-sub { padding-left: 14px; font-size: 12px; color: var(--bs-secondary-color, #6c757d); }
-            .pdf-page-sub .thumb { width: 40px; height: 28px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; }
-            .pdf-page-sub[data-kind="screen"] { border-left: 4px solid #0d6efd; }
-            .pdf-page-sub[data-kind="map"] { border-left: 4px solid #20c997; }
-            .pdf-page-sub[data-kind="spec"] { border-left: 4px solid #6c757d; }
+            /* Nested items inherit the same card look; tighten spacing */
+            .pdf-page-sub { font-size: 12px; }
             .pdf-page-sub .meta { font-size: 12px; }
-            .pdf-page-sub .meta .title { font-weight: 600; }
+            .pdf-page-sub .meta .title { font-weight: 700; }
 
-            /* Badge look for the subline */
-            .pdf-page-thumb .sub,
-            .pdf-page-sub .sub {
-                display: inline-block;
-                background: var(--input-bg, #f8f9fa);
-                border: 1px solid var(--border-color, #dee2e6);
-                color: var(--secondary-text-color, #6c757d);
-                border-radius: 999px;
-                padding: 2px 8px;
-                margin-top: 2px;
-                font-size: 11px;
-            }
+            /* Subline simplified */
+            .pdf-page-thumb .sub, .pdf-page-sub .sub { font-size: 11px; opacity: .9; }
 
-            /* Colored left borders by kind */
-            .pdf-page-thumb[data-kind="canvas"],
-            .pdf-page-sub[data-kind="screen"] { border-left: 4px solid var(--accent-color, #0d6efd); }
-            .pdf-page-sub[data-kind="map"] { border-left: 4px solid #20c997; }
-            .pdf-page-sub[data-kind="spec"] { border-left: 4px solid #6c757d; }
+            /* Remove old left borders; color is handled by gradients */
 
             /* Dark mode tuning */
-            .dark-mode .pdf-page-thumb,
-            .dark-mode .pdf-page-sub {
-                box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-                background: #2b2f33;
-                border-color: #3a3f44;
-            }
-            .dark-mode .pdf-page-thumb .thumb,
-            .dark-mode .pdf-page-sub .thumb { background: #3a3f44; border-color: #444; }
-            .dark-mode .pdf-page-thumb .sub,
-            .dark-mode .pdf-page-sub .sub { background: #1f2225; border-color: #3a3f44; color: #c9d1d9; }
+            .dark-mode .pdf-page-thumb, .dark-mode .pdf-page-sub { box-shadow: 0 10px 24px -12px rgba(0,0,0,.6); }
+            .dark-mode .pdf-page-thumb .thumb, .dark-mode .pdf-page-sub .thumb { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); }
 
             /* Floating toast for PDF generation */
             .pdf-toast {
@@ -2035,7 +2031,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-6 col-md-7">
+                            <div class="col-7 col-md-8">
                                 <div class="card p-3 h-100 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                                         <div class="d-flex justify-content-center flex-wrap gap-2">
@@ -2089,7 +2085,7 @@
                                 </div>
                                 </div>
                                 <!-- Right: Pages / Canvas List Sidebar as its own card -->
-                                <div class="col-3 col-md-3">
+                                <div class="col-2 col-md-2">
                                     <div class="card p-0 h-100 pdf-sidebar-card">
                                         <div class="card-header bg-transparent border-0 pb-0">
                                             <div class="d-flex align-items-center justify-content-between">
@@ -2546,6 +2542,8 @@
                 lastPdfPreviewUrl: null,
                 pdfPreviewLite: false, // Lite preview mode: faster rendering (default Off)
                 pdfPreviewEngine: 'image', // 'image' | 'iframe'
+                // PDF selection behavior
+                pdfSelectionMode: 'all', // 'all' (auto-include all canvases) | 'custom' (manual checks)
                 // Image preview zoom settings
                 pdfImagePreviewZoomMode: 'scale', // 'fit' | 'scale' (default Fixed scale)
                 pdfImagePreviewScale: 1.0, // used when zoom mode is 'scale'
@@ -8117,7 +8115,7 @@
                 // PDF page sidebar state: maintain an order of object indices for preview/export
                 if (!Array.isArray(state.pdfPageOrder)) state.pdfPageOrder = [];
                 // Arrange mode: 'flat' (free order) or 'grouped' (by canvas)
-                if (!state.pdfArrangeMode) state.pdfArrangeMode = 'grouped';
+                if (!state.pdfArrangeMode) state.pdfArrangeMode = 'flat';
 
                 const pdfRefreshPreviewBtn = document.getElementById('pdfRefreshPreviewBtn');
                 if (pdfRefreshPreviewBtn) {
@@ -8248,8 +8246,16 @@
                 if (!Array.isArray(state.pdfSelectedCanvasIds)) state.pdfSelectedCanvasIds = [];
                 const ensureSelectedDefaults = () => {
                     if (!Array.isArray(state.savedCanvases)) state.savedCanvases = [];
-                    if (state.pdfSelectedCanvasIds.length === 0 && state.savedCanvases.length > 0) {
+                    const mode = state.pdfSelectionMode || 'all';
+                    if (mode === 'all') {
+                        // Always include all saved canvases so new ones are auto-selected
                         state.pdfSelectedCanvasIds = state.savedCanvases.map(c => String(c.id));
+                    } else {
+                    // Custom mode: don't override user's manual selection
+                        if (state.pdfSelectedCanvasIds.length === 0 && state.savedCanvases.length > 0) {
+                            // First-time safety: preselect all once
+                            state.pdfSelectedCanvasIds = state.savedCanvases.map(c => String(c.id));
+                        }
                     }
                 };
 
@@ -8294,6 +8300,8 @@
                         cb.checked = state.pdfSelectedCanvasIds.includes(String(c.id));
                         if (cb.checked) selectedCount++;
                         cb.addEventListener('change', () => {
+                            // Any manual checkbox change switches to custom selection mode
+                            state.pdfSelectionMode = 'custom';
                             const id = String(c.id);
                             if (cb.checked) {
                                 if (!state.pdfSelectedCanvasIds.includes(id)) state.pdfSelectedCanvasIds.push(id);
@@ -8320,12 +8328,14 @@
 
                 pdfCanvasSelectAll?.addEventListener('click', () => {
                     if (!Array.isArray(state.savedCanvases)) return;
+                    state.pdfSelectionMode = 'all';
                     state.pdfSelectedCanvasIds = state.savedCanvases.map(c => String(c.id));
                     renderPdfCanvasList();
                     buildPdfPageSidebar();
                     state.pdfPreviewDirty = true; schedulePdfPreview?.();
                 });
                 pdfCanvasClearAll?.addEventListener('click', () => {
+                    state.pdfSelectionMode = 'custom';
                     state.pdfSelectedCanvasIds = [];
                     renderPdfCanvasList();
                     buildPdfPageSidebar();
@@ -8439,6 +8449,8 @@
                     pdfPageList.innerHTML = '';
                     // Build a full visual outline of the resulting PDF: per selected canvas → its screens → optional map
                     const usingSaved = Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+                    // Ensure all canvases are selected by default if none chosen yet
+                    try { if (usingSaved && typeof ensureSelectedDefaults === 'function') ensureSelectedDefaults(); } catch { }
                     let dataset = [];
                     if (usingSaved) {
                         ensureSelectedDefaults();
@@ -8448,7 +8460,7 @@
                         // Single block representing current PixelMap objects
                         dataset = [{ name: 'Current Canvas', id: 'current', objects: (state.canvasMapObjects || []) }];
                     }
-                    const mode = state.pdfArrangeMode || 'grouped';
+                    const mode = state.pdfArrangeMode || 'flat';
 
                     // Helper: build flat pages [{type:'screen'|'map'|'spec', canvasIdx, screenIdx, title, data}]
                     const buildFlat = () => {
@@ -8818,7 +8830,7 @@
                 }
                 if (pdfResetOrderBtn) {
                     pdfResetOrderBtn.addEventListener('click', () => {
-                        if ((state.pdfArrangeMode || 'grouped') === 'flat') {
+                        if ((state.pdfArrangeMode || 'flat') === 'flat') {
                             // Rebuild flat and reset flat order
                             try {
                                 const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
@@ -8889,7 +8901,7 @@
             setTimeout(() => {
             try {
                 const engine = (state.pdfPreviewEngine === 'iframe') ? 'iframe' : 'image';
-                const arrangeMode = state.pdfArrangeMode || 'grouped';
+                const arrangeMode = state.pdfArrangeMode || 'flat';
 
                 // Lightweight image-based preview: render per-page images instead of an embedded PDF
                 if (engine === 'image') {
@@ -9352,6 +9364,7 @@
             pdfTab.addEventListener('shown.bs.tab', () => {
                 __pdfTabActive = true;
                 // Rebuild the thumbnails sidebar on activation immediately for instant UI
+                try { ensureSelectedDefaults?.(); } catch { }
                 try { renderPdfCanvasList?.(); } catch { }
                 buildPdfPageSidebar?.();
                 try { setSidebarMode?.('canvas'); } catch { }
