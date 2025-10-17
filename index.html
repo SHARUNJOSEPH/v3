@@ -670,18 +670,20 @@
                 gap: 8px;
                 padding-bottom: 12px;
             }
-            .pdf-page-thumb {
+            /* Card-like look for page items */
+            .pdf-page-thumb,
+            .pdf-page-sub {
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                padding: 6px;
-                border: 1px solid var(--bs-border-color, #dee2e6);
-                border-radius: 6px;
-                background: var(--bs-body-bg, #fff);
-                cursor: grab;
-                user-select: none;
-                transition: box-shadow .15s ease, transform .06s ease;
+                gap: 10px;
+                padding: 10px 10px;
+                background: var(--card-bg, #fff);
+                border: 1px solid var(--border-color, #dee2e6);
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+                transition: box-shadow .2s ease, transform .06s ease, border-color .2s ease;
             }
+            .pdf-page-thumb { cursor: grab; user-select: none; }
             .pdf-page-thumb.dragging { opacity: 0.6; }
             .pdf-page-thumb .thumb {
                 width: 56px; height: 40px;
@@ -689,11 +691,14 @@
                 border: 1px solid #ddd; border-radius: 4px;
                 display: inline-block; flex: 0 0 auto;
             }
-            .pdf-page-thumb:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+            .pdf-page-thumb:hover,
+            .pdf-page-sub:hover { box-shadow: 0 8px 20px rgba(0,0,0,.10); }
             .pdf-page-thumb:active { transform: scale(0.995); }
             .pdf-page-thumb .meta { font-size: 12px; line-height: 1.2; }
             .pdf-page-thumb .meta .title { font-weight: 600; }
             .pdf-page-thumb.drop-target { outline: 2px dashed var(--accent-color, #0d6efd); }
+            .pdf-page-thumb .thumb img,
+            .pdf-page-sub .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 2px; }
 
             /* Canvas list rows */
             #pdfCanvasListBody label.pdf-canvas-row {
@@ -711,20 +716,41 @@
             .dark-mode #pdfCanvasSelectionCount { background: #2b2f33; color: #c9d1d9; border-color: #3a3f44; }
 
             /* Pages tab nested items */
-            .pdf-page-sub {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 6px 6px 6px 22px;
-                border: 1px dashed transparent;
-                border-radius: 6px;
-                margin-top: 4px;
-                color: var(--bs-secondary-color, #6c757d);
-                font-size: 12px;
-            }
+            .pdf-page-sub { padding-left: 14px; font-size: 12px; color: var(--bs-secondary-color, #6c757d); }
             .pdf-page-sub .thumb { width: 40px; height: 28px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; }
             .pdf-page-sub .meta { font-size: 12px; }
-            .pdf-page-sub .meta .title { font-weight: 500; }
+            .pdf-page-sub .meta .title { font-weight: 600; }
+
+            /* Badge look for the subline */
+            .pdf-page-thumb .sub,
+            .pdf-page-sub .sub {
+                display: inline-block;
+                background: var(--input-bg, #f8f9fa);
+                border: 1px solid var(--border-color, #dee2e6);
+                color: var(--secondary-text-color, #6c757d);
+                border-radius: 999px;
+                padding: 2px 8px;
+                margin-top: 2px;
+                font-size: 11px;
+            }
+
+            /* Colored left borders by kind */
+            .pdf-page-thumb[data-kind="canvas"],
+            .pdf-page-sub[data-kind="screen"] { border-left: 4px solid var(--accent-color, #0d6efd); }
+            .pdf-page-sub[data-kind="map"] { border-left: 4px solid #20c997; }
+            .pdf-page-sub[data-kind="spec"] { border-left: 4px solid #6c757d; }
+
+            /* Dark mode tuning */
+            .dark-mode .pdf-page-thumb,
+            .dark-mode .pdf-page-sub {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+                background: #2b2f33;
+                border-color: #3a3f44;
+            }
+            .dark-mode .pdf-page-thumb .thumb,
+            .dark-mode .pdf-page-sub .thumb { background: #3a3f44; border-color: #444; }
+            .dark-mode .pdf-page-thumb .sub,
+            .dark-mode .pdf-page-sub .sub { background: #1f2225; border-color: #3a3f44; color: #c9d1d9; }
 
             /* Floating toast for PDF generation */
             .pdf-toast {
@@ -1854,6 +1880,11 @@
                                                     <label class="form-label fw-bold">Show Coordinates</label>
                                                     <button id="coordinatesToggle" class="btn btn-secondary w-100">On</button>
                                                 </div>
+                                                <hr style="border-color: var(--border-color);">
+                                                <div>
+                                                    <label for="canvasBgColorInput" class="form-label fw-bold">Canvas Background</label>
+                                                    <input type="color" id="canvasBgColorInput" value="#ffffff" class="form-control form-control-color p-0">
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2071,13 +2102,22 @@
                                                 <div id="pdfCanvasListEmpty" class="text-muted small d-none">No saved output maps.</div>
                                             </div>
                                             <div id="pdfPageListContainer" class="d-none">
-                                                <div class="fw-bold small mb-2">Pages</div>
+                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                    <div class="fw-bold small">Pages</div>
+                                                    <div class="input-group input-group-sm" style="width:auto;">
+                                                        <span class="input-group-text">Arrange</span>
+                                                        <select id="pdfArrangeModeSelect" class="form-select form-select-sm">
+                                                            <option value="flat">Flat (free)</option>
+                                                            <option value="grouped">Grouped</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
                                                 <div id="pdfPageList" class="pdf-page-list"></div>
                                                 <div class="small text-muted mt-2">
-                                                    • Drag to reorder canvas blocks<br>
-                                                    • Per-canvas screens follow their saved order<br>
+                                                    • Flat: freely reorder any page across canvases<br>
+                                                    • Grouped: reorder canvases; reorder screens within a canvas<br>
                                                     • Spec page is fixed at the end
-                                                    </div>
+                                                </div>
                                             </div>
                                         </aside>
                                         </div>
@@ -8055,6 +8095,8 @@
 
                 // PDF page sidebar state: maintain an order of object indices for preview/export
                 if (!Array.isArray(state.pdfPageOrder)) state.pdfPageOrder = [];
+                // Arrange mode: 'flat' (free order) or 'grouped' (by canvas)
+                if (!state.pdfArrangeMode) state.pdfArrangeMode = 'grouped';
 
                 const pdfRefreshPreviewBtn = document.getElementById('pdfRefreshPreviewBtn');
                 if (pdfRefreshPreviewBtn) {
@@ -8070,6 +8112,7 @@
                 const pdfSidebarTabPages = document.getElementById('pdfSidebarTabPages');
                 const pdfCanvasList = document.getElementById('pdfCanvasList');
                 const pdfPageListContainer = document.getElementById('pdfPageListContainer');
+                const pdfArrangeModeSelect = document.getElementById('pdfArrangeModeSelect');
                 const pdfCanvasListBody = document.getElementById('pdfCanvasListBody');
                 const pdfCanvasListEmpty = document.getElementById('pdfCanvasListEmpty');
                 const pdfCanvasSelectAll = document.getElementById('pdfCanvasSelectAll');
@@ -8271,6 +8314,106 @@
                     renderPdfCanvasList();
                 });
                 const buildPdfPageSidebar = () => {
+                    // Helper: create a small live preview for a canvas (Output Map) into an <img>
+                    const renderMapThumb = (objs, imgEl) => {
+                        try {
+                            const TW = 56, TH = 40; // match .thumb for header; sub thumb is 40x28 but we can reuse
+                            const c = document.createElement('canvas'); c.width = TW; c.height = TH;
+                            const ctx = c.getContext('2d', { alpha: true });
+                            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, TW, TH);
+                            // Compute bounding box to fit all objects
+                            let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
+                            (objs || []).forEach(o => {
+                                const x = (o?.x || 0), y = (o?.y || 0), w = (o?.width || 0), h = (o?.height || 0);
+                                minX = Math.min(minX, x); minY = Math.min(minY, y);
+                                maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+                            });
+                            if (!isFinite(minX) || !isFinite(minY) || maxX <= minX || maxY <= minY) {
+                                imgEl.src = c.toDataURL('image/png');
+                                return;
+                            }
+                            const bw = maxX - minX, bh = maxY - minY;
+                            const scale = Math.min(TW / (bw || 1), TH / (bh || 1));
+                            const offX = (TW - bw * scale) / 2;
+                            const offY = (TH - bh * scale) / 2;
+                            // Draw quickly using existing screen images
+                            let pending = 0; let drewAny = false;
+                            const tryFinish = () => { if (pending === 0 && drewAny) { imgEl.src = c.toDataURL('image/png'); } };
+                            (objs || []).slice(0, 8).forEach(o => { // cap to 8 for speed
+                                if (!o?.dataUrl) return;
+                                const img = new Image();
+                                pending++;
+                                img.onload = () => {
+                                    try {
+                                        const dx = (o.x - minX) * scale + offX;
+                                        const dy = (o.y - minY) * scale + offY;
+                                        const dw = (o.width || 0) * scale;
+                                        const dh = (o.height || 0) * scale;
+                                        ctx.save();
+                                        if (o.rotation) {
+                                            const cx = dx + dw / 2, cy = dy + dh / 2;
+                                            ctx.translate(cx, cy);
+                                            ctx.rotate((o.rotation || 0) * Math.PI / 180);
+                                            ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+                                            ctx.restore();
+                                        } else {
+                                            ctx.drawImage(img, dx, dy, dw, dh);
+                                        }
+                                        drewAny = true;
+                                    } catch { }
+                                    pending--; tryFinish();
+                                };
+                                img.onerror = () => { pending--; tryFinish(); };
+                                img.src = o.dataUrl;
+                            });
+                            // If nothing loaded (e.g., no objs), set placeholder immediately
+                            setTimeout(() => { tryFinish(); }, 50);
+                        } catch { }
+                    };
+
+                    // Lightweight context menu
+                    let ctxMenuEl = document.getElementById('pdfContextMenu');
+                    const ensureCtxMenu = () => {
+                        if (ctxMenuEl) return ctxMenuEl;
+                        ctxMenuEl = document.createElement('div');
+                        ctxMenuEl.id = 'pdfContextMenu';
+                        ctxMenuEl.style.position = 'fixed';
+                        ctxMenuEl.style.zIndex = '1061';
+                        ctxMenuEl.style.background = 'var(--card-bg, #fff)';
+                        ctxMenuEl.style.border = '1px solid var(--border-color, #dee2e6)';
+                        ctxMenuEl.style.borderRadius = '8px';
+                        ctxMenuEl.style.boxShadow = '0 10px 24px rgba(0,0,0,.18)';
+                        ctxMenuEl.style.padding = '6px';
+                        ctxMenuEl.style.minWidth = '160px';
+                        ctxMenuEl.style.display = 'none';
+                        document.body.appendChild(ctxMenuEl);
+                        document.addEventListener('click', () => { ctxMenuEl.style.display = 'none'; });
+                        return ctxMenuEl;
+                    };
+                    const showContextMenu = (e, actions) => {
+                        const menu = ensureCtxMenu();
+                        menu.innerHTML = '';
+                        actions.forEach(({ label, onClick }) => {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-sm w-100 text-start';
+                            btn.style.background = 'transparent';
+                            btn.style.border = 'none';
+                            btn.style.padding = '6px 8px';
+                            btn.textContent = label;
+                            btn.addEventListener('click', (ev) => { ev.stopPropagation(); menu.style.display = 'none'; onClick?.(); });
+                            menu.appendChild(btn);
+                        });
+                        menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+                        menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+                        menu.style.display = 'block';
+                    };
+                    const moveArrayItem = (arr, from, to) => { if (!arr) return arr; const a = arr.slice(); const [m] = a.splice(from, 1); a.splice(Math.max(0, Math.min(a.length, to)), 0, m); return a; };
+                    const promptRename = (initial) => {
+                        const name = window.prompt('Rename page', String(initial || ''));
+                        if (name == null) return null; // cancel
+                        const trimmed = name.trim();
+                        return trimmed.length ? trimmed : null;
+                    };
                     if (!pdfPageList) return;
                     pdfPageList.innerHTML = '';
                     // Build a full visual outline of the resulting PDF: per selected canvas → its screens → optional map
@@ -8284,134 +8427,397 @@
                         // Single block representing current PixelMap objects
                         dataset = [{ name: 'Current Canvas', id: 'current', objects: (state.canvasMapObjects || []) }];
                     }
+                    const mode = state.pdfArrangeMode || 'grouped';
 
-                    const n = dataset.length;
-                    if (!Array.isArray(state.pdfPageOrder) || state.pdfPageOrder.length !== n) {
-                        state.pdfPageOrder = Array.from({ length: n }, (_, i) => i);
+                    // Helper: build flat pages [{type:'screen'|'map'|'spec', canvasIdx, screenIdx, title, data}]
+                    const buildFlat = () => {
+                        const pages = [];
+                        // Determine canvas order
+                        const n = dataset.length;
+                        const canvasOrder = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === n)
+                            ? state.pdfPageOrder.slice()
+                            : Array.from({ length: n }, (_, i) => i);
+                        canvasOrder.forEach((idxInDataset) => {
+                            const block = dataset[idxInDataset] || { objects: [] };
+                            const objsAll = Array.isArray(block.objects) ? block.objects : [];
+                            const canvasKey = usingSaved ? String(block.id ?? block._id ?? idxInDataset) : String(block.id || 'current');
+                            // Per-canvas screen order
+                            if (!state.pdfScreenOrder) state.pdfScreenOrder = {};
+                            if (!Array.isArray(state.pdfScreenOrder[canvasKey]) || state.pdfScreenOrder[canvasKey].length !== objsAll.length) {
+                                state.pdfScreenOrder[canvasKey] = Array.from({ length: objsAll.length }, (_, i) => i);
+                            }
+                            const ord = state.pdfScreenOrder[canvasKey].slice();
+                            ord.forEach((objIdx) => {
+                                const obj = objsAll[objIdx];
+                                pages.push({ type: 'screen', canvasIdx: idxInDataset, screenIdx: objIdx, title: obj?.filename || 'Screen', data: obj });
+                            });
+                            if (state.pdfIncludeCanvasSnapshot) {
+                                pages.push({ type: 'map', canvasIdx: idxInDataset, screenIdx: null, title: (block.name || block.filename || 'Canvas') + ' - Output Map', data: { objects: objsAll, block } });
+                            }
+                        });
+                        // Spec page is logical; not draggable
+                        return pages;
+                    };
+
+                    if (mode === 'flat') {
+                        // Build flat array and persist order in state.pdfFlatOrder as indices into the generated pages
+                        const pages = buildFlat();
+                        const total = pages.length + 1; // +1 spec
+                        if (!Array.isArray(state.pdfFlatOrder) || state.pdfFlatOrder.length !== pages.length) {
+                            state.pdfFlatOrder = Array.from({ length: pages.length }, (_, i) => i);
+                        }
+                        let pageNumberCounter = 1;
+                        state.pdfFlatOrder.forEach((idx, displayPos) => {
+                            const p = pages[idx];
+                            const item = document.createElement('div');
+                            item.className = 'pdf-page-sub';
+                            item.dataset.kind = (p.type === 'map') ? 'map' : 'screen';
+                            item.setAttribute('draggable', 'true');
+                            item.dataset.pos = String(displayPos);
+                            item.dataset.kind = p.type;
+                            if (typeof p.canvasIdx === 'number') item.dataset.canvasIdx = String(p.canvasIdx);
+                            if (typeof p.screenIdx === 'number') item.dataset.screenIdx = String(p.screenIdx);
+                            if (p.canvasId != null) item.dataset.canvasId = String(p.canvasId);
+                            const t = document.createElement('span'); t.className = 'thumb';
+                            const tImg = document.createElement('img');
+                            t.appendChild(tImg);
+                            const m = document.createElement('div'); m.className = 'meta';
+                            const ti = document.createElement('div'); ti.className = 'title'; ti.textContent = (p.type === 'map') ? p.title : (p.data?.filename || p.title);
+                            const sb = document.createElement('div'); sb.className = 'sub'; sb.textContent = `Page ${pageNumberCounter}`;
+                            m.appendChild(ti); m.appendChild(sb); item.appendChild(t); item.appendChild(m);
+                            // Thumbnail
+                            if (p.type === 'screen' && p.data?.dataUrl) { tImg.src = p.data.dataUrl; }
+                            else if (p.type === 'map') { const objs = (p.data?.objects || []); renderMapThumb(objs, tImg); }
+                            item.addEventListener('dragstart', (e) => { item.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.dataset.pos || '0'); e.dataTransfer.effectAllowed = 'move'; });
+                            item.addEventListener('dragend', () => item.classList.remove('dragging'));
+                            item.addEventListener('dragover', (e) => { e.preventDefault(); item.classList.add('drop-target'); });
+                            item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
+                            item.addEventListener('drop', (e) => {
+                                e.preventDefault(); item.classList.remove('drop-target');
+                                const from = parseInt(e.dataTransfer.getData('text/plain') || '-1', 10);
+                                const to = parseInt(item.dataset.pos || '-1', 10);
+                                if (isNaN(from) || isNaN(to) || from === to) return;
+                                const order = state.pdfFlatOrder.slice();
+                                const [moved] = order.splice(from, 1);
+                                order.splice(to, 0, moved);
+                                state.pdfFlatOrder = order;
+                                buildPdfPageSidebar();
+                                state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                            });
+                            // Context menu
+                            item.addEventListener('contextmenu', (e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const pos = parseInt(item.dataset.pos || '0', 10);
+                                const actions = [
+                                    {
+                                        label: 'Rename', onClick: () => {
+                                            if (item.dataset.kind === 'screen') {
+                                                const newName = promptRename(ti.textContent);
+                                                if (!newName) return;
+                                                const canvasId = item.dataset.canvasId;
+                                                const sIdx = parseInt(item.dataset.screenIdx || '-1', 10);
+                                                if (canvasId && !isNaN(sIdx)) {
+                                                    const sc = (state.savedCanvases || []).find(c => String(c.id) === String(canvasId));
+                                                    if (sc && sc.objects[sIdx]) { sc.objects[sIdx].filename = newName; }
+                                                } else if (!isNaN(sIdx)) {
+                                                    if (state.canvasMapObjects?.[sIdx]) state.canvasMapObjects[sIdx].filename = newName;
+                                                }
+                                                buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                            }
+                                        }
+                                    },
+                                    { label: 'Move to Top', onClick: () => { state.pdfFlatOrder = moveArrayItem(state.pdfFlatOrder, pos, 0); buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                    { label: 'Move to Bottom', onClick: () => { state.pdfFlatOrder = moveArrayItem(state.pdfFlatOrder, pos, state.pdfFlatOrder.length - 1); buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                ];
+                                showContextMenu(e, actions);
+                            });
+                            // Keyboard reordering: Alt+Up/Down to move; Enter to rename
+                            item.tabIndex = 0;
+                            item.addEventListener('keydown', (e) => {
+                                if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                                    e.preventDefault();
+                                    const pos = parseInt(item.dataset.pos || '0', 10);
+                                    const to = e.key === 'ArrowUp' ? Math.max(0, pos - 1) : Math.min(state.pdfFlatOrder.length - 1, pos + 1);
+                                    state.pdfFlatOrder = moveArrayItem(state.pdfFlatOrder, pos, to);
+                                    buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    if (item.dataset.kind === 'screen') {
+                                        const newName = promptRename(ti.textContent);
+                                        if (!newName) return;
+                                        const canvasId = item.dataset.canvasId;
+                                        const sIdx = parseInt(item.dataset.screenIdx || '-1', 10);
+                                        if (canvasId && !isNaN(sIdx)) {
+                                            const sc = (state.savedCanvases || []).find(c => String(c.id) === String(canvasId));
+                                            if (sc && sc.objects[sIdx]) { sc.objects[sIdx].filename = newName; }
+                                        } else if (!isNaN(sIdx)) {
+                                            if (state.canvasMapObjects?.[sIdx]) state.canvasMapObjects[sIdx].filename = newName;
+                                        }
+                                        buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                    }
+                                }
+                            });
+                            pdfPageList.appendChild(item);
+                            pageNumberCounter++;
+                        });
+                        // Spec page indicator
+                        const spec = document.createElement('div');
+                        spec.className = 'pdf-page-sub';
+                        const spThumb = document.createElement('span'); spThumb.className = 'thumb';
+                        const spMeta = document.createElement('div'); spMeta.className = 'meta';
+                        const spTitle = document.createElement('div'); spTitle.className = 'title'; spTitle.textContent = 'Media Server Specification';
+                        const spSub = document.createElement('div'); spSub.className = 'sub'; spSub.textContent = `Page ${pageNumberCounter}`;
+                        spMeta.appendChild(spTitle); spMeta.appendChild(spSub);
+                        spec.appendChild(spThumb); spec.appendChild(spMeta);
+                        pdfPageList.appendChild(spec);
+                    } else {
+                    // Grouped mode (existing behavior)
+                        const n = dataset.length;
+                        if (!Array.isArray(state.pdfPageOrder) || state.pdfPageOrder.length !== n) {
+                            state.pdfPageOrder = Array.from({ length: n }, (_, i) => i);
+                        }
+                        let pageNumberCounter = 1;
+                        state.pdfPageOrder.forEach((idxInDataset, displayIdx) => {
+                            const block = dataset[idxInDataset] || { objects: [] };
+                            const objs = Array.isArray(block.objects) ? block.objects : [];
+                            // Key to track per-canvas screen order
+                            const canvasKey = usingSaved ? String(block.id ?? block._id ?? idxInDataset) : String(block.id || 'current');
+                            if (!state.pdfScreenOrder) state.pdfScreenOrder = {};
+                            if (!Array.isArray(state.pdfScreenOrder[canvasKey]) || state.pdfScreenOrder[canvasKey].length !== objs.length) {
+                                state.pdfScreenOrder[canvasKey] = Array.from({ length: objs.length }, (_, i) => i);
+                            }
+                            const screenOrder = state.pdfScreenOrder[canvasKey].slice();
+                            // Draggable canvas header
+                            const header = document.createElement('div');
+                            header.className = 'pdf-page-thumb';
+                            header.dataset.kind = 'canvas';
+                            header.setAttribute('draggable', 'true');
+                            header.dataset.idx = String(displayIdx);
+                            const hThumb = document.createElement('span'); hThumb.className = 'thumb';
+                            const hImg = document.createElement('img'); hThumb.appendChild(hImg);
+                            const hMeta = document.createElement('div'); hMeta.className = 'meta';
+                            const hTitle = document.createElement('div'); hTitle.className = 'title';
+                            hTitle.textContent = (block.name || block.filename || `Canvas ${displayIdx + 1}`);
+                            const hSub = document.createElement('div'); hSub.className = 'sub'; hSub.textContent = `Starts at page ${pageNumberCounter}`;
+                            hMeta.appendChild(hTitle); hMeta.appendChild(hSub);
+                            header.appendChild(hThumb); header.appendChild(hMeta);
+                            // Canvas thumbnail: render map of its objects
+                            renderMapThumb(objs, hImg);
+                            header.addEventListener('dragstart', (e) => { header.classList.add('dragging'); e.dataTransfer.setData('text/plain', header.dataset.idx || '0'); e.dataTransfer.effectAllowed = 'move'; });
+                            header.addEventListener('dragend', () => header.classList.remove('dragging'));
+                            header.addEventListener('dragover', (e) => { e.preventDefault(); header.classList.add('drop-target'); });
+                            header.addEventListener('dragleave', () => header.classList.remove('drop-target'));
+                            header.addEventListener('drop', (e) => {
+                                e.preventDefault(); header.classList.remove('drop-target');
+                                const fromStr = e.dataTransfer.getData('text/plain');
+                                const from = parseInt(fromStr, 10);
+                                const to = parseInt(header.dataset.idx || '0', 10);
+                                if (isNaN(from) || isNaN(to) || from === to) return;
+                                const order = state.pdfPageOrder.slice();
+                                const [moved] = order.splice(from, 1);
+                                order.splice(to, 0, moved);
+                                state.pdfPageOrder = order;
+                                buildPdfPageSidebar();
+                                state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                            });
+                            // Context menu for canvas header
+                            header.addEventListener('contextmenu', (e) => {
+                                e.preventDefault(); e.stopPropagation();
+                                const idx = parseInt(header.dataset.idx || '0', 10);
+                                const actions = [
+                                    {
+                                        label: 'Rename Canvas', onClick: () => {
+                                            const newName = promptRename(hTitle.textContent);
+                                            if (!newName) return;
+                                            if (block && block.name != null) { block.name = newName; }
+                                            else if (usingSaved) {
+                                                const sc = (state.savedCanvases || [])[idxInDataset];
+                                                if (sc) sc.name = newName;
+                                            }
+                                            buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                        }
+                                    },
+                                    { label: 'Move to Top', onClick: () => { state.pdfPageOrder = moveArrayItem(state.pdfPageOrder, idx, 0); buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                    { label: 'Move to Bottom', onClick: () => { state.pdfPageOrder = moveArrayItem(state.pdfPageOrder, idx, state.pdfPageOrder.length - 1); buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                ];
+                                showContextMenu(e, actions);
+                            });
+                            // Keyboard for header
+                            header.tabIndex = 0;
+                            header.addEventListener('keydown', (e) => {
+                                if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                                    e.preventDefault();
+                                    const idx = parseInt(header.dataset.idx || '0', 10);
+                                    const to = e.key === 'ArrowUp' ? Math.max(0, idx - 1) : Math.min(state.pdfPageOrder.length - 1, idx + 1);
+                                    state.pdfPageOrder = moveArrayItem(state.pdfPageOrder, idx, to);
+                                    buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const newName = promptRename(hTitle.textContent);
+                                    if (!newName) return;
+                                    if (block && block.name != null) { block.name = newName; }
+                                    else if (usingSaved) {
+                                        const sc = (state.savedCanvases || [])[idxInDataset];
+                                        if (sc) sc.name = newName;
+                                    }
+                                    buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                }
+                            });
+                            pdfPageList.appendChild(header);
+                            // Screens within this canvas
+                            screenOrder.forEach((objIdx, pos) => {
+                                const obj = objs[objIdx];
+                                const sub = document.createElement('div');
+                                sub.className = 'pdf-page-sub';
+                                sub.dataset.kind = 'screen';
+                                sub.dataset.canvasId = String(block.id ?? '');
+                                sub.setAttribute('draggable', 'true');
+                                sub.dataset.canvasKey = canvasKey;
+                                sub.dataset.pos = String(pos);
+                                const sThumb = document.createElement('span'); sThumb.className = 'thumb';
+                                const sImg = document.createElement('img'); sThumb.appendChild(sImg);
+                                const sMeta = document.createElement('div'); sMeta.className = 'meta';
+                                const sTitle = document.createElement('div'); sTitle.className = 'title'; sTitle.textContent = (obj?.filename || `Screen ${objIdx + 1}`);
+                                const sSub = document.createElement('div'); sSub.className = 'sub'; sSub.textContent = `Page ${pageNumberCounter}`;
+                                sMeta.appendChild(sTitle); sMeta.appendChild(sSub);
+                                sub.appendChild(sThumb); sub.appendChild(sMeta);
+                                if (obj?.dataUrl) sImg.src = obj.dataUrl;
+                                sub.addEventListener('dragstart', (e) => {
+                                    sub.classList.add('dragging');
+                                    e.dataTransfer.setData('text/plain', JSON.stringify({ canvasKey, from: pos }));
+                                    e.dataTransfer.effectAllowed = 'move';
+                                });
+                                sub.addEventListener('dragend', () => sub.classList.remove('dragging'));
+                                sub.addEventListener('dragover', (e) => { e.preventDefault(); sub.classList.add('drop-target'); });
+                                sub.addEventListener('dragleave', () => sub.classList.remove('drop-target'));
+                                sub.addEventListener('drop', (e) => {
+                                    e.preventDefault(); sub.classList.remove('drop-target');
+                                    try {
+                                        const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                        if (!payload || payload.canvasKey !== canvasKey) return;
+                                        const from = parseInt(payload.from, 10);
+                                        const to = parseInt(sub.dataset.pos || '0', 10);
+                                        if (isNaN(from) || isNaN(to) || from === to) return;
+                                        const ord = (state.pdfScreenOrder[canvasKey] || []).slice();
+                                        const [moved] = ord.splice(from, 1);
+                                        ord.splice(to, 0, moved);
+                                        state.pdfScreenOrder[canvasKey] = ord;
+                                        buildPdfPageSidebar();
+                                        state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                    } catch { }
+                                });
+                                // Context menu for screen
+                                sub.addEventListener('contextmenu', (e) => {
+                                    e.preventDefault(); e.stopPropagation();
+                                    const actions = [
+                                        {
+                                            label: 'Rename', onClick: () => {
+                                                const newName = promptRename(sTitle.textContent);
+                                                if (!newName) return;
+                                                if (usingSaved) {
+                                                    const sc = (state.savedCanvases || [])[idxInDataset];
+                                                    const realIdx = screenOrder[pos];
+                                                    if (sc && sc.objects[realIdx]) sc.objects[realIdx].filename = newName;
+                                                } else {
+                                                    const realIdx = screenOrder[pos];
+                                                    if (state.canvasMapObjects?.[realIdx]) state.canvasMapObjects[realIdx].filename = newName;
+                                                }
+                                                buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                            }
+                                        },
+                                        { label: 'Move to Top', onClick: () => { const ord = (state.pdfScreenOrder[canvasKey] || []).slice(); const [m] = ord.splice(pos, 1); ord.splice(0, 0, m); state.pdfScreenOrder[canvasKey] = ord; buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                        { label: 'Move to Bottom', onClick: () => { const ord = (state.pdfScreenOrder[canvasKey] || []).slice(); const [m] = ord.splice(pos, 1); ord.splice(ord.length, 0, m); state.pdfScreenOrder[canvasKey] = ord; buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.(); } },
+                                    ];
+                                    showContextMenu(e, actions);
+                                });
+                                // Keyboard for screen
+                                sub.tabIndex = 0;
+                                sub.addEventListener('keydown', (e) => {
+                                    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                                        e.preventDefault();
+                                        const ord = (state.pdfScreenOrder[canvasKey] || []).slice();
+                                        const to = e.key === 'ArrowUp' ? Math.max(0, pos - 1) : Math.min(ord.length - 1, pos + 1);
+                                        const [m] = ord.splice(pos, 1); ord.splice(to, 0, m); state.pdfScreenOrder[canvasKey] = ord;
+                                        buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                    } else if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const newName = promptRename(sTitle.textContent);
+                                        if (!newName) return;
+                                        if (usingSaved) {
+                                            const sc = (state.savedCanvases || [])[idxInDataset]; const realIdx = screenOrder[pos];
+                                            if (sc && sc.objects[realIdx]) sc.objects[realIdx].filename = newName;
+                                        } else {
+                                            const realIdx = screenOrder[pos]; if (state.canvasMapObjects?.[realIdx]) state.canvasMapObjects[realIdx].filename = newName;
+                                        }
+                                        buildPdfPageSidebar(); state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                                    }
+                                });
+                                pdfPageList.appendChild(sub);
+                                pageNumberCounter++;
+                            });
+                            if (state.pdfIncludeCanvasSnapshot) {
+                                const mapSub = document.createElement('div');
+                                mapSub.className = 'pdf-page-sub';
+                                mapSub.dataset.kind = 'map';
+                                const mThumb = document.createElement('span'); mThumb.className = 'thumb';
+                                const mImg = document.createElement('img'); mThumb.appendChild(mImg);
+                                const mMeta = document.createElement('div'); mMeta.className = 'meta';
+                                const mTitle = document.createElement('div'); mTitle.className = 'title'; mTitle.textContent = (block.name || `Canvas ${displayIdx + 1}`) + ' - Output Map';
+                                const mSub = document.createElement('div'); mSub.className = 'sub'; mSub.textContent = `Page ${pageNumberCounter}`;
+                                mMeta.appendChild(mTitle); mMeta.appendChild(mSub);
+                                mapSub.appendChild(mThumb); mapSub.appendChild(mMeta);
+                                renderMapThumb(objs, mImg);
+                                pdfPageList.appendChild(mapSub);
+                                pageNumberCounter++;
+                            }
+                        });
+
+                        // Spec page indicator
+                        const spec = document.createElement('div');
+                        spec.className = 'pdf-page-sub';
+                        spec.dataset.kind = 'spec';
+                        const spThumb = document.createElement('span'); spThumb.className = 'thumb';
+                        const spMeta = document.createElement('div'); spMeta.className = 'meta';
+                        const spTitle = document.createElement('div'); spTitle.className = 'title'; spTitle.textContent = 'Media Server Specification';
+                        const spSub = document.createElement('div'); spSub.className = 'sub'; spSub.textContent = `Page ${pageNumberCounter}`;
+                        spMeta.appendChild(spTitle); spMeta.appendChild(spSub);
+                        spec.appendChild(spThumb); spec.appendChild(spMeta);
+                        pdfPageList.appendChild(spec);
                     }
-
-                    let pageNumberCounter = 1;
-                    state.pdfPageOrder.forEach((idxInDataset, displayIdx) => {
-                        const block = dataset[idxInDataset] || { objects: [] };
-                        const objs = Array.isArray(block.objects) ? block.objects : [];
-                        // Key to track per-canvas screen order
-                        const canvasKey = usingSaved ? String(block.id ?? block._id ?? idxInDataset) : String(block.id || 'current');
-                        if (!state.pdfScreenOrder) state.pdfScreenOrder = {};
-                        // Ensure we have a valid order array for this canvas
-                        if (!Array.isArray(state.pdfScreenOrder[canvasKey]) || state.pdfScreenOrder[canvasKey].length !== objs.length) {
-                            state.pdfScreenOrder[canvasKey] = Array.from({ length: objs.length }, (_, i) => i);
-                        }
-                        const screenOrder = state.pdfScreenOrder[canvasKey].slice();
-
-                        // Draggable canvas header (reorders blocks)
-                        const header = document.createElement('div');
-                        header.className = 'pdf-page-thumb';
-                        header.setAttribute('draggable', 'true');
-                        header.dataset.idx = String(displayIdx);
-                        const hThumb = document.createElement('span'); hThumb.className = 'thumb';
-                        const hMeta = document.createElement('div'); hMeta.className = 'meta';
-                        const hTitle = document.createElement('div'); hTitle.className = 'title';
-                        hTitle.textContent = (block.name || block.filename || `Canvas ${displayIdx + 1}`);
-                        const hSub = document.createElement('div'); hSub.className = 'sub'; hSub.textContent = `Starts at page ${pageNumberCounter}`;
-                        hMeta.appendChild(hTitle); hMeta.appendChild(hSub);
-                        header.appendChild(hThumb); header.appendChild(hMeta);
-                        // Drag handlers for header
-                        header.addEventListener('dragstart', (e) => { header.classList.add('dragging'); e.dataTransfer.setData('text/plain', header.dataset.idx || '0'); e.dataTransfer.effectAllowed = 'move'; });
-                        header.addEventListener('dragend', () => header.classList.remove('dragging'));
-                        header.addEventListener('dragover', (e) => { e.preventDefault(); header.classList.add('drop-target'); });
-                        header.addEventListener('dragleave', () => header.classList.remove('drop-target'));
-                        header.addEventListener('drop', (e) => {
-                            e.preventDefault(); header.classList.remove('drop-target');
-                            const fromStr = e.dataTransfer.getData('text/plain');
-                            const from = parseInt(fromStr, 10);
-                            const to = parseInt(header.dataset.idx || '0', 10);
-                            if (isNaN(from) || isNaN(to) || from === to) return;
-                            const order = state.pdfPageOrder.slice();
-                            const [moved] = order.splice(from, 1);
-                            order.splice(to, 0, moved);
-                            state.pdfPageOrder = order;
-                            buildPdfPageSidebar();
-                            state.pdfPreviewDirty = true; schedulePdfPreview?.();
-                        });
-                        pdfPageList.appendChild(header);
-
-                        // Draggable sub-items for each screen in this canvas
-                        screenOrder.forEach((objIdx, pos) => {
-                            const obj = objs[objIdx];
-                            const sub = document.createElement('div');
-                            sub.className = 'pdf-page-sub';
-                            sub.setAttribute('draggable', 'true');
-                            sub.dataset.canvasKey = canvasKey;
-                            sub.dataset.pos = String(pos);
-                            const sThumb = document.createElement('span'); sThumb.className = 'thumb';
-                            const sMeta = document.createElement('div'); sMeta.className = 'meta';
-                            const sTitle = document.createElement('div'); sTitle.className = 'title'; sTitle.textContent = (obj?.filename || `Screen ${objIdx + 1}`);
-                            const sSub = document.createElement('div'); sSub.className = 'sub'; sSub.textContent = `Page ${pageNumberCounter}`;
-                            sMeta.appendChild(sTitle); sMeta.appendChild(sSub);
-                            sub.appendChild(sThumb); sub.appendChild(sMeta);
-                            // Drag handlers within same canvas
-                            sub.addEventListener('dragstart', (e) => {
-                                sub.classList.add('dragging');
-                                e.dataTransfer.setData('text/plain', JSON.stringify({ canvasKey, from: pos }));
-                                e.dataTransfer.effectAllowed = 'move';
-                            });
-                            sub.addEventListener('dragend', () => sub.classList.remove('dragging'));
-                            sub.addEventListener('dragover', (e) => { e.preventDefault(); sub.classList.add('drop-target'); });
-                            sub.addEventListener('dragleave', () => sub.classList.remove('drop-target'));
-                            sub.addEventListener('drop', (e) => {
-                                e.preventDefault(); sub.classList.remove('drop-target');
-                                try {
-                                    const payload = JSON.parse(e.dataTransfer.getData('text/plain'));
-                                    if (!payload || payload.canvasKey !== canvasKey) return;
-                                    const from = parseInt(payload.from, 10);
-                                    const to = parseInt(sub.dataset.pos || '0', 10);
-                                    if (isNaN(from) || isNaN(to) || from === to) return;
-                                    const ord = (state.pdfScreenOrder[canvasKey] || []).slice();
-                                    const [moved] = ord.splice(from, 1);
-                                    ord.splice(to, 0, moved);
-                                    state.pdfScreenOrder[canvasKey] = ord;
-                                    buildPdfPageSidebar();
-                                    state.pdfPreviewDirty = true; schedulePdfPreview?.();
-                                } catch { }
-                            });
-                            pdfPageList.appendChild(sub);
-                            pageNumberCounter++;
-                        });
-
-                        // Optional Output Map page indicator per canvas
-                        if (state.pdfIncludeCanvasSnapshot) {
-                            const mapSub = document.createElement('div');
-                            mapSub.className = 'pdf-page-sub';
-                            const mThumb = document.createElement('span'); mThumb.className = 'thumb';
-                            const mMeta = document.createElement('div'); mMeta.className = 'meta';
-                            const mTitle = document.createElement('div'); mTitle.className = 'title'; mTitle.textContent = (block.name || `Canvas ${displayIdx + 1}`) + ' - Output Map';
-                            const mSub = document.createElement('div'); mSub.className = 'sub'; mSub.textContent = `Page ${pageNumberCounter}`;
-                            mMeta.appendChild(mTitle); mMeta.appendChild(mSub);
-                            mapSub.appendChild(mThumb); mapSub.appendChild(mMeta);
-                            pdfPageList.appendChild(mapSub);
-                            pageNumberCounter++;
-                        }
-                    });
-
-                    // Final spec page indicator
-                    const spec = document.createElement('div');
-                    spec.className = 'pdf-page-sub';
-                    const spThumb = document.createElement('span'); spThumb.className = 'thumb';
-                    const spMeta = document.createElement('div'); spMeta.className = 'meta';
-                    const spTitle = document.createElement('div'); spTitle.className = 'title'; spTitle.textContent = 'Media Server Specification';
-                    const spSub = document.createElement('div'); spSub.className = 'sub'; spSub.textContent = `Page ${pageNumberCounter}`;
-                    spMeta.appendChild(spTitle); spMeta.appendChild(spSub);
-                    spec.appendChild(spThumb); spec.appendChild(spMeta);
-                    pdfPageList.appendChild(spec);
                 };
+                // Arrange mode selector wiring
+                if (pdfArrangeModeSelect) {
+                    // Default to flat for user request of free swap
+                    pdfArrangeModeSelect.value = state.pdfArrangeMode;
+                    pdfArrangeModeSelect.addEventListener('change', () => {
+                        state.pdfArrangeMode = pdfArrangeModeSelect.value === 'flat' ? 'flat' : 'grouped';
+                        buildPdfPageSidebar();
+                        state.pdfPreviewDirty = true; schedulePdfPreview?.();
+                    });
+                }
                 if (pdfResetOrderBtn) {
                     pdfResetOrderBtn.addEventListener('click', () => {
-                        const datasetLen = (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0)
-                            ? state.savedCanvases.length
-                            : (state.canvasMapObjects || []).length;
-                        state.pdfPageOrder = Array.from({ length: datasetLen }, (_, i) => i);
-                        // Reset per-canvas screen order map
-                        state.pdfScreenOrder = {};
+                        if ((state.pdfArrangeMode || 'grouped') === 'flat') {
+                            // Rebuild flat and reset flat order
+                            try {
+                                const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
+                                const dataset = (Array.isArray(state.savedCanvases) ? state.savedCanvases : []).filter(c => sel.size === 0 || sel.has(String(c.id)));
+                                const pages = [];
+                                dataset.forEach((c, ci) => {
+                                    const objs = c.objects || [];
+                                    for (let i = 0; i < objs.length; i++) pages.push({});
+                                    if (state.pdfIncludeCanvasSnapshot) pages.push({});
+                                });
+                                state.pdfFlatOrder = Array.from({ length: pages.length }, (_, i) => i);
+                            } catch { state.pdfFlatOrder = []; }
+                        } else {
+                            const datasetLen = (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0)
+                                ? state.savedCanvases.length
+                                : (state.canvasMapObjects || []).length;
+                            state.pdfPageOrder = Array.from({ length: datasetLen }, (_, i) => i);
+                            // Reset per-canvas screen order map
+                            state.pdfScreenOrder = {};
+                        }
                         buildPdfPageSidebar();
                         state.pdfPreviewDirty = true; schedulePdfPreview?.();
                     });
@@ -8462,6 +8868,7 @@
             setTimeout(() => {
             try {
                 const engine = (state.pdfPreviewEngine === 'iframe') ? 'iframe' : 'image';
+                const arrangeMode = state.pdfArrangeMode || 'grouped';
 
                 // Lightweight image-based preview: render per-page images instead of an embedded PDF
                 if (engine === 'image') {
@@ -8474,71 +8881,107 @@
                             const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
                                 ? state.pdfPageOrder.slice()
                                 : Array.from({ length: selectedSaved.length }, (_, i) => i);
-                            order.forEach((ordIdx) => {
-                                const savedCanvas = selectedSaved[ordIdx];
-                                const objsAll = savedCanvas.objects || [];
-                                // Apply screen order if present
-                                const canvasKey = String(savedCanvas.id ?? ordIdx);
-                                let orderedObjs = objsAll.slice();
-                                const ordArr = state.pdfScreenOrder?.[canvasKey];
-                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
-                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
-                                }
-                                const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
-                                // Each screen page -> image
-                                objs.forEach((obj) => {
-                                    const pageDiv = document.createElement('div');
-                                    pageDiv.className = 'pdf-image-page';
-                                    const img = new Image();
-                                    img.loading = 'lazy';
-                                    img.alt = obj.filename || 'Screen';
-                                    img.src = obj.dataUrl;
-                                    pageDiv.appendChild(img);
-                                    pdfPreviewImageContent.appendChild(pageDiv);
+                            if (arrangeMode === 'flat') {
+                                // Build flat pages array according to selectedSaved and orders
+                                const flatPages = [];
+                                order.forEach((ordIdx) => {
+                                    const savedCanvas = selectedSaved[ordIdx];
+                                    const objsAll = savedCanvas.objects || [];
+                                    const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                    let orderedObjs = objsAll.slice();
+                                    const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                    if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                        orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                    }
+                                    const screens = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
+                                    screens.forEach(obj => flatPages.push({ type: 'screen', obj }));
+                                    if (state.pdfIncludeCanvasSnapshot) flatPages.push({ type: 'map', canvas: savedCanvas, objsAll });
                                 });
-                                // Optional Output Map page
-                                if (state.pdfIncludeCanvasSnapshot) {
-                                    try {
-                                        const objs = objsAll; // use full set for map snapshot context
-                                        const tempCanvas = document.createElement('canvas');
-                                        const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
-                                        const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
-                                        tempCanvas.width = canvasMapCanvas?.width || fallbackW;
-                                        tempCanvas.height = canvasMapCanvas?.height || fallbackH;
-                                        const tctx = tempCanvas.getContext('2d', { alpha: true });
-                                        tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                                        objs.forEach(objData => {
-                                            try {
-                                                const img = new Image();
-                                                img.onload = () => {
-                                                    tctx.save();
-                                                    const cx = (objData?.x || 0) + (objData?.width || 0) / 2;
-                                                    const cy = (objData?.y || 0) + (objData?.height || 0) / 2;
-                                                    tctx.translate(cx, cy);
-                                                    tctx.rotate((objData?.rotation || 0) * Math.PI / 180);
-                                                    tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0));
-                                                    tctx.restore();
-                                                };
-                                                img.src = objData.dataUrl;
-                                            } catch { }
-                                        });
-                                        const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
-                                        const previewCanvas = document.createElement('canvas');
-                                        previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
-                                        previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
-                                        previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
-                                        const dataUrl = previewCanvas.toDataURL('image/png');
-                                        const pageDiv = document.createElement('div');
-                                        pageDiv.className = 'pdf-image-page';
-                                        const imgEl = new Image();
-                                        imgEl.loading = 'lazy';
-                                        imgEl.alt = (savedCanvas.name || savedCanvas.filename || 'Canvas') + ' - Output Map';
-                                        imgEl.src = dataUrl;
-                                        pageDiv.appendChild(imgEl);
+                                const orderFlat = (Array.isArray(state.pdfFlatOrder) && state.pdfFlatOrder.length === flatPages.length)
+                                    ? state.pdfFlatOrder.slice()
+                                    : Array.from({ length: flatPages.length }, (_, i) => i);
+                                orderFlat.forEach(idx => {
+                                    const p = flatPages[idx];
+                                    if (p.type === 'screen') {
+                                        const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
+                                        const img = new Image(); img.loading = 'lazy'; img.alt = p.obj.filename || 'Screen'; img.src = p.obj.dataUrl; pageDiv.appendChild(img);
                                         pdfPreviewImageContent.appendChild(pageDiv);
-                                    } catch { }
-                                }
-                            });
+                                    } else if (p.type === 'map') {
+                                        try {
+                                            const objs = p.objsAll || [];
+                                            const tempCanvas = document.createElement('canvas');
+                                            const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                            const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                            tempCanvas.width = canvasMapCanvas?.width || fallbackW;
+                                            tempCanvas.height = canvasMapCanvas?.height || fallbackH;
+                                            const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                            tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                            objs.forEach(objData => {
+                                                try {
+                                                    const img = new Image();
+                                                    img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
+                                                    img.src = objData.dataUrl;
+                                                } catch { }
+                                            });
+                                            const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
+                                            const previewCanvas = document.createElement('canvas');
+                                            previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
+                                            previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
+                                            previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                                            const dataUrl = previewCanvas.toDataURL('image/png');
+                                            const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
+                                            const imgEl = new Image(); imgEl.loading = 'lazy'; imgEl.alt = (p.canvas?.name || p.canvas?.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl;
+                                            pageDiv.appendChild(imgEl); pdfPreviewImageContent.appendChild(pageDiv);
+                                        } catch { }
+                                    }
+                                });
+                            } else {
+                                // Grouped (original) behavior
+                                order.forEach((ordIdx) => {
+                                    const savedCanvas = selectedSaved[ordIdx];
+                                    const objsAll = savedCanvas.objects || [];
+                                    const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                    let orderedObjs = objsAll.slice();
+                                    const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                    if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                        orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                    }
+                                    const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
+                                    objs.forEach((obj) => {
+                                        const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
+                                        const img = new Image(); img.loading = 'lazy'; img.alt = obj.filename || 'Screen'; img.src = obj.dataUrl; pageDiv.appendChild(img);
+                                        pdfPreviewImageContent.appendChild(pageDiv);
+                                    });
+                                    if (state.pdfIncludeCanvasSnapshot) {
+                                        try {
+                                            const objs = objsAll;
+                                            const tempCanvas = document.createElement('canvas');
+                                            const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                            const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                            tempCanvas.width = canvasMapCanvas?.width || fallbackW;
+                                            tempCanvas.height = canvasMapCanvas?.height || fallbackH;
+                                            const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                            tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                            objs.forEach(objData => {
+                                                try {
+                                                    const img = new Image();
+                                                    img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
+                                                    img.src = objData.dataUrl;
+                                                } catch { }
+                                            });
+                                            const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
+                                            const previewCanvas = document.createElement('canvas');
+                                            previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
+                                            previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
+                                            previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                                            const dataUrl = previewCanvas.toDataURL('image/png');
+                                            const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
+                                            const imgEl = new Image(); imgEl.loading = 'lazy'; imgEl.alt = (savedCanvas.name || savedCanvas.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl; pageDiv.appendChild(imgEl);
+                                            pdfPreviewImageContent.appendChild(pageDiv);
+                                        } catch { }
+                                    }
+                                });
+                            }
                         } else {
                             // Fallback: current canvas objects only
                             const objsAll = state.canvasMapObjects || [];
@@ -8605,24 +9048,46 @@
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
 
-                // Build pages: for each selected saved canvas, add per-screen pages; if include map, add a map page. Finally spec page.
+                // Build pages honoring arrange mode. Finally spec page.
                 let totalPages = 1; // spec page at end
                 if (hasObjects) {
-                    // Count pages: sum of screens per canvas + optional map per canvas
                     if (useSaved) {
                         const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
                             ? state.pdfPageOrder.slice()
                             : Array.from({ length: selectedSaved.length }, (_, i) => i);
-                        order.forEach((ordIdx) => {
-                            const savedCanvas = selectedSaved[ordIdx];
-                            const objs = savedCanvas.objects || [];
-                            const countObjs = lite ? Math.min(objs.length, MAX_LITE_SCREENS_PER_CANVAS) : objs.length;
-                            totalPages += countObjs;
-                            if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // per-canvas map page if enabled
-                        });
+                        if (arrangeMode === 'flat') {
+                            // Build flat array once to count
+                            let flatPages = [];
+                            order.forEach((ordIdx) => {
+                                const savedCanvas = selectedSaved[ordIdx];
+                                const objsAll = savedCanvas.objects || [];
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let orderedObjs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                const screens = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
+                                screens.forEach(obj => flatPages.push({ type: 'screen', obj }));
+                                if (state.pdfIncludeCanvasSnapshot) flatPages.push({ type: 'map', canvas: savedCanvas, objsAll });
+                            });
+                            const orderFlat = (Array.isArray(state.pdfFlatOrder) && state.pdfFlatOrder.length === flatPages.length)
+                                ? state.pdfFlatOrder.slice()
+                                : Array.from({ length: flatPages.length }, (_, i) => i);
+                            totalPages += orderFlat.length;
+                        } else {
+                        // Grouped count
+                            order.forEach((ordIdx) => {
+                                const savedCanvas = selectedSaved[ordIdx];
+                                const objs = savedCanvas.objects || [];
+                                const countObjs = lite ? Math.min(objs.length, MAX_LITE_SCREENS_PER_CANVAS) : objs.length;
+                                totalPages += countObjs;
+                                if (state.pdfIncludeCanvasSnapshot) totalPages += 1;
+                            });
+                        }
                     } else {
                         totalPages += lite ? Math.min(state.canvasMapObjects.length, MAX_LITE_SCREENS_PER_CANVAS) : state.canvasMapObjects.length;
-                        if (state.pdfIncludeCanvasSnapshot) totalPages += 1; // single map page when not using saved canvases
+                        if (state.pdfIncludeCanvasSnapshot) totalPages += 1;
                     }
 
                     let pageCounter = 1;
@@ -8630,63 +9095,126 @@
                         const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
                             ? state.pdfPageOrder.slice()
                             : Array.from({ length: selectedSaved.length }, (_, i) => i);
-                        order.forEach((ordIdx, blockIdx) => {
-                            const savedCanvas = selectedSaved[ordIdx];
-                            const objsAll = savedCanvas.objects || [];
-                            // Apply per-canvas screen order
-                            const canvasKey = String(savedCanvas.id ?? ordIdx);
-                            let orderedObjs = objsAll.slice();
-                            const ordArr = state.pdfScreenOrder?.[canvasKey];
-                            if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
-                                orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
-                            }
-                            const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
-                            objs.forEach((obj, i) => {
+                        if (arrangeMode === 'flat') {
+                            // Build flat ordered pages and render in order
+                            let flatPages = [];
+                            order.forEach((ordIdx) => {
+                                const savedCanvas = selectedSaved[ordIdx];
+                                const objsAll = savedCanvas.objects || [];
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let orderedObjs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                const screens = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
+                                screens.forEach(obj => flatPages.push({ type: 'screen', obj }));
+                                if (state.pdfIncludeCanvasSnapshot) flatPages.push({ type: 'map', canvas: savedCanvas, objsAll });
+                            });
+                            const orderFlat = (Array.isArray(state.pdfFlatOrder) && state.pdfFlatOrder.length === flatPages.length)
+                                ? state.pdfFlatOrder.slice()
+                                : Array.from({ length: flatPages.length }, (_, i) => i);
+                            orderFlat.forEach(idx => {
+                                const p = flatPages[idx];
                                 if (pageCounter > 1) doc.addPage();
-                                drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                if (p.type === 'screen') {
+                                    drawDetailedObjectPage(doc, p.obj, pageCounter, totalPages);
+                                } else if (p.type === 'map') {
+                                    const pageTitleObj = { filename: (p.canvas?.name || p.canvas?.filename || 'Canvas') + ' - Output Map' };
+                                    drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+                                    const tempCanvas = document.createElement('canvas');
+                                    const objs = p.objsAll || [];
+                                    const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                    const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                    tempCanvas.width = canvasMapCanvas?.width || fallbackW;
+                                    tempCanvas.height = canvasMapCanvas?.height || fallbackH;
+                                    const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                    tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                    objs.forEach(objData => {
+                                        try {
+                                            const img = new Image();
+                                            img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
+                                            img.src = objData.dataUrl;
+                                        } catch { }
+                                    });
+                                    const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
+                                    const previewCanvas = document.createElement('canvas');
+                                    previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
+                                    previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
+                                    previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                                    const canvasImage = previewCanvas.toDataURL('image/png');
+                                    try {
+                                        const imgProps = doc.getImageProperties(canvasImage);
+                                        const rightColumnX = pageWidth - 138;
+                                        const availableX = 10; const availableY = 10;
+                                        const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
+                                        const aspectRatio = imgProps.width / imgProps.height;
+                                        let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                                        if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                                        const imgX = availableX + (availableWidth - imgWidth) / 2;
+                                        const imgY = availableY + (availableHeight - imgHeight) / 2;
+                                        doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                                    } catch { }
+                                }
                                 pageCounter++;
                             });
-                            if (state.pdfIncludeCanvasSnapshot) {
-                                if (pageCounter > 1) doc.addPage();
-                                const pageTitleObj = { filename: savedCanvas.name + ' - Output Map' };
-                                drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
-                                // Render snapshot of this canvas
-                                const tempCanvas = document.createElement('canvas');
-                                const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
-                                const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
-                                tempCanvas.width = canvasMapCanvas?.width || fallbackW;
-                                tempCanvas.height = canvasMapCanvas?.height || fallbackH;
-                                const tctx = tempCanvas.getContext('2d', { alpha: true });
-                                tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                                objs.forEach(objData => {
-                                    try {
-                                        const img = new Image();
-                                        img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
-                                        img.src = objData.dataUrl;
-                                    } catch { }
+                        } else {
+                        // Grouped (original) behavior
+                            order.forEach((ordIdx, blockIdx) => {
+                                const savedCanvas = selectedSaved[ordIdx];
+                                const objsAll = savedCanvas.objects || [];
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let orderedObjs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
+                                objs.forEach((obj, i) => {
+                                    if (pageCounter > 1) doc.addPage();
+                                    drawDetailedObjectPage(doc, obj, pageCounter, totalPages);
+                                    pageCounter++;
                                 });
-                                // Synchronous best effort: add immediately (images may be pending but this is preview)
-                                const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
-                                const previewCanvas = document.createElement('canvas');
-                                previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
-                                previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
-                                previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
-                                const canvasImage = previewCanvas.toDataURL('image/png');
-                                try {
-                                    const imgProps = doc.getImageProperties(canvasImage);
-                                    const rightColumnX = pageWidth - 138;
-                                    const availableX = 10; const availableY = 10;
-                                    const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
-                                    const aspectRatio = imgProps.width / imgProps.height;
-                                    let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
-                                    if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
-                                    const imgX = availableX + (availableWidth - imgWidth) / 2;
-                                    const imgY = availableY + (availableHeight - imgHeight) / 2;
-                                    doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
-                                } catch { }
-                                pageCounter++;
-                            }
-                        });
+                                if (state.pdfIncludeCanvasSnapshot) {
+                                    if (pageCounter > 1) doc.addPage();
+                                    const pageTitleObj = { filename: savedCanvas.name + ' - Output Map' };
+                                    drawTemplateElements(doc, pageCounter, totalPages, pageTitleObj);
+                                    const tempCanvas = document.createElement('canvas');
+                                    const fallbackW = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.x || 0) + (o?.width || 0)), 1920)));
+                                    const fallbackH = Math.max(1, Math.round(objs.reduce((m, o) => Math.max(m, (o?.y || 0) + (o?.height || 0)), 1080)));
+                                    tempCanvas.width = canvasMapCanvas?.width || fallbackW;
+                                    tempCanvas.height = canvasMapCanvas?.height || fallbackH;
+                                    const tctx = tempCanvas.getContext('2d', { alpha: true });
+                                    tctx.fillStyle = 'white'; tctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                    objs.forEach(objData => {
+                                        try {
+                                            const img = new Image();
+                                            img.onload = () => { tctx.save(); const cx = (objData?.x || 0) + (objData?.width || 0) / 2; const cy = (objData?.y || 0) + (objData?.height || 0) / 2; tctx.translate(cx, cy); tctx.rotate((objData?.rotation || 0) * Math.PI / 180); tctx.drawImage(img, -(objData?.width || 0) / 2, -(objData?.height || 0) / 2, (objData?.width || 0), (objData?.height || 0)); tctx.restore(); };
+                                            img.src = objData.dataUrl;
+                                        } catch { }
+                                    });
+                                    const scale = Math.min(1, (lite ? 600 : 800) / Math.max(tempCanvas.width, tempCanvas.height));
+                                    const previewCanvas = document.createElement('canvas');
+                                    previewCanvas.width = Math.max(1, Math.round(tempCanvas.width * scale));
+                                    previewCanvas.height = Math.max(1, Math.round(tempCanvas.height * scale));
+                                    previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                                    const canvasImage = previewCanvas.toDataURL('image/png');
+                                    try {
+                                        const imgProps = doc.getImageProperties(canvasImage);
+                                        const rightColumnX = pageWidth - 138;
+                                        const availableX = 10; const availableY = 10;
+                                        const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
+                                        const aspectRatio = imgProps.width / imgProps.height;
+                                        let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                                        if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                                        const imgX = availableX + (availableWidth - imgWidth) / 2;
+                                        const imgY = availableY + (availableHeight - imgHeight) / 2;
+                                        doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                                    } catch { }
+                                    pageCounter++;
+                                }
+                            });
+                        }
                     } else {
                         // Fallback: current canvas objects
                         const objsAll = state.canvasMapObjects || [];

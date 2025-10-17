@@ -140,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvasMapShowGap: true,
                 canvasMapGapColor: '#ff0000',
                 canvasMapShowCoordinates: true,
+                canvasMapBackgroundColor: '#ffffff',
                 mediaServer: 'resolume',
                 pdfFilename: 'canvasmap_details',
                 pdfProjectName: '',
@@ -434,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const gapToggle = document.getElementById('gapToggle');
             const gapColorInput = document.getElementById('gapColorInput');
             const coordinatesToggle = document.getElementById('coordinatesToggle');
+            const canvasBgColorInput = document.getElementById('canvasBgColorInput');
             const exportCanvasPngBtn = document.getElementById('exportCanvasPngBtn');
             const exportCanvasJpgBtn = document.getElementById('exportCanvasJpgBtn');
             const exportCanvasPdfBtn = document.getElementById('exportCanvasPdfBtn');
@@ -752,6 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gapToggle.textContent = state.canvasMapShowGap ? 'On' : 'Off';
                 gapColorInput.value = state.canvasMapGapColor;
                 coordinatesToggle.textContent = state.canvasMapShowCoordinates ? 'On' : 'Off';
+                canvasBgColorInput.value = state.canvasMapBackgroundColor;
                 
                 updateObjectPropertiesPanel();
             };
@@ -841,6 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.canvasMapShowGap = true;
                 state.canvasMapGapColor = '#ff0000';
                 state.canvasMapShowCoordinates = true;
+                state.canvasMapBackgroundColor = '#ffffff';
                 state.mediaServer = 'resolume';
                 state.pdfFilename = 'canvasmap_details';
                 state.pdfProjectName = '';
@@ -1358,7 +1362,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvasMapCanvas.width = canvasW;
                 canvasMapCanvas.height = canvasH;
                 
-                canvasMapCtx.clearRect(0, 0, canvasW, canvasH);
+                canvasMapCtx.fillStyle = state.canvasMapBackgroundColor;
+                canvasMapCtx.fillRect(0, 0, canvasW, canvasH);
 
                 applyCanvasMapTransform(); // Apply zoom
                 redrawCanvasMapObjects(); // Redraw all objects on CanvasMap
@@ -3835,75 +3840,162 @@ document.addEventListener('DOMContentLoaded', () => {
                  }
             };
 
-            const exportDetailedCanvasPdf = () => {
-                if (state.canvasMapObjects.length === 0) {
-                    showMessageBox("There are no PixelMaps on the canvas to export.");
-                    return;
-                }
+            const exportDetailedCanvasPdf = async () => {
+                // If there are saved canvases, prefer exporting based on selection and arrange mode.
+                const hasSaved = Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
+                const arrangeMode = state.pdfArrangeMode || 'grouped';
+
                 const doc = new window.jspdf.jsPDF({
                     orientation: 'landscape',
                     unit: 'mm',
-                    format: 'a0' // Set page size to A0
+                    format: 'a0'
                 });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
-                
-                let totalPages = state.canvasMapObjects.length + 1; // +1 for spec page
-                if (state.pdfIncludeCanvasSnapshot) {
-                    totalPages++;
-                }
 
-                // Create a page for each object
-                state.canvasMapObjects.forEach((obj, index) => {
-                    const pageNum = index + 1;
-                    if (index > 0) doc.addPage('a0', 'landscape');
-                    drawDetailedObjectPage(doc, obj, pageNum, totalPages);
-                });
-                
-                // Add the canvas snapshot page if enabled
-                if (state.pdfIncludeCanvasSnapshot) {
-                    const pageNum = state.canvasMapObjects.length + 1;
-                    doc.addPage('a0', 'landscape');
-                    const snapshotObj = { filename: 'Canvas Layout Snapshot' };
-                    drawTemplateElements(doc, pageNum, totalPages, snapshotObj);
+                // Helper to render a composed Output Map page for a saved canvas
+                const renderSavedCanvasMapPage = async (savedCanvas, pageNum, totalPages) => {
+                    const pageTitleObj = { filename: (savedCanvas?.name || savedCanvas?.filename || 'Canvas') + ' - Output Map' };
+                    drawTemplateElements(doc, pageNum, totalPages, pageTitleObj);
+                    // Compose layout snapshot (reuse logic from multi export)
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = canvasMapCanvas.width;
+                    tempCanvas.height = canvasMapCanvas.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.fillStyle = 'white';
+                    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-                    // --- Center: Canvas Snapshot Image ---
-                    const canvasImage = createExportCanvas(true).toDataURL('image/png');
+                    // Load and draw all images
+                    const imageLoadPromises = (savedCanvas.objects || []).map(objData => new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve({ img, data: objData });
+                        img.onerror = () => resolve(null); // be tolerant
+                        img.src = objData.dataUrl;
+                    }));
+                    const loadedImages = (await Promise.all(imageLoadPromises)).filter(Boolean);
+                    loadedImages.forEach(({ img, data }) => {
+                        try {
+                            tempCtx.save();
+                            tempCtx.translate(data.x + data.width / 2, data.y + data.height / 2);
+                            tempCtx.rotate((data.rotation || 0) * Math.PI / 180);
+                            tempCtx.drawImage(img, -data.width / 2, -data.height / 2, data.width, data.height);
+                            if (state.canvasMapShowCoordinates) {
+                                const positionText = `(${Math.round(data.x)}, ${Math.round(data.y)})`;
+                                tempCtx.font = '16px Segoe UI';
+                                const textMetrics = tempCtx.measureText(positionText);
+                                const textWidth = textMetrics.width;
+                                const textHeight = 16; const padding = 5;
+                                const rectX = -data.width / 2; const rectY = -data.height / 2;
+                                tempCtx.fillStyle = 'rgba(23, 162, 184, 0.85)';
+                                tempCtx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2);
+                                tempCtx.fillStyle = 'white'; tempCtx.textBaseline = 'top';
+                                tempCtx.fillText(positionText, rectX + padding, rectY + padding);
+                            }
+                            tempCtx.restore();
+                        } catch { }
+                    });
+
+                    // Fit composed image into left area
+                    const canvasImage = tempCanvas.toDataURL('image/png');
                     try {
                         const imgProps = doc.getImageProperties(canvasImage);
-
-                        // Define available area
                         const rightColumnX = pageWidth - 138;
-                        const availableX = 10;
-                        const availableY = 10;
-                        const availableWidth = rightColumnX - 15;
-                        const availableHeight = pageHeight - 20; // Use full height minus borders
-
+                        const availableX = 10; const availableY = 10;
+                        const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
                         const aspectRatio = imgProps.width / imgProps.height;
-                        
-                        let imgWidth = availableWidth;
-                        let imgHeight = imgWidth / aspectRatio;
-
-                        if (imgHeight > availableHeight) {
-                            imgHeight = availableHeight;
-                            imgWidth = imgHeight * aspectRatio;
-                        }
-                        
-                        // Center the image
+                        let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                        if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
                         const imgX = availableX + (availableWidth - imgWidth) / 2;
                         const imgY = availableY + (availableHeight - imgHeight) / 2;
-
                         doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                    } catch { }
+                };
 
-                    } catch(e) {
-                         console.error("Could not add Canvas Snapshot image to PDF", e);
+                if (hasSaved) {
+                    // Use selected canvases if present; else all
+                    let selectedSaved = [];
+                    try {
+                        const sel = new Set((state.pdfSelectedCanvasIds || []).map(String));
+                        selectedSaved = sel.size > 0 ? state.savedCanvases.filter(c => sel.has(String(c.id))) : state.savedCanvases.slice();
+                    } catch { selectedSaved = state.savedCanvases.slice(); }
+
+                    // Build base canvas order (grouped baseline)
+                    const order = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === selectedSaved.length)
+                        ? state.pdfPageOrder.slice()
+                        : Array.from({ length: selectedSaved.length }, (_, i) => i);
+
+                    // Build flat pages: [{type:'screen'|'map', obj?, canvas}]
+                    const flatPages = [];
+                    order.forEach((ordIdx) => {
+                        const savedCanvas = selectedSaved[ordIdx];
+                        const objsAll = savedCanvas.objects || [];
+                        const canvasKey = String(savedCanvas.id ?? ordIdx);
+                        let orderedObjs = objsAll.slice();
+                        const ordArr = state.pdfScreenOrder?.[canvasKey];
+                        if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                            orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                        }
+                        orderedObjs.forEach(obj => flatPages.push({ type: 'screen', obj }));
+                        if (state.pdfIncludeCanvasSnapshot) flatPages.push({ type: 'map', canvas: savedCanvas });
+                    });
+
+                    // Determine total pages (+1 spec)
+                    const orderFlat = (arrangeMode === 'flat' && Array.isArray(state.pdfFlatOrder) && state.pdfFlatOrder.length === flatPages.length)
+                        ? state.pdfFlatOrder.slice()
+                        : Array.from({ length: flatPages.length }, (_, i) => i);
+                    const totalPages = orderFlat.length + 1; // +1 spec page at end
+
+                    // Render pages in chosen order
+                    let pageCounter = 1;
+                    for (const idx of orderFlat) {
+                        const p = flatPages[idx];
+                        if (pageCounter > 1) doc.addPage('a0', 'landscape');
+                        if (p.type === 'screen') {
+                            drawDetailedObjectPage(doc, p.obj, pageCounter, totalPages);
+                        } else if (p.type === 'map') {
+                            await renderSavedCanvasMapPage(p.canvas, pageCounter, totalPages);
+                        }
+                        pageCounter++;
                     }
+
+                    // Final spec page
+                    drawMediaServerSpecPage(doc, totalPages);
+                } else {
+                    // Fallback: current CanvasMap objects only (original behavior)
+                    if (!Array.isArray(state.canvasMapObjects) || state.canvasMapObjects.length === 0) {
+                        showMessageBox("There are no PixelMaps on the canvas to export.");
+                        return;
+                    }
+                    let totalPages = state.canvasMapObjects.length + 1; // +1 for spec page
+                    if (state.pdfIncludeCanvasSnapshot) totalPages++;
+
+                    state.canvasMapObjects.forEach((obj, index) => {
+                        const pageNum = index + 1;
+                        if (index > 0) doc.addPage('a0', 'landscape');
+                        drawDetailedObjectPage(doc, obj, pageNum, totalPages);
+                    });
+                    if (state.pdfIncludeCanvasSnapshot) {
+                        const pageNum = state.canvasMapObjects.length + 1;
+                        doc.addPage('a0', 'landscape');
+                        const snapshotObj = { filename: 'Canvas Layout Snapshot' };
+                        drawTemplateElements(doc, pageNum, totalPages, snapshotObj);
+                        const canvasImage = createExportCanvas(true).toDataURL('image/png');
+                        try {
+                            const imgProps = doc.getImageProperties(canvasImage);
+                            const rightColumnX = pageWidth - 138; const availableX = 10; const availableY = 10;
+                            const availableWidth = rightColumnX - 15; const availableHeight = pageHeight - 20;
+                            const aspectRatio = imgProps.width / imgProps.height;
+                            let imgWidth = availableWidth; let imgHeight = imgWidth / aspectRatio;
+                            if (imgHeight > availableHeight) { imgHeight = availableHeight; imgWidth = imgHeight * aspectRatio; }
+                            const imgX = availableX + (availableWidth - imgWidth) / 2;
+                            const imgY = availableY + (availableHeight - imgHeight) / 2;
+                            doc.addImage(canvasImage, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                        } catch (e) { console.error('Could not add Canvas Snapshot image to PDF', e); }
+                    }
+                    drawMediaServerSpecPage(doc, totalPages);
                 }
 
-                // Add the final media server specification page
-                drawMediaServerSpecPage(doc, totalPages);
-
-                const finalFilename = state.pdfFilename.trim() ? state.pdfFilename.trim() : 'canvasmap_details';
+                const finalFilename = (state.pdfFilename && state.pdfFilename.trim()) ? state.pdfFilename.trim() : 'canvasmap_details';
                 doc.save(`${finalFilename}.pdf`);
             };
 
@@ -3933,7 +4025,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedCheckboxes = multiExportCanvasList.querySelectorAll('input[type="checkbox"]:checked');
                 const selectedCanvasIds = Array.from(selectedCheckboxes).map(cb => cb.value);
 
-                const selectedCanvases = state.savedCanvases.filter(sc => selectedCanvasIds.includes(sc.id.toString()));
+                let selectedCanvases = state.savedCanvases.filter(sc => selectedCanvasIds.includes(sc.id.toString()));
 
                 if (selectedCanvases.length === 0) {
                     showMessageBox("No canvases selected for export.");
@@ -3952,6 +4044,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     const includeSpecPage = multiExportIncludeSpecPage.checked;
+                    const arrangeMode = state.pdfArrangeMode || 'grouped';
+
+                    // Reorder selected canvases based on current arrange ordering
+                    try {
+                        if (arrangeMode === 'flat') {
+                            // Build flat pages across saved canvases to derive first occurrence order per canvas
+                            const allSaved = state.savedCanvases || [];
+                            // Base canvas order from grouped order if present
+                            const baseOrder = (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === allSaved.length)
+                                ? state.pdfPageOrder.slice()
+                                : Array.from({ length: allSaved.length }, (_, i) => i);
+                            const flatPages = [];
+                            baseOrder.forEach((ordIdx) => {
+                                const savedCanvas = allSaved[ordIdx];
+                                const objsAll = savedCanvas.objects || [];
+                                const canvasKey = String(savedCanvas.id ?? ordIdx);
+                                let orderedObjs = objsAll.slice();
+                                const ordArr = state.pdfScreenOrder?.[canvasKey];
+                                if (Array.isArray(ordArr) && ordArr.length === objsAll.length) {
+                                    orderedObjs = ordArr.map(i => objsAll[i]).filter(Boolean);
+                                }
+                                orderedObjs.forEach(_ => flatPages.push({ type: 'screen', canvasId: String(savedCanvas.id) }));
+                                if (state.pdfIncludeCanvasSnapshot) flatPages.push({ type: 'map', canvasId: String(savedCanvas.id) });
+                            });
+                            const orderFlat = (Array.isArray(state.pdfFlatOrder) && state.pdfFlatOrder.length === flatPages.length)
+                                ? state.pdfFlatOrder.slice()
+                                : Array.from({ length: flatPages.length }, (_, i) => i);
+                            const firstSeen = new Map();
+                            orderFlat.forEach((idx) => {
+                                const p = flatPages[idx];
+                                if (!firstSeen.has(p.canvasId)) firstSeen.set(p.canvasId, firstSeen.size);
+                            });
+                            selectedCanvases.sort((a, b) => {
+                                const ia = firstSeen.get(String(a.id));
+                                const ib = firstSeen.get(String(b.id));
+                                if (ia == null && ib == null) return 0;
+                                if (ia == null) return 1;
+                                if (ib == null) return -1;
+                                return ia - ib;
+                            });
+                        } else if (Array.isArray(state.pdfPageOrder) && state.pdfPageOrder.length === state.savedCanvases.length) {
+                            // Grouped: follow canvas header order
+                            const pos = new Map();
+                            state.pdfPageOrder.forEach((idx, orderPos) => {
+                                const c = state.savedCanvases[idx];
+                                if (c) pos.set(String(c.id), orderPos);
+                            });
+                            selectedCanvases.sort((a, b) => (pos.get(String(a.id)) ?? 0) - (pos.get(String(b.id)) ?? 0));
+                        }
+                    } catch { }
                     
                     let totalPages = selectedCanvases.length + (includeSpecPage ? 1 : 0);
                     let pageCounter = 1;
