@@ -637,14 +637,19 @@
             flex: 1 1 auto;
             display: block;
         }
+        /* Right sidebar card refinements */
+        .pdf-sidebar-card { background: var(--bs-body-bg, #fff); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-radius: 0.75rem; }
+        .dark-mode .pdf-sidebar-card { background: #1b1f22; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+        .pdf-sidebar-card .card-header { position: sticky; top: 0; z-index: 3; background: inherit; }
+        .pdf-sidebar-card .card-body { max-height: calc(100% - 56px); overflow: auto; }
             /* PDF page sidebar */
             .pdf-page-sidebar {
-                width: 260px;
-                min-width: 260px;
+                width: 100%;
+                min-width: 0;
                 max-height: 100%;
-                overflow: auto;
-                border-left: 1px dashed var(--bs-border-color, #dee2e6);
-                padding-left: 8px;
+                overflow: initial;
+                border-left: none;
+                padding-left: 0;
             }
             /* Sticky toolbar at top of sidebar */
             .pdf-sidebar-toolbar {
@@ -669,6 +674,7 @@
                 flex-direction: column;
                 gap: 8px;
                 padding-bottom: 12px;
+                padding-right: 2px;
             }
             /* Card-like look for page items */
             .pdf-page-thumb,
@@ -682,7 +688,9 @@
                 border-radius: 10px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.06);
                 transition: box-shadow .2s ease, transform .06s ease, border-color .2s ease;
+                cursor: pointer;
             }
+            .dark-mode .pdf-page-thumb, .dark-mode .pdf-page-sub { background: #1f2225; border-color: #2b2f33; }
             .pdf-page-thumb { cursor: grab; user-select: none; }
             .pdf-page-thumb.dragging { opacity: 0.6; }
             .pdf-page-thumb .thumb {
@@ -718,6 +726,9 @@
             /* Pages tab nested items */
             .pdf-page-sub { padding-left: 14px; font-size: 12px; color: var(--bs-secondary-color, #6c757d); }
             .pdf-page-sub .thumb { width: 40px; height: 28px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 3px; }
+            .pdf-page-sub[data-kind="screen"] { border-left: 4px solid #0d6efd; }
+            .pdf-page-sub[data-kind="map"] { border-left: 4px solid #20c997; }
+            .pdf-page-sub[data-kind="spec"] { border-left: 4px solid #6c757d; }
             .pdf-page-sub .meta { font-size: 12px; }
             .pdf-page-sub .meta .title { font-weight: 600; }
 
@@ -1331,8 +1342,8 @@
                 </ul>
                 <div class="tab-content border-start border-end border-bottom p-4 rounded-bottom" id="myTabContent" style="border-color: var(--border-color) !important;">
                     <div class="tab-pane fade show active" id="pixelmap-pane" role="tabpanel" aria-labelledby="pixelmap-tab" tabindex="0">
-                        <div class="row g-4">
-                            <div class="col-12 col-md-2">
+                            <div class="row g-4">
+                            <div class="col-3 col-md-2">
                                 <div class="card p-3 h-100">
 
                                     
@@ -1758,8 +1769,8 @@
                     </div>
 
                     <div class="tab-pane fade" id="canvasmap-pane" role="tabpanel" aria-labelledby="canvasmap-tab" tabindex="0">
-                        <div class="row g-4">
-                            <div class="col-12 col-md-2">
+                            <div class="row g-4">
+                            <div class="col-12 col-sm-3 col-md-2">
                                 <div class="card p-3 h-100">
                                     <div class="right-menu-card-body">
                                         
@@ -1946,7 +1957,7 @@
                     </div>
                     <div class="tab-pane fade" id="pdfsettings-pane" role="tabpanel" aria-labelledby="pdfsettings-tab" tabindex="0">
                         <div class="row g-4">
-                            <div class="col-12 col-md-2">
+                            <div class="col-12 col-sm-3 col-md-2">
                                 <div class="card p-3 h-100">
                                     <div id="pdfFieldsContainer" class="d-flex flex-column gap-3">
                                         <div>
@@ -2024,7 +2035,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-md-10">
+                            <div class="col-6 col-md-7">
                                 <div class="card p-3 h-100 d-flex flex-column">
                                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                                         <div class="d-flex justify-content-center flex-wrap gap-2">
@@ -2061,7 +2072,7 @@
                                             </div>
                                         </div>
                                         </div>
-                                        <div class="d-flex flex-grow-1 gap-3">
+                                        <div class="d-flex flex-grow-1">
                                         <div class="pdf-preview-container flex-grow-1" id="pdfPreviewContainer">
                                             <div class="text-center text-muted" id="pdfPreviewPlaceholder">
                                                 <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
@@ -2074,14 +2085,24 @@
                                                 <iframe id="pdfPreviewFrame" style="width: 100%; height: 100%; border: none;"></iframe>
                                             </div>
                                         </div>
-                                        <aside id="pdfPageSidebar" class="pdf-page-sidebar" aria-label="PDF pages">
-                                            <div class="pdf-sidebar-toolbar d-flex align-items-center justify-content-between mb-2">
+                                </div>
+                                </div>
+                                </div>
+                                <!-- Right: Pages / Canvas List Sidebar as its own card -->
+                                <div class="col-3 col-md-3">
+                                    <div class="card p-0 h-100 pdf-sidebar-card">
+                                        <div class="card-header bg-transparent border-0 pb-0">
+                                            <div class="d-flex align-items-center justify-content-between">
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="Sidebar tabs">
-                                                    <button id="pdfSidebarTabCanvas" type="button" class="btn btn-outline-secondary active">Canvas List</button>
+                                                    <button id="pdfSidebarTabCanvas" type="button" class="btn btn-outline-secondary active">Canvas
+                                                        List</button>
                                                     <button id="pdfSidebarTabPages" type="button" class="btn btn-outline-secondary">Pages</button>
                                                 </div>
                                                 <button id="pdfResetOrderBtn" class="btn btn-sm btn-outline-secondary" title="Reset page order">Reset</button>
                                             </div>
+                                    </div>
+                                    <div class="card-body pt-3">
+                                        <aside id="pdfPageSidebar" class="pdf-page-sidebar" aria-label="PDF pages">
                                             <div id="pdfCanvasList" class="d-block">
                                                 <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                                                     <div class="d-flex align-items-center gap-2">
@@ -2120,7 +2141,7 @@
                                                 </div>
                                             </div>
                                         </aside>
-                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
