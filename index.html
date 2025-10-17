@@ -1367,33 +1367,33 @@
                                             <div id="panelCountGroup">
                                                 <label for="panelsWidthInput" class="form-label fw-bold">Panel Count</label>
                                                 <div class="input-group mb-2">
-                                                    <input type="number" id="panelsWidthInput" class="form-control" value="4" min="1" step="1">
+                                                    <input type="text" id="panelsWidthInput" class="form-control" value="4" inputmode="text" min="1" step="1">
                                                     <span class="input-group-text">Width</span>
                                                 </div>
                                                 <div class="input-group">
-                                                    <input type="number" id="panelsHeightInput" class="form-control" value="4" min="1" step="1">
+                                                    <input type="text" id="panelsHeightInput" class="form-control" value="4" inputmode="text" min="1" step="1">
                                                     <span class="input-group-text">Height</span>
                                                 </div>
                                             </div>
                                             <div id="screenDimensionsGroup">
                                                 <label for="screenWidth" class="form-label fw-bold">Screen Dimensions</label>
                                                 <div class="input-group mb-2">
-                                                    <input type="number" id="screenWidth" class="form-control" value="2" min="0.1" step="0.1">
+                                                    <input type="text" id="screenWidth" class="form-control" value="2" inputmode="text" min="0.1" step="0.1">
                                                     <span class="input-group-text unit-label">m</span>
                                                 </div>
                                                 <div class="input-group">
-                                                    <input type="number" id="screenHeight" class="form-control" value="2" min="0.1" step="0.1">
+                                                    <input type="text" id="screenHeight" class="form-control" value="2" inputmode="text" min="0.1" step="0.1">
                                                     <span class="input-group-text unit-label">m</span>
                                                 </div>
                                             </div>
                                             <div>
                                                 <label class="form-label fw-bold">Panel Dimensions</label>
                                                 <div class="input-group mb-2">
-                                                    <input type="number" id="panelWidthInput" class="form-control" min="0.01" step="0.01" value="0.5">
+                                                    <input type="text" id="panelWidthInput" class="form-control" min="0.01" step="0.01" value="0.5" inputmode="text">
                                                     <span class="input-group-text">Width (m)</span>
                                                 </div>
                                                 <div class="input-group mb-2">
-                                                    <input type="number" id="panelHeightInput" class="form-control" min="0.01" step="0.01" value="0.5">
+                                                    <input type="text" id="panelHeightInput" class="form-control" min="0.01" step="0.01" value="0.5" inputmode="text">
                                                     <span class="input-group-text">Height (m)</span>
                                                 </div>
                                                 <select id="panelPresetCombo" class="form-select form-select-sm">
@@ -1407,11 +1407,11 @@
                                             <div>
                                                 <label class="form-label fw-bold">Panel Resolution (pixels)</label>
                                                 <div class="input-group mb-2">
-                                                    <input type="number" id="panelResWidth" class="form-control" value="128" min="1" step="1">
+                                                    <input type="text" id="panelResWidth" class="form-control" value="128" min="1" step="1" inputmode="text">
                                                     <span class="input-group-text">px</span>
                                                 </div>
                                                 <div class="input-group">
-                                                    <input type="number" id="panelResHeight" class="form-control" value="128" min="1" step="1">
+                                                    <input type="text" id="panelResHeight" class="form-control" value="128" min="1" step="1" inputmode="text">
                                                     <span class="input-group-text">px</span>
                                                 </div>
                                             </div>
@@ -3405,6 +3405,31 @@
                 const baseValue = value / unitConversions[fromUnit];
                 return baseValue * unitConversions[toUnit];
             };
+                // Evaluate simple arithmetic expressions entered in numeric inputs.
+                // Supports: + - * /, parentheses, decimals. Also supports relative forms like "+2", "*2", "/2".
+                const parseNumericExpression = (raw, baseValue) => {
+                    if (raw == null) return NaN;
+                    let expr = String(raw).trim();
+                    if (!expr) return NaN;
+                    // Replace x with * for multiplication
+                    expr = expr.replace(/x/gi, '*');
+                    // If begins with operator, prepend base value
+                    if (/^[+\-*/]/.test(expr)) {
+                        const base = Number(baseValue);
+                        if (!isFinite(base)) return NaN;
+                        expr = `${base}${expr}`;
+                    }
+                    // Allow only safe math characters
+                    if (!/^[0-9+\-*/().\s]+$/.test(expr)) return NaN;
+                    try {
+                        // eslint-disable-next-line no-new-func
+                        const result = Function('"use strict"; return (' + expr + ');')();
+                        const num = Number(result);
+                        return isFinite(num) ? num : NaN;
+                    } catch {
+                        return NaN;
+                    }
+                };
             
             /**
              * Adjusts the brightness of a hex color.
@@ -6291,8 +6316,28 @@
                 }
                 updatePixelMap();
             });
-            panelsWidthInput.addEventListener('input', e => { state.panelsInWidth = parseInt(e.target.value) || 1; updatePixelMap(); });
-            panelsHeightInput.addEventListener('input', e => { state.panelsInHeight = parseInt(e.target.value) || 1; updatePixelMap(); });
+                panelsWidthInput.addEventListener('input', e => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v > 0) { state.panelsInWidth = v; updatePixelMap(); }
+                });
+                panelsHeightInput.addEventListener('input', e => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v) && v > 0) { state.panelsInHeight = v; updatePixelMap(); }
+                });
+                const finalizePanelsCount = (el, key) => {
+                    const base = Number(state[key]);
+                    const parsed = parseNumericExpression(el.value, base);
+                    const v = Math.max(1, Math.floor(parsed));
+                    if (isFinite(v)) {
+                        state[key] = v;
+                        el.value = String(v);
+                        updatePixelMap();
+                    }
+                };
+                panelsWidthInput.addEventListener('blur', () => finalizePanelsCount(panelsWidthInput, 'panelsInWidth'));
+                panelsHeightInput.addEventListener('blur', () => finalizePanelsCount(panelsHeightInput, 'panelsInHeight'));
+                panelsWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelsCount(panelsWidthInput, 'panelsInWidth'); } });
+                panelsHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelsCount(panelsHeightInput, 'panelsInHeight'); } });
             unitSelector.addEventListener('change', (e) => {
                 const oldUnit = state.unit;
                 const newUnit = e.target.value;
@@ -6326,8 +6371,28 @@
                 updatePixelMap();
             };
             
-            screenWidthInput.addEventListener('input', (e) => { state.screenWidth = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
-            screenHeightInput.addEventListener('input', (e) => { state.screenHeight = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
+                screenWidthInput.addEventListener('input', (e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) { state.screenWidth = v; dimensionChangeHandler(); }
+                });
+                screenHeightInput.addEventListener('input', (e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) { state.screenHeight = v; dimensionChangeHandler(); }
+                });
+                const finalizeScreenSize = (el, key) => {
+                    const base = Number(state[key]);
+                    const parsed = parseNumericExpression(el.value, base);
+                    const v = Math.max(0, parsed);
+                    if (isFinite(v)) {
+                        state[key] = v;
+                        el.value = String(v);
+                        dimensionChangeHandler();
+                    }
+                };
+                screenWidthInput.addEventListener('blur', () => finalizeScreenSize(screenWidthInput, 'screenWidth'));
+                screenHeightInput.addEventListener('blur', () => finalizeScreenSize(screenHeightInput, 'screenHeight'));
+                screenWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizeScreenSize(screenWidthInput, 'screenWidth'); } });
+                screenHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizeScreenSize(screenHeightInput, 'screenHeight'); } });
                 const onPanelNumberInput = () => {
                     const w = parseFloat(panelWidthInput.value);
                     const h = parseFloat(panelHeightInput.value);
@@ -6338,6 +6403,20 @@
                 };
                 panelWidthInput.addEventListener('input', onPanelNumberInput);
                 panelHeightInput.addEventListener('input', onPanelNumberInput);
+                const finalizePanelSize = (el, key) => {
+                    const base = Number(state[key]);
+                    const parsed = parseNumericExpression(el.value, base);
+                    const v = Math.max(0.01, parsed);
+                    if (isFinite(v)) {
+                        state[key] = v;
+                        el.value = String(v);
+                        dimensionChangeHandler();
+                    }
+                };
+                panelWidthInput.addEventListener('blur', () => finalizePanelSize(panelWidthInput, 'panelWidth'));
+                panelHeightInput.addEventListener('blur', () => finalizePanelSize(panelHeightInput, 'panelHeight'));
+                panelWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelSize(panelWidthInput, 'panelWidth'); } });
+                panelHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelSize(panelHeightInput, 'panelHeight'); } });
                 panelPresetCombo.addEventListener('change', () => {
                     const val = panelPresetCombo.value;
                     if (!val) return;
@@ -6350,8 +6429,28 @@
                     // Reset combo to placeholder so user can re-apply presets easily
                     panelPresetCombo.value = '';
                 });
-            panelResWidthInput.addEventListener('input', (e) => { state.panelResWidth = parseInt(e.target.value, 10) || 0; dimensionChangeHandler(); });
-            panelResHeightInput.addEventListener('input', (e) => { state.panelResHeight = parseInt(e.target.value, 10) || 0; dimensionChangeHandler(); });
+                panelResWidthInput.addEventListener('input', (e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v)) { state.panelResWidth = v; dimensionChangeHandler(); }
+                });
+                panelResHeightInput.addEventListener('input', (e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!isNaN(v)) { state.panelResHeight = v; dimensionChangeHandler(); }
+                });
+                const finalizePanelRes = (el, key) => {
+                    const base = Number(state[key]);
+                    const parsed = parseNumericExpression(el.value, base);
+                    const v = Math.max(1, Math.floor(parsed));
+                    if (isFinite(v)) {
+                        state[key] = v;
+                        el.value = String(v);
+                        dimensionChangeHandler();
+                    }
+                };
+                panelResWidthInput.addEventListener('blur', () => finalizePanelRes(panelResWidthInput, 'panelResWidth'));
+                panelResHeightInput.addEventListener('blur', () => finalizePanelRes(panelResHeightInput, 'panelResHeight'));
+                panelResWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelRes(panelResWidthInput, 'panelResWidth'); } });
+                panelResHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizePanelRes(panelResHeightInput, 'panelResHeight'); } });
 
 
             // Effects & Colors
