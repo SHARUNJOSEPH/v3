@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaServer: 'resolume',
                 pdfFilename: 'canvasmap_details',
                 pdfProjectName: '',
+                pdfProjectDate: '', // ISO date (YYYY-MM-DD)
                 pdfVenue: '',
                 pdfDrawnBy: '',
                 pdfSales: '',
@@ -455,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const mediaServerSelect = document.getElementById('mediaServerSelect');
             const pdfFilenameInput = document.getElementById('pdfFilenameInput');
             const pdfProjectNameInput = document.getElementById('pdfProjectNameInput');
+            const pdfProjectDateInput = document.getElementById('pdfProjectDateInput');
             const pdfVenueInput = document.getElementById('pdfVenueInput');
             const pdfDrawnByInput = document.getElementById('pdfDrawnByInput');
             const pdfSalesInput = document.getElementById('pdfSalesInput');
@@ -727,6 +729,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaServerSelect.value = state.mediaServer;
                 pdfFilenameInput.value = state.pdfFilename;
                 pdfProjectNameInput.value = state.pdfProjectName;
+                // Initialize Project Date input; if empty, leave blank (user may set explicitly)
+                if (state.pdfProjectDate) {
+                    pdfProjectDateInput.value = state.pdfProjectDate;
+                } else {
+                    pdfProjectDateInput.value = '';
+                }
                 pdfVenueInput.value = state.pdfVenue;
                 pdfDrawnByInput.value = state.pdfDrawnBy;
                 pdfSalesInput.value = state.pdfSales;
@@ -848,6 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.mediaServer = 'resolume';
                 state.pdfFilename = 'canvasmap_details';
                 state.pdfProjectName = '';
+                state.pdfProjectDate = '';
                 state.pdfVenue = '';
                 state.pdfDrawnBy = '';
                 state.pdfSales = '';
@@ -3244,6 +3253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             pdfFilenameInput.addEventListener('input', (e) => { state.pdfFilename = e.target.value; state.pdfPreviewDirty = true; });
             pdfProjectNameInput.addEventListener('input', (e) => { state.pdfProjectName = e.target.value; state.pdfPreviewDirty = true; });
+            pdfProjectDateInput.addEventListener('input', (e) => { state.pdfProjectDate = e.target.value; state.pdfPreviewDirty = true; });
             pdfVenueInput.addEventListener('input', (e) => { state.pdfVenue = e.target.value; state.pdfPreviewDirty = true; });
             pdfDrawnByInput.addEventListener('input', (e) => { state.pdfDrawnBy = e.target.value; state.pdfPreviewDirty = true; });
             pdfSalesInput.addEventListener('input', (e) => { state.pdfSales = e.target.value; state.pdfPreviewDirty = true; });
@@ -3548,7 +3558,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Project Date
                 doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
                 doc.setFontSize(10); doc.text("Project Date:", brX + margin, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text(new Date().toLocaleDateString('en-GB'), col1ValueX, currentY_fields + textYOffset);
+                {
+                    let dateLabel = '';
+                    if (state.pdfProjectDate) {
+                        const [y, m, d] = state.pdfProjectDate.split('-');
+                        dateLabel = `${d}/${m}/${y}`; // DD/MM/YYYY
+                    }
+                    doc.setFontSize(11); doc.text(dateLabel, col1ValueX, currentY_fields + textYOffset);
+                }
                 currentY_fields += fieldHeight;
 
                 // Venue

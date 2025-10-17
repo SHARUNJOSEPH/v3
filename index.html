@@ -1974,6 +1974,10 @@
                                             <input type="text" id="pdfProjectNameInput" class="form-control" placeholder="e.g., Corporate Conference 2025">
                                         </div>
                                         <div>
+                                            <label for="pdfProjectDateInput" class="form-label fw-bold">Project Date</label>
+                                            <input type="date" id="pdfProjectDateInput" class="form-control">
+                                            </div>
+                                            <div>
                                             <label for="pdfJobNoInput" class="form-label fw-bold">Job No</label>
                                             <input type="text" id="pdfJobNoInput" class="form-control" placeholder="e.g., JOB-0001">
                                             </div>
@@ -2969,6 +2973,7 @@
             const mediaServerSelect = document.getElementById('mediaServerSelect');
             const pdfFilenameInput = document.getElementById('pdfFilenameInput');
             const pdfProjectNameInput = document.getElementById('pdfProjectNameInput');
+                const pdfProjectDateInput = document.getElementById('pdfProjectDateInput');
                 const pdfJobNoInput = document.getElementById('pdfJobNoInput');
             const pdfVenueInput = document.getElementById('pdfVenueInput');
                 const pdfCompanyInput = document.getElementById('pdfCompanyInput');
@@ -3591,6 +3596,7 @@
                 pdfFilenameInput.value = (state.pdfFilename || '').toUpperCase();
                 pdfProjectNameInput.value = (state.pdfProjectName || '').toUpperCase();
                 pdfVenueInput.value = (state.pdfVenue || '').toUpperCase();
+                if (pdfProjectDateInput) pdfProjectDateInput.value = state.pdfProjectDate || '';
                 if (pdfJobNoInput) pdfJobNoInput.value = (state.pdfJobNo || '').toUpperCase();
                 // If Drawn By is empty, default to profile name (local/cloud)
                 try {
@@ -6900,6 +6906,7 @@
                 const markDirtyAndSchedule = () => { state.pdfPreviewDirty = true; schedulePdfPreview(); };
                 toUpperLive(pdfFilenameInput, (v) => { state.pdfFilename = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfProjectNameInput, (v) => { state.pdfProjectName = v; markDirtyAndSchedule(); });
+                if (pdfProjectDateInput) pdfProjectDateInput.addEventListener('input', (e) => { state.pdfProjectDate = e.target.value; markDirtyAndSchedule(); });
                 if (pdfJobNoInput) toUpperLive(pdfJobNoInput, (v) => { state.pdfJobNo = v; markDirtyAndSchedule(); });
                 toUpperLive(pdfVenueInput, (v) => { state.pdfVenue = v; markDirtyAndSchedule(); });
                 if (pdfCompanyInput) toUpperLive(pdfCompanyInput, (v) => { state.pdfCompany = v; enforceCompanyLogoPolicy(); ensureDefaultLogoForCompany(); reorderPdfFieldsForMediaPro(); markDirtyAndSchedule(); });
@@ -7265,7 +7272,16 @@
                 // Project Date
                 doc.rect(brX, currentY_fields, blockWidth, fieldHeight);
                 doc.setFontSize(10); doc.text("Project Date:", brX + margin, currentY_fields + textYOffset);
-                doc.setFontSize(11); doc.text(new Date().toLocaleDateString('en-GB'), col1ValueX, currentY_fields + textYOffset);
+                // Use user-provided project date if available; otherwise leave blank
+                {
+                    let dateLabel = '';
+                    if (state.pdfProjectDate) {
+                        // state.pdfProjectDate is ISO (YYYY-MM-DD). Format to DD/MM/YYYY.
+                        const [y, m, d] = state.pdfProjectDate.split('-');
+                        dateLabel = `${d}/${m}/${y}`;
+                    }
+                    doc.setFontSize(11); doc.text(dateLabel, col1ValueX, currentY_fields + textYOffset);
+                }
                 currentY_fields += fieldHeight;
 
                 // Venue
