@@ -1387,14 +1387,21 @@
                                                 </div>
                                             </div>
                                             <div>
-                                                <label for="panelWidthSelect" class="form-label fw-bold">Panel Dimensions</label>
-                                                <select id="panelWidthSelect" class="form-select mb-2">
-                                                    <option value="0.5">0.5 m</option>
-                                                    <option value="1">1.0 m</option>
-                                                </select>
-                                                <select id="panelHeightSelect" class="form-select">
-                                                    <option value="0.5">0.5 m</option>
-                                                    <option value="1">1.0 m</option>
+                                                <label class="form-label fw-bold">Panel Dimensions</label>
+                                                <div class="input-group mb-2">
+                                                    <input type="number" id="panelWidthInput" class="form-control" min="0.01" step="0.01" value="0.5">
+                                                    <span class="input-group-text">Width (m)</span>
+                                                </div>
+                                                <div class="input-group mb-2">
+                                                    <input type="number" id="panelHeightInput" class="form-control" min="0.01" step="0.01" value="0.5">
+                                                    <span class="input-group-text">Height (m)</span>
+                                                </div>
+                                                <select id="panelPresetCombo" class="form-select form-select-sm">
+                                                    <option value="">Quick preset (optional)</option>
+                                                    <option value="0.5,0.5">0.5 m × 0.5 m</option>
+                                                    <option value="0.5,1">0.5 m × 1.0 m</option>
+                                                    <option value="1,0.5">1.0 m × 0.5 m</option>
+                                                    <option value="1,1">1.0 m × 1.0 m</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -2605,8 +2612,9 @@
             const unitLabels = document.querySelectorAll('.unit-label');
             const screenWidthInput = document.getElementById('screenWidth');
             const screenHeightInput = document.getElementById('screenHeight');
-            const panelWidthSelect = document.getElementById('panelWidthSelect');
-            const panelHeightSelect = document.getElementById('panelHeightSelect');
+                const panelWidthInput = document.getElementById('panelWidthInput');
+                const panelHeightInput = document.getElementById('panelHeightInput');
+                const panelPresetCombo = document.getElementById('panelPresetCombo');
             const panelResWidthInput = document.getElementById('panelResWidth');
             const panelResHeightInput = document.getElementById('panelResHeight');
             // Profile modal elements
@@ -3496,8 +3504,10 @@
                 panelsHeightInput.value = state.panelsInHeight;
                 screenWidthInput.value = state.screenWidth;
                 screenHeightInput.value = state.screenHeight;
-                panelWidthSelect.value = state.panelWidth;
-                panelHeightSelect.value = state.panelHeight;
+                // Initialize panel size inputs
+                panelWidthInput.value = String(state.panelWidth);
+                panelHeightInput.value = String(state.panelHeight);
+                panelPresetCombo.value = '';
                 panelResWidthInput.value = state.panelResWidth;
                 panelResHeightInput.value = state.panelResHeight;
                 
@@ -6318,8 +6328,28 @@
             
             screenWidthInput.addEventListener('input', (e) => { state.screenWidth = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
             screenHeightInput.addEventListener('input', (e) => { state.screenHeight = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
-            panelWidthSelect.addEventListener('change', (e) => { state.panelWidth = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
-            panelHeightSelect.addEventListener('change', (e) => { state.panelHeight = parseFloat(e.target.value) || 0; dimensionChangeHandler(); });
+                const onPanelNumberInput = () => {
+                    const w = parseFloat(panelWidthInput.value);
+                    const h = parseFloat(panelHeightInput.value);
+                    let changed = false;
+                    if (!isNaN(w) && w > 0) { state.panelWidth = w; changed = true; }
+                    if (!isNaN(h) && h > 0) { state.panelHeight = h; changed = true; }
+                    if (changed) dimensionChangeHandler();
+                };
+                panelWidthInput.addEventListener('input', onPanelNumberInput);
+                panelHeightInput.addEventListener('input', onPanelNumberInput);
+                panelPresetCombo.addEventListener('change', () => {
+                    const val = panelPresetCombo.value;
+                    if (!val) return;
+                    const [wStr, hStr] = val.split(',');
+                    const w = parseFloat(wStr);
+                    const h = parseFloat(hStr);
+                    if (!isNaN(w)) { panelWidthInput.value = String(w); state.panelWidth = w; }
+                    if (!isNaN(h)) { panelHeightInput.value = String(h); state.panelHeight = h; }
+                    dimensionChangeHandler();
+                    // Reset combo to placeholder so user can re-apply presets easily
+                    panelPresetCombo.value = '';
+                });
             panelResWidthInput.addEventListener('input', (e) => { state.panelResWidth = parseInt(e.target.value, 10) || 0; dimensionChangeHandler(); });
             panelResHeightInput.addEventListener('input', (e) => { state.panelResHeight = parseInt(e.target.value, 10) || 0; dimensionChangeHandler(); });
 
@@ -9143,8 +9173,9 @@
                     return; // done for image engine
                 }
 
-                // Smaller/faster PDF for preview (export uses A0). Lite uses A4 for speed.
-                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: lite ? 'a4' : 'a3' });
+                // Use A0 in iframe preview to match template layout exactly across all pages
+                // (image engine remains lightweight; export also uses A0)
+                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a0' });
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
 
