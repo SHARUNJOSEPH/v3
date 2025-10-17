@@ -7099,54 +7099,53 @@
                 doc.setLineWidth(0.4);
                 doc.line(rightColumnX, currentY, rightColumnX + rightColumnWidth, currentY);
                 
-                // --- Centered Copyright Section ---
+                // --- Centered Copyright Section (MediaPro only) ---
                 const topLineY = currentY;
-                const copyrightSectionHeight = 75; // Increased space for larger text
-                const bottomLineY = topLineY + copyrightSectionHeight;
-
-                // New font sizes (40% bigger)
-                const newHeadingSize = 16 * 1.4; 
+                const copyrightSectionHeight = 75; // space reserved if shown
+                const newHeadingSize = 16 * 1.4;
                 const newParaSize = 13 * 1.4;
-                
-                const copyrightLines = [
-                    'This drawing remains the property of',
-                    'mediaPro International LLC, and as',
-                    'such may not be copied, reproduced',
-                    'and/or disclosed without the written',
-                    'consent of mediaPro International LLC.'
-                ];
+                const textGap = 5;
 
-                // Calculate text block height to prepare for centering
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(newHeadingSize);
-                const headingDim = doc.getTextDimensions('Copyright:');
+                // Determine if the user/company is MediaPro
+                const profForCopyright = (typeof getStoredProfile === 'function') ? (getStoredProfile() || {}) : {};
+                const companyForCopyright = (state.pdfCompany || profForCopyright.company || '').trim();
+                const showCopyright = (typeof isMediaPro === 'function') ? isMediaPro(companyForCopyright) : false;
 
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(newParaSize);
-                const paraDim = doc.getTextDimensions(copyrightLines);
-                
-                const textGap = 5; // Gap between heading and paragraph
-                const totalContentHeight = headingDim.h + textGap + paraDim.h;
-
-                // Calculate the starting Y for the top of the content block to center it
-                const contentStartY = topLineY + (copyrightSectionHeight - totalContentHeight) / 2;
-                
-                // Draw Heading
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(newHeadingSize);
-                doc.text("Copyright:", rightColumnX + rightColumnWidth / 2, contentStartY, { align: 'center', baseline: 'top' });
-                
-                // Draw Paragraph
-                const paraY = contentStartY + headingDim.h + textGap;
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(newParaSize);
-                doc.text(copyrightLines, rightColumnX + rightColumnWidth / 2, paraY, { align: 'center', baseline: 'top' });
-
-                // Draw the bottom line, touching the borders
-                doc.setLineWidth(0.4);
-                doc.line(rightColumnX, bottomLineY, rightColumnX + rightColumnWidth, bottomLineY);
-                
-                currentY = bottomLineY + 15; // Set Y for the next section
+                if (showCopyright) {
+                    const bottomLineY = topLineY + copyrightSectionHeight;
+                    const copyrightLines = [
+                        'This drawing remains the property of',
+                        'mediaPro International LLC, and as',
+                        'such may not be copied, reproduced',
+                        'and/or disclosed without the written',
+                        'consent of mediaPro International LLC.'
+                    ];
+                    // Calc text block height to center
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(newHeadingSize);
+                    const headingDim = doc.getTextDimensions('Copyright:');
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(newParaSize);
+                    const paraDim = doc.getTextDimensions(copyrightLines);
+                    const totalContentHeight = headingDim.h + textGap + paraDim.h;
+                    const contentStartY = topLineY + (copyrightSectionHeight - totalContentHeight) / 2;
+                    // Heading
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(newHeadingSize);
+                    doc.text('Copyright:', rightColumnX + rightColumnWidth / 2, contentStartY, { align: 'center', baseline: 'top' });
+                    // Paragraph
+                    const paraY = contentStartY + headingDim.h + textGap;
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(newParaSize);
+                    doc.text(copyrightLines, rightColumnX + rightColumnWidth / 2, paraY, { align: 'center', baseline: 'top' });
+                    // Bottom line
+                    doc.setLineWidth(0.4);
+                    doc.line(rightColumnX, bottomLineY, rightColumnX + rightColumnWidth, bottomLineY);
+                    currentY = bottomLineY + 15; // Next section baseline
+                } else {
+                    // No copyright for non-MediaPro: move on without reserving the whole block
+                    currentY = topLineY + 10; // small spacer before Notification
+                }
 
                 // --- Notification Section (with matching larger font) ---
                 doc.setFontSize(newHeadingSize);
