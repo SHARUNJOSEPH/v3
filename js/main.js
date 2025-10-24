@@ -519,29 +519,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const container = document.getElementById('toastContainer');
                     if (!container) return;
-                    const id = 'toast-' + Date.now();
-                    const bg = {
+                    const bgClass = ({
                         success: 'bg-success text-white',
                         danger: 'bg-danger text-white',
                         warning: 'bg-warning text-dark',
                         info: 'bg-info text-dark',
                         primary: 'bg-primary text-white',
-                    }[variant] || 'bg-primary text-white';
-                    const div = document.createElement('div');
-                    div.id = id;
-                    div.className = `toast align-items-center ${bg} border-0 shadow`;
-                    div.setAttribute('role', 'status');
-                    div.setAttribute('aria-live', 'polite');
-                    div.setAttribute('aria-atomic', 'true');
-                    div.innerHTML = `
-                        <div class="d-flex">
-                          <div class="toast-body">${message}</div>
-                          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                        </div>`;
-                    container.appendChild(div);
-                    const toast = new bootstrap.Toast(div, { delay: delayMs, autohide: true });
+                    }[variant]) || 'bg-primary text-white';
+                    const closeBtnClass = bgClass.includes('text-dark') ? 'btn-close me-2 m-auto' : 'btn-close btn-close-white me-2 m-auto';
+
+                    const toastEl = document.createElement('div');
+                    toastEl.className = `toast align-items-center ${bgClass} border-0 shadow`;
+                    toastEl.setAttribute('role', 'status');
+                    toastEl.setAttribute('aria-live', 'polite');
+                    toastEl.setAttribute('aria-atomic', 'true');
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'd-flex';
+
+                    const body = document.createElement('div');
+                    body.className = 'toast-body';
+                    body.textContent = message;
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.type = 'button';
+                    closeBtn.className = closeBtnClass;
+                    closeBtn.setAttribute('data-bs-dismiss', 'toast');
+                    closeBtn.setAttribute('aria-label', 'Close');
+
+                    wrapper.appendChild(body);
+                    wrapper.appendChild(closeBtn);
+                    toastEl.appendChild(wrapper);
+
+                    container.appendChild(toastEl);
+                    const toast = new bootstrap.Toast(toastEl, { delay: delayMs, autohide: true });
                     toast.show();
-                    div.addEventListener('hidden.bs.toast', () => div.remove());
+                    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
                 } catch { }
             };
 

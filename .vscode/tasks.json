@@ -6,6 +6,54 @@
 			"type": "shell",
 			"command": "echo TODO tool placeholder",
 			"isBackground": false
+		},
+		{
+			"label": "remove-inline",
+			"type": "shell",
+			"command": "powershell -ExecutionPolicy Bypass -NoProfile -File scripts\\remove-inline.ps1",
+			"isBackground": false
+		},
+		{
+			"label": "strip-inline",
+			"type": "shell",
+			"command": "python -c \"import pathlib, re; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); data=re.sub(r'<script>([\\s\\S]*?)</script>', '', data); path.write_text(data, encoding='utf-8')\"",
+			"isBackground": false
+		},
+		{
+			"label": "strip-inline-specific",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); marker='<script>\\n        document.addEventListener(''DOMContentLoaded'', () => {'; idx=data.find(marker);\\n\\nimport re\\nif idx != -1:\\n    end=data.find('</script>', idx)\\n    if end != -1:\\n        end += len('</script>')\\n        data=data[:idx] + data[end:]\\npath.write_text(data, encoding='utf-8')\"",
+			"isBackground": false
+		},
+		{
+			"label": "strip-inline-specific2",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); marker='    <script>\\r\\n        document.addEventListener(\\'DOMContentLoaded\\', () => {'; idx=data.find(marker);\\nif idx != -1:\\n    end=data.find('</script>', idx)\\n    if end != -1:\\n        end += len('</script>')\\n        data = data[:idx] + data[end:]\\npath.write_text(data, encoding='utf-8')\"",
+			"isBackground": false
+		},
+		{
+			"label": "debug-inline",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); marker='    <script>\\r\\n        document.addEventListener(\\'DOMContentLoaded\\', () => {'; print(data.find(marker))\"",
+			"isBackground": false
+		},
+		{
+			"label": "replace-inline",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); anchor='<script src=\"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js\"></script>'; idx=data.find(anchor);\\nif idx != -1:\\n    start = idx + len(anchor)\\n    rest = data[start:]\\n    script_start = rest.find('<script>')\\n    if script_start != -1:\\n        script_start_abs = start + script_start\\n        script_end = data.find('</script>', script_start_abs)\\n        if script_end != -1:\\n            script_end_abs = script_end + len('</script>')\\n            data = data[:script_start_abs] + '\\n    <script src=\"js/app.js\" defer></script>' + data[script_end_abs:]\\npath.write_text(data, encoding='utf-8')\"",
+			"isBackground": false
+		},
+		{
+			"label": "replace-inline2",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); anchor='<script src=\"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js\"></script>'; idx=data.find(anchor);\\nif idx != -1:\\n    start = idx + len(anchor)\\n    rest = data[start:]\\n    script_marker='\\n    <script>'\\n    script_start = rest.find(script_marker)\\n    if script_start != -1:\\n        script_start_abs = start + script_start + len('\\n    ')\\n        script_end = data.find('</script>', script_start_abs)\\n        if script_end != -1:\\n            script_end_abs = script_end + len('</script>')\\n            data = data[:script_start_abs - len('\\n    ')] + '\\n    <script src=\"js/app.js\" defer></script>' + data[script_end_abs:]\\npath.write_text(data, encoding='utf-8')\"",
+			"isBackground": false
+		},
+		{
+			"label": "debug-inline2",
+			"type": "shell",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); anchor='<script src=\"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js\"></script>'; idx=data.find(anchor); print('idx', idx);\\nif idx != -1:\\n    start = idx + len(anchor); rest = data[start:]; script_marker='\\n    <script>'; script_start = rest.find(script_marker); print('script_start', script_start);\"",
+			"isBackground": false
 		}
 	]
 }
