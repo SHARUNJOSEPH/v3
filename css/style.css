@@ -261,6 +261,49 @@ body.dark-mode .btn-close {
     color: var(--text-color);
 }
 
+#aboutDeveloperCard {
+    background: linear-gradient(120deg,
+            rgba(74, 144, 226, 0.22) 0%,
+            rgba(136, 84, 255, 0.2) 45%,
+            rgba(32, 201, 151, 0.18) 100%);
+    border: 1px solid rgba(136, 84, 255, 0.28);
+    box-shadow: 0 20px 34px -22px rgba(94, 53, 177, 0.55);
+    position: relative;
+    overflow: hidden;
+}
+
+#aboutDeveloperCard::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.2), transparent 55%),
+        radial-gradient(circle at 85% 20%, rgba(136, 84, 255, 0.24), transparent 60%);
+    pointer-events: none;
+}
+
+.dark-mode #aboutDeveloperCard {
+    background: linear-gradient(120deg,
+            rgba(74, 144, 226, 0.32) 0%,
+            rgba(136, 84, 255, 0.3) 50%,
+            rgba(32, 201, 151, 0.25) 100%);
+    border: 1px solid rgba(136, 84, 255, 0.45);
+    box-shadow: 0 26px 46px -24px rgba(56, 33, 109, 0.8);
+}
+
+.dark-mode #aboutDeveloperCard::after {
+    background:
+        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.16), transparent 55%),
+        radial-gradient(circle at 85% 25%, rgba(136, 84, 255, 0.38), transparent 65%);
+}
+
+#aboutDeveloperCard .text-muted {
+    color: rgba(33, 37, 41, 0.75) !important;
+}
+
+.dark-mode #aboutDeveloperCard .text-muted {
+    color: rgba(233, 236, 239, 0.78) !important;
+}
 .accent-swatches {
     display: flex;
     gap: .5rem;
