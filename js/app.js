@@ -229,7 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Enable Bootstrap tooltips globally
             try {
                 const proto = bootstrap?.Tooltip?.prototype;
-                if (proto && !proto.__safeActiveTriggerPatched) {
+                if (!proto) throw new Error('Tooltip prototype unavailable');
+
+                if (!proto.__safeActiveTriggerPatched) {
                     const originalIsWithActiveTrigger = proto._isWithActiveTrigger;
                     proto._isWithActiveTrigger = function patchedIsWithActiveTrigger() {
                         if (!this._activeTrigger || typeof this._activeTrigger !== 'object') {
@@ -241,6 +243,40 @@ document.addEventListener('DOMContentLoaded', () => {
                         try { return Object.values(this._activeTrigger).some(Boolean); } catch { return false; }
                     };
                     proto.__safeActiveTriggerPatched = true;
+                }
+
+                if (!proto.__safeHidePatched) {
+                    const originalHide = proto.hide;
+                    proto.hide = function patchedHide(...args) {
+                        let tipEl = null;
+                        try {
+                            if (typeof this.getTipElement === 'function') {
+                                tipEl = this.getTipElement();
+                            }
+                        } catch { tipEl = null; }
+                        if (!tipEl) {
+                            tipEl = this.tip || null;
+                        }
+
+                        if (!tipEl) {
+                            // Ensure async timers are cleared and popper is destroyed without touching a null tip
+                            try { if (this._timeout) clearTimeout(this._timeout); } catch { }
+                            try { if (this._popper && typeof this._popper.destroy === 'function') { this._popper.destroy(); } } catch { }
+                            this._popper = null;
+                            if (!this._activeTrigger || typeof this._activeTrigger !== 'object') {
+                                this._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                            } else {
+                                Object.keys(this._activeTrigger).forEach(key => { this._activeTrigger[key] = false; });
+                            }
+                            this._hoverState = '';
+                            return;
+                        }
+
+                        if (typeof originalHide === 'function') {
+                            return originalHide.apply(this, args);
+                        }
+                    };
+                    proto.__safeHidePatched = true;
                 }
             } catch { }
 
@@ -2849,7 +2885,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             Object.keys(instance._activeTrigger).forEach(key => { instance._activeTrigger[key] = false; });
                         }
-                        try { instance.hide(); } catch { }
+                        try { if (instance.tip) { instance.tip.removeAttribute('data-popper-placement'); } } catch { }
+                        try { if (instance._popper && typeof instance._popper.destroy === 'function') { instance._popper.destroy(); } } catch { }
+                        instance._popper = null;
                         instance.dispose();
                     } catch { }
                 };
