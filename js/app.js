@@ -227,8 +227,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             // Enable Bootstrap tooltips globally
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+            const tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(el => {
+                if (!bootstrap.Tooltip.getInstance(el)) {
+                    bootstrap.Tooltip.getOrCreateInstance(el);
+                }
+            });
             // --- Global State and Constants ---
             const state = {
                 unit: 'meter',
@@ -1244,6 +1248,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch {
                         return NaN;
                     }
+                };
+
+                const shouldDeferNumericInput = (raw) => {
+                    if (raw == null) return false;
+                    const trimmed = String(raw).trim();
+                    if (!trimmed) return false;
+                    return !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed);
                 };
             
             /**
@@ -2713,20 +2724,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 // --- PixelMap Sent Bottom Gallery ---
-                const safeHideTooltip = (el) => {
-                    if (!el || !window.bootstrap || !bootstrap.Tooltip) return;
+                const disposeTooltip = (el) => {
+                    if (!el || !window.bootstrap || typeof bootstrap.Tooltip !== 'function') return;
                     try {
                         const instance = bootstrap.Tooltip.getInstance(el);
                         if (!instance) return;
-                        // Bootstrap expects _activeTrigger to be an object when evaluating hide state
-                        if (!instance._activeTrigger) instance._activeTrigger = {};
-                        instance.hide();
-                    } catch {
-                        try {
-                            const fallback = bootstrap.Tooltip.getInstance(el);
-                            fallback?.dispose?.();
-                        } catch { }
-                    }
+                        if (!instance._activeTrigger || typeof instance._activeTrigger !== 'object') {
+                            instance._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                        }
+                        instance.dispose();
+                    } catch { }
                 };
 
                 const renderPixelMapSentGallery = () => {
@@ -2736,10 +2743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Dispose any existing tooltips attached to current items before clearing
                     try {
                         const tipEls = gallery.querySelectorAll('[data-bs-toggle="tooltip"]');
-                        tipEls.forEach(el => {
-                            const inst = bootstrap.Tooltip.getInstance(el);
-                            if (inst) inst.dispose();
-                        });
+                        tipEls.forEach(disposeTooltip);
                     } catch { }
                     gallery.innerHTML = '';
 
@@ -2835,7 +2839,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         loadBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             // Hide tooltip if visible
-                            safeHideTooltip(item);
+                            disposeTooltip(item);
                             loadSentMapForEdit(map);
                             // Set active highlight
                             state.sentActiveId = map.id;
@@ -2849,7 +2853,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         saveBtn.title = 'Save current PixelMap changes to this item';
                         saveBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            safeHideTooltip(item);
+                            disposeTooltip(item);
 
                             // Temporarily hide selection rectangle for saving
                             const currentSelection = state.selectionRect;
@@ -2990,7 +2994,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         renameBtn.textContent = 'Rename';
                         renameBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                                safeHideTooltip(item);
+                                disposeTooltip(item);
                             const current = map.filename || '';
                             const newName = prompt('Rename screen', current);
                             if (newName && newName.trim()) {
@@ -4163,10 +4167,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePixelMap();
             });
                 panelsWidthInput.addEventListener('input', e => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseInt(e.target.value, 10);
                     if (!isNaN(v) && v > 0) { state.panelsInWidth = v; updatePixelMap(); }
                 });
                 panelsHeightInput.addEventListener('input', e => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseInt(e.target.value, 10);
                     if (!isNaN(v) && v > 0) { state.panelsInHeight = v; updatePixelMap(); }
                 });
@@ -4218,10 +4224,12 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
                 screenWidthInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseFloat(e.target.value);
                     if (!isNaN(v)) { state.screenWidth = v; dimensionChangeHandler(); }
                 });
                 screenHeightInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseFloat(e.target.value);
                     if (!isNaN(v)) { state.screenHeight = v; dimensionChangeHandler(); }
                 });
@@ -4247,8 +4255,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!isNaN(h) && h > 0) { state.panelHeight = h; changed = true; }
                     if (changed) dimensionChangeHandler();
                 };
-                panelWidthInput.addEventListener('input', onPanelNumberInput);
-                panelHeightInput.addEventListener('input', onPanelNumberInput);
+                panelWidthInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
+                    onPanelNumberInput();
+                });
+                panelHeightInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
+                    onPanelNumberInput();
+                });
                 const finalizePanelSize = (el, key) => {
                     const base = Number(state[key]);
                     const parsed = parseNumericExpression(el.value, base);
@@ -4276,10 +4290,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     panelPresetCombo.value = '';
                 });
                 panelResWidthInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseInt(e.target.value, 10);
                     if (!isNaN(v)) { state.panelResWidth = v; dimensionChangeHandler(); }
                 });
                 panelResHeightInput.addEventListener('input', (e) => {
+                    if (shouldDeferNumericInput(e.target.value)) return;
                     const v = parseInt(e.target.value, 10);
                     if (!isNaN(v)) { state.panelResHeight = v; dimensionChangeHandler(); }
                 });
@@ -6982,7 +6998,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const p = flatPages[idx];
                                     if (p.type === 'screen') {
                                         const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
-                                        const img = new Image(); img.loading = 'lazy'; img.alt = p.obj.filename || 'Screen'; img.src = p.obj.dataUrl; pageDiv.appendChild(img);
+                                        const img = new Image(); img.loading = 'eager'; img.alt = p.obj.filename || 'Screen'; img.src = p.obj.dataUrl; pageDiv.appendChild(img);
                                         pdfPreviewImageContent.appendChild(pageDiv);
                                     } else if (p.type === 'map') {
                                         try {
@@ -7008,7 +7024,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                                             const dataUrl = previewCanvas.toDataURL('image/png');
                                             const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
-                                            const imgEl = new Image(); imgEl.loading = 'lazy'; imgEl.alt = (p.canvas?.name || p.canvas?.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl;
+                                            const imgEl = new Image(); imgEl.loading = 'eager'; imgEl.alt = (p.canvas?.name || p.canvas?.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl;
                                             pageDiv.appendChild(imgEl); pdfPreviewImageContent.appendChild(pageDiv);
                                         } catch { }
                                     }
@@ -7027,7 +7043,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const objs = lite ? orderedObjs.slice(0, MAX_LITE_SCREENS_PER_CANVAS) : orderedObjs;
                                     objs.forEach((obj) => {
                                         const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
-                                        const img = new Image(); img.loading = 'lazy'; img.alt = obj.filename || 'Screen'; img.src = obj.dataUrl; pageDiv.appendChild(img);
+                                        const img = new Image(); img.loading = 'eager'; img.alt = obj.filename || 'Screen'; img.src = obj.dataUrl; pageDiv.appendChild(img);
                                         pdfPreviewImageContent.appendChild(pageDiv);
                                     });
                                     if (state.pdfIncludeCanvasSnapshot) {
@@ -7054,7 +7070,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                             previewCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                                             const dataUrl = previewCanvas.toDataURL('image/png');
                                             const pageDiv = document.createElement('div'); pageDiv.className = 'pdf-image-page';
-                                            const imgEl = new Image(); imgEl.loading = 'lazy'; imgEl.alt = (savedCanvas.name || savedCanvas.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl; pageDiv.appendChild(imgEl);
+                                            const imgEl = new Image(); imgEl.loading = 'eager'; imgEl.alt = (savedCanvas.name || savedCanvas.filename || 'Canvas') + ' - Output Map'; imgEl.src = dataUrl; pageDiv.appendChild(imgEl);
                                             pdfPreviewImageContent.appendChild(pageDiv);
                                         } catch { }
                                     }
@@ -7068,7 +7084,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const pageDiv = document.createElement('div');
                                 pageDiv.className = 'pdf-image-page';
                                 const img = new Image();
-                                img.loading = 'lazy';
+                                img.loading = 'eager';
                                 img.alt = obj.filename || 'Screen';
                                 img.src = obj.dataUrl;
                                 pageDiv.appendChild(img);
@@ -7080,7 +7096,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const pageDiv = document.createElement('div');
                                     pageDiv.className = 'pdf-image-page';
                                     const img = new Image();
-                                    img.loading = 'lazy';
+                                    img.loading = 'eager';
                                     img.alt = 'Canvas Layout Snapshot';
                                     img.src = dataUrl;
                                     pageDiv.appendChild(img);
