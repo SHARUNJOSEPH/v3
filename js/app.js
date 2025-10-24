@@ -1224,27 +1224,121 @@ document.addEventListener('DOMContentLoaded', () => {
                 const baseValue = value / unitConversions[fromUnit];
                 return baseValue * unitConversions[toUnit];
             };
-                // Evaluate simple arithmetic expressions entered in numeric inputs.
-                // Supports: + - * /, parentheses, decimals. Also supports relative forms like "+2", "*2", "/2".
+                // Evaluate simple arithmetic expressions entered in numeric inputs without relying on eval/new Function (CSP safe).
+                // Supports: + - * /, parentheses, decimals, and relative forms like "+2", "*2", "/2".
                 const parseNumericExpression = (raw, baseValue) => {
                     if (raw == null) return NaN;
                     let expr = String(raw).trim();
                     if (!expr) return NaN;
-                    // Replace x with * for multiplication
                     expr = expr.replace(/x/gi, '*');
-                    // If begins with operator, prepend base value
                     if (/^[+\-*/]/.test(expr)) {
                         const base = Number(baseValue);
-                        if (!isFinite(base)) return NaN;
+                        if (!Number.isFinite(base)) return NaN;
                         expr = `${base}${expr}`;
                     }
-                    // Allow only safe math characters
-                    if (!/^[0-9+\-*/().\s]+$/.test(expr)) return NaN;
+
+                    const tokens = [];
+                    const pushToken = (type, value) => { tokens.push({ type, value }); };
+                    let i = 0;
+                    while (i < expr.length) {
+                        const ch = expr[i];
+                        if (/\s/.test(ch)) { i += 1; continue; }
+                        if (ch === '.' || /\d/.test(ch)) {
+                            let start = i;
+                            let dotCount = (ch === '.') ? 1 : 0;
+                            i += 1;
+                            while (i < expr.length) {
+                                const c = expr[i];
+                                if (c === '.') {
+                                    dotCount += 1;
+                                    if (dotCount > 1) return NaN;
+                                    i += 1;
+                                    continue;
+                                }
+                                if (/\d/.test(c)) {
+                                    i += 1;
+                                    continue;
+                                }
+                                break;
+                            }
+                            const numStr = expr.slice(start, i);
+                            if (!numStr || numStr === '.') return NaN;
+                            const num = Number(numStr);
+                            if (!Number.isFinite(num)) return NaN;
+                            pushToken('number', num);
+                            continue;
+                        }
+                        if ('+-*/()'.includes(ch)) {
+                            pushToken((ch === '(' || ch === ')') ? 'paren' : 'operator', ch);
+                            i += 1;
+                            continue;
+                        }
+                        return NaN;
+                    }
+                    if (!tokens.length) return NaN;
+
+                    let pos = 0;
+                    const peek = () => tokens[pos];
+                    const consume = () => tokens[pos++];
+
+                    const parseFactor = () => {
+                        const token = peek();
+                        if (!token) throw new Error('Unexpected end of expression');
+                        if (token.type === 'operator' && (token.value === '+' || token.value === '-')) {
+                            consume();
+                            const factor = parseFactor();
+                            return token.value === '+' ? factor : -factor;
+                        }
+                        if (token.type === 'paren' && token.value === '(') {
+                            consume();
+                            const value = parseExpression();
+                            const next = peek();
+                            if (!next || next.type !== 'paren' || next.value !== ')') {
+                                throw new Error('Missing closing parenthesis');
+                            }
+                            consume();
+                            return value;
+                        }
+                        if (token.type === 'number') {
+                            consume();
+                            return token.value;
+                        }
+                        throw new Error('Unexpected token');
+                    };
+
+                    const parseTerm = () => {
+                        let value = parseFactor();
+                        while (true) {
+                            const token = peek();
+                            if (!token || token.type !== 'operator' || (token.value !== '*' && token.value !== '/')) break;
+                            consume();
+                            const rhs = parseFactor();
+                            if (token.value === '*') {
+                                value *= rhs;
+                            } else {
+                                if (rhs === 0) throw new Error('Division by zero');
+                                value /= rhs;
+                            }
+                        }
+                        return value;
+                    };
+
+                    const parseExpression = () => {
+                        let value = parseTerm();
+                        while (true) {
+                            const token = peek();
+                            if (!token || token.type !== 'operator' || (token.value !== '+' && token.value !== '-')) break;
+                            consume();
+                            const rhs = parseTerm();
+                            value = token.value === '+' ? value + rhs : value - rhs;
+                        }
+                        return value;
+                    };
+
                     try {
-                        // eslint-disable-next-line no-new-func
-                        const result = Function('"use strict"; return (' + expr + ');')();
-                        const num = Number(result);
-                        return isFinite(num) ? num : NaN;
+                        const result = parseExpression();
+                        if (pos !== tokens.length) return NaN;
+                        return Number.isFinite(result) ? result : NaN;
                     } catch {
                         return NaN;
                     }
@@ -4167,13 +4261,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePixelMap();
             });
                 panelsWidthInput.addEventListener('input', e => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseInt(e.target.value, 10);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelsInWidth);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(1, Math.floor(parsedExpr));
+                            state.panelsInWidth = v;
+                            e.target.value = String(v);
+                            updatePixelMap();
+                        }
+                        return;
+                    }
+                    const v = parseInt(raw, 10);
                     if (!isNaN(v) && v > 0) { state.panelsInWidth = v; updatePixelMap(); }
                 });
                 panelsHeightInput.addEventListener('input', e => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseInt(e.target.value, 10);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelsInHeight);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(1, Math.floor(parsedExpr));
+                            state.panelsInHeight = v;
+                            e.target.value = String(v);
+                            updatePixelMap();
+                        }
+                        return;
+                    }
+                    const v = parseInt(raw, 10);
                     if (!isNaN(v) && v > 0) { state.panelsInHeight = v; updatePixelMap(); }
                 });
                 const finalizePanelsCount = (el, key) => {
@@ -4224,13 +4338,33 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             
                 screenWidthInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseFloat(e.target.value);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.screenWidth);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(0, parsedExpr);
+                            state.screenWidth = v;
+                            e.target.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
+                    const v = parseFloat(raw);
                     if (!isNaN(v)) { state.screenWidth = v; dimensionChangeHandler(); }
                 });
                 screenHeightInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseFloat(e.target.value);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.screenHeight);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(0, parsedExpr);
+                            state.screenHeight = v;
+                            e.target.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
+                    const v = parseFloat(raw);
                     if (!isNaN(v)) { state.screenHeight = v; dimensionChangeHandler(); }
                 });
                 const finalizeScreenSize = (el, key) => {
@@ -4256,11 +4390,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (changed) dimensionChangeHandler();
                 };
                 panelWidthInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelWidth);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(0.01, parsedExpr);
+                            state.panelWidth = v;
+                            panelWidthInput.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
                     onPanelNumberInput();
                 });
                 panelHeightInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelHeight);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(0.01, parsedExpr);
+                            state.panelHeight = v;
+                            panelHeightInput.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
                     onPanelNumberInput();
                 });
                 const finalizePanelSize = (el, key) => {
@@ -4290,13 +4444,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     panelPresetCombo.value = '';
                 });
                 panelResWidthInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseInt(e.target.value, 10);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelResWidth);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(1, Math.floor(parsedExpr));
+                            state.panelResWidth = v;
+                            panelResWidthInput.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
+                    const v = parseInt(raw, 10);
                     if (!isNaN(v)) { state.panelResWidth = v; dimensionChangeHandler(); }
                 });
                 panelResHeightInput.addEventListener('input', (e) => {
-                    if (shouldDeferNumericInput(e.target.value)) return;
-                    const v = parseInt(e.target.value, 10);
+                    const raw = e.target.value;
+                    if (shouldDeferNumericInput(raw)) {
+                        const parsedExpr = parseNumericExpression(raw, state.panelResHeight);
+                        if (Number.isFinite(parsedExpr)) {
+                            const v = Math.max(1, Math.floor(parsedExpr));
+                            state.panelResHeight = v;
+                            panelResHeightInput.value = String(v);
+                            dimensionChangeHandler();
+                        }
+                        return;
+                    }
+                    const v = parseInt(raw, 10);
                     if (!isNaN(v)) { state.panelResHeight = v; dimensionChangeHandler(); }
                 });
                 const finalizePanelRes = (el, key) => {
