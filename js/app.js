@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                                 showAuthBar(user.displayName || user.email || 'Signed in');
                             } else {
-                                // Not signed in â†’ show in-app login modal
+                                // Not signed in -> show in-app login modal
                                 setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                             }
                         });
@@ -222,15 +222,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         showAuthBar(demo.email);
                         authLogoutBtn?.addEventListener('click', () => { try { localStorage.removeItem('demoAuthUser'); } catch { } clearAuthExpiry(); redirectToLogin(); });
                     } else {
-                        // No demo session â†’ show in-app login modal
+                        // No demo session -> show in-app login modal
                         setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     }
                 }
             // Enable Bootstrap tooltips globally
+            try {
+                const proto = bootstrap?.Tooltip?.prototype;
+                if (proto && !proto.__safeActiveTriggerPatched) {
+                    const originalIsWithActiveTrigger = proto._isWithActiveTrigger;
+                    proto._isWithActiveTrigger = function patchedIsWithActiveTrigger() {
+                        if (!this._activeTrigger || typeof this._activeTrigger !== 'object') {
+                            this._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                        }
+                        if (typeof originalIsWithActiveTrigger === 'function') {
+                            try { return originalIsWithActiveTrigger.call(this); } catch { }
+                        }
+                        try { return Object.values(this._activeTrigger).some(Boolean); } catch { return false; }
+                    };
+                    proto.__safeActiveTriggerPatched = true;
+                }
+            } catch { }
+
             const tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.forEach(el => {
                 if (!bootstrap.Tooltip.getInstance(el)) {
-                    bootstrap.Tooltip.getOrCreateInstance(el);
+                    const instance = bootstrap.Tooltip.getOrCreateInstance(el);
+                    if (instance && (!instance._activeTrigger || typeof instance._activeTrigger !== 'object')) {
+                        instance._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                    }
                 }
             });
             // --- Global State and Constants ---
@@ -2823,9 +2843,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const instance = bootstrap.Tooltip.getInstance(el);
                         if (!instance) return;
+                        try { if (instance._timeout) clearTimeout(instance._timeout); } catch { }
                         if (!instance._activeTrigger || typeof instance._activeTrigger !== 'object') {
                             instance._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                        } else {
+                            Object.keys(instance._activeTrigger).forEach(key => { instance._activeTrigger[key] = false; });
                         }
+                        try { instance.hide(); } catch { }
                         instance.dispose();
                     } catch { }
                 };
@@ -2864,7 +2888,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (countEl) {
                         const total = items.length;
-                        const text = searchQ ? `${shown.length} shown Â· ${total} total` : `${total} ${total === 1 ? 'item' : 'items'}`;
+                        const text = searchQ ? `${shown.length} shown | ${total} total` : `${total} ${total === 1 ? 'item' : 'items'}`;
                         countEl.textContent = text;
                         countEl.classList.add('badge');
                     }
@@ -2895,11 +2919,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const badgeWrap = document.createElement('div');
                         badgeWrap.className = 'sent-badges';
                         const resBadge = document.createElement('span');
-                        const resTxt = (map?.details?.resWidth && map?.details?.resHeight) ? `${map.details.resWidth}Ã—${map.details.resHeight}` : '';
+                        const resTxt = (map?.details?.resWidth && map?.details?.resHeight) ? `${map.details.resWidth}x${map.details.resHeight}` : '';
                         resBadge.className = 'badge-chip';
                         if (resTxt) resBadge.textContent = resTxt;
                         const pnlBadge = document.createElement('span');
-                        const pnlTxt = (map?.details?.panelsWidth && map?.details?.panelsHeight) ? `${map.details.panelsWidth}Ã—${map.details.panelsHeight}` : '';
+                        const pnlTxt = (map?.details?.panelsWidth && map?.details?.panelsHeight) ? `${map.details.panelsWidth}x${map.details.panelsHeight}` : '';
                         pnlBadge.className = 'badge-chip';
                         if (pnlTxt) pnlBadge.textContent = pnlTxt;
                         if (resTxt) badgeWrap.appendChild(resBadge);
@@ -2915,12 +2939,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const meta = document.createElement('div');
                         meta.className = 'sent-meta';
                         const res = map?.details?.resWidth && map?.details?.resHeight
-                            ? `${map.details.resWidth}Ã—${map.details.resHeight}px`
+                            ? `${map.details.resWidth}x${map.details.resHeight}px`
                             : '';
                         const panels = map?.details?.panelsWidth && map?.details?.panelsHeight
-                            ? `${map.details.panelsWidth}Ã—${map.details.panelsHeight} panels`
+                            ? `${map.details.panelsWidth}x${map.details.panelsHeight} panels`
                             : '';
-                        meta.textContent = [res, panels].filter(Boolean).join(' Â· ');
+                        meta.textContent = [res, panels].filter(Boolean).join(' | ');
                         item.appendChild(meta);
 
                         // Actions row: Load / Save / Rename / Delete
@@ -3113,7 +3137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             });
                             if (ok) {
                                 // Dispose tooltip for this item to avoid lingering hover bubble
-                                try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.dispose(); } catch { }
+                                disposeTooltip(item);
                                 state.storedPixelMaps = (state.storedPixelMaps || []).filter(s => s.id !== map.id);
                                 state.canvasMapObjects = (state.canvasMapObjects || []).filter(obj => obj.sourceId !== map.id);
                                 saveStoredMaps();
@@ -3148,7 +3172,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         gallery.appendChild(item);
-                        try { bootstrap.Tooltip.getOrCreateInstance(item, { container: 'body' }); } catch { }
+                        try {
+                            const inst = bootstrap.Tooltip.getOrCreateInstance(item, { container: 'body' });
+                            if (inst && (!inst._activeTrigger || typeof inst._activeTrigger !== 'object')) {
+                                inst._activeTrigger = { click: false, focus: false, hover: false, manual: false };
+                            }
+                        } catch { }
                     });
                 };
 
@@ -3659,65 +3688,70 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
 
-            
-            loadProjectInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
+            if (loadProjectInput) {
+                loadProjectInput.addEventListener('change', (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const loadedState = JSON.parse(event.target.result);
-                        
-                        // Merge the loaded state into the current state
-                        Object.assign(state, loadedState);
-                        
-                        // JSON doesn't have a Set type, so we need to reconstruct it from the array
-                        if (Array.isArray(loadedState.removedPanels)) {
-                            state.removedPanels = new Set(loadedState.removedPanels);
-                        } else {
-                            state.removedPanels = new Set(); // fallback
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        try {
+                            const loadedState = JSON.parse(event.target.result);
+
+                            // Merge the loaded state into the current state
+                            Object.assign(state, loadedState);
+
+                            // JSON doesn't have a Set type, so we need to reconstruct it from the array
+                            if (Array.isArray(loadedState.removedPanels)) {
+                                state.removedPanels = new Set(loadedState.removedPanels);
+                            } else {
+                                state.removedPanels = new Set(); // fallback
+                            }
+
+                            // The image objects were not saved, so they are null.
+                            // The render functions will automatically recreate them from dataUrl.
+
+                            updateUIFromState(); // Sync all UI elements with the new state
+
+                            // Re-render everything
+                            renderImportedMapsGallery();
+                            renderSavedCanvases();
+                            updatePixelMap();
+                            updateCanvasMap();
+
+                            showMessageBox(`Project "${file.name}" loaded successfully.`);
+                        } catch (error) {
+                            console.error('Error loading or parsing project file:', error);
+                            showMessageBox('Failed to load project file. It may be corrupted or in the wrong format.');
                         }
+                        // Reset file input to allow loading the same file again
+                        e.target.value = null;
+                    };
+                    reader.readAsText(file);
+                });
+            }
 
-                        // The image objects were not saved, so they are null.
-                        // The render functions will automatically recreate them from dataUrl.
-                        
-                        updateUIFromState(); // Sync all UI elements with the new state
-                        
-                        // Re-render everything
-                        renderImportedMapsGallery();
-                        renderSavedCanvases();
-                        updatePixelMap();
-                        updateCanvasMap();
-                        
-                        showMessageBox(`Project "${file.name}" loaded successfully.`);
-                    } catch (error) {
-                        console.error("Error loading or parsing project file:", error);
-                        showMessageBox("Failed to load project file. It may be corrupted or in the wrong format.");
-                    }
-                    // Reset file input to allow loading the same file again
-                    e.target.value = null;
-                };
-                reader.readAsText(file);
-            });
+            if (saveProjectBtnModal) {
+                saveProjectBtnModal.addEventListener('click', () => {
+                    const dataStr = JSON.stringify(state, null, 2);
+                    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
-            saveProjectBtnModal.addEventListener('click', () => {
-                const dataStr = JSON.stringify(state, null, 2);
-                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                
-                const exportFileDefaultName = 'led_grid_project.pixl';
-                
-                const linkElement = document.createElement('a');
-                linkElement.setAttribute('href', dataUri);
-                linkElement.setAttribute('download', exportFileDefaultName);
-                linkElement.click();
-                
-                showMessageBox('Project saved successfully.');
-            });
+                    const exportFileDefaultName = 'led_grid_project.pixl';
 
-            loadProjectBtnModal.addEventListener('click', () => {
-                loadProjectInput.click();
-            });
+                    const linkElement = document.createElement('a');
+                    linkElement.setAttribute('href', dataUri);
+                    linkElement.setAttribute('download', exportFileDefaultName);
+                    linkElement.click();
+
+                    showMessageBox('Project saved successfully.');
+                });
+            }
+
+            if (loadProjectBtnModal && loadProjectInput) {
+                loadProjectBtnModal.addEventListener('click', () => {
+                    loadProjectInput.click();
+                });
+            }
 
             fontSelectModal.addEventListener('change', (e) => {
                 document.body.style.fontFamily = e.target.value;
@@ -4163,7 +4197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 }
                             } else if (err.code === 'auth/user-not-found') {
-                                showLoginError('Account not found. If you are from MediaPro AV, use your @mediaproav.com email with the default password â€œuser12345â€ for first-time login.');
+                                showLoginError('Account not found. If you are from MediaPro AV, use your @mediaproav.com email with the default password "user12345" for first-time login.');
                             } else {
                                 showLoginError(mapAuthError(err));
                             }
@@ -5852,7 +5886,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalButtonText = multiExportConfirmBtn.textContent;
                 multiExportConfirmBtn.disabled = true;
                 multiExportConfirmBtn.textContent = 'Generating...';
-                try { showPdfToast('Generating PDFâ€¦'); } catch { }
+                try { showPdfToast('Generating PDF...'); } catch { }
 
                 try {
                     const doc = new window.jspdf.jsPDF({
@@ -6181,8 +6215,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const btn = document.getElementById('exportCanvasPdfBtn');
                     const prevText = btn ? btn.textContent : '';
                     try {
-                        try { showPdfToast('Generating PDFâ€¦'); } catch { }
-                        if (btn) { btn.disabled = true; btn.textContent = 'Generatingâ€¦'; }
+                        try { showPdfToast('Generating PDF...'); } catch { }
+                        if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
                         const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a0' });
                         const useMap = !!state.pdfIncludeCanvasSnapshot;
                         const arrangeMode = state.pdfArrangeMode || 'flat';
@@ -6674,7 +6708,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     if (!pdfPageList) return;
                     pdfPageList.innerHTML = '';
-                    // Build a full visual outline of the resulting PDF: per selected canvas â†’ its screens â†’ optional map
+                    // Build a full visual outline of the resulting PDF: per selected canvas -> its screens -> optional map
                     const usingSaved = Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0;
                     // Ensure all canvases are selected by default if none chosen yet
                     try { if (usingSaved && typeof ensureSelectedDefaults === 'function') ensureSelectedDefaults(); } catch { }
@@ -7130,7 +7164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show loading state
             if (pdfPreviewContainer) pdfPreviewContainer.classList.add('loading');
             try { document.getElementById('pdfPreviewStatus')?.classList.remove('d-none'); } catch { }
-            try { showPdfToast('Generating PDF previewâ€¦'); } catch { }
+            try { showPdfToast('Generating PDF preview...'); } catch { }
             pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
             // Yield to the browser to render the spinner before heavy work
             setTimeout(() => {
@@ -7626,7 +7660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch { }
                 const kickoff = () => { __pdfPreviewIdleHandle = null; __pdfPreviewIdleIsTimeout = false; if (!state.pdfPreviewReady || state.pdfPreviewDirty) generatePdfPreview(); };
                 if (canPreview) {
-                    try { showPdfToast?.('Generating PDF previewâ€¦'); } catch { }
+                    try { showPdfToast?.('Generating PDF preview...'); } catch { }
                     try {
                         if (typeof window.requestIdleCallback === 'function') {
                             __pdfPreviewIdleIsTimeout = false;
