@@ -737,9 +737,20 @@
                 border-radius: 6px;
                 background: var(--bs-body-bg, #fff);
                 transition: background-color .15s ease, box-shadow .15s ease;
+                color: var(--text-color, #212529);
+            }
+            #pdfCanvasListBody label.pdf-canvas-row *,
+            #pdfCanvasListBody label.pdf-canvas-row {
+                opacity: 1;
+                color: var(--text-color, #212529);
             }
             #pdfCanvasListBody label.pdf-canvas-row:hover { background: var(--input-bg, #f8f9fa); box-shadow: 0 1px 4px rgba(0,0,0,.04); }
             .dark-mode #pdfCanvasListBody label.pdf-canvas-row { background: #1f2225; border-color: #3a3f44; }
+            .dark-mode #pdfCanvasListBody label.pdf-canvas-row,
+            .dark-mode #pdfCanvasListBody label.pdf-canvas-row * {
+                color: #f8f9fa !important;
+                opacity: 1 !important;
+            }
             .dark-mode #pdfCanvasListBody label.pdf-canvas-row:hover { background: #23272b; }
             /* Selection count badge */
             #pdfCanvasSelectionCount.badge { font-weight: 600; }

@@ -540,6 +540,17 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     transition: opacity 0.2s;
 }
 
+/* Make toolbar text/buttons readable in dark mode */
+.dark-mode .pdf-sidebar-toolbar,
+.dark-mode .pdf-sidebar-toolbar .btn,
+.dark-mode .pdf-sidebar-toolbar .form-label {
+    color: #e9ecef;
+}
+
+/* Improve badge contrast in dark mode */
+.dark-mode .badge {
+    color: #fff;
+}
 .imported-map-item:hover .map-item-controls,
 .saved-canvas-item:hover .map-item-controls {
     opacity: 1;
@@ -835,6 +846,31 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     max-height: calc(100% - 56px);
     overflow: auto;
 }
+/* Improve text contrast inside PDF settings sidebar */
+.pdf-sidebar-card .card-body,
+.pdf-sidebar-card .form-label,
+.pdf-sidebar-card .form-check-label,
+.pdf-sidebar-card h5,
+.pdf-sidebar-card h6,
+.pdf-sidebar-card label {
+    color: var(--text-color);
+}
+
+.dark-mode .pdf-sidebar-card .form-control {
+    background: #23272b;
+    color: var(--text-color);
+    border-color: #3a3f44;
+}
+
+.pdf-sidebar-card .form-control::placeholder {
+    color: var(--secondary-text-color);
+    opacity: .95;
+}
+
+.dark-mode .pdf-sidebar-card .form-control::placeholder {
+    color: #c9d1d9;
+    opacity: .85;
+}
 
 /* PDF page sidebar */
 .pdf-page-sidebar {
@@ -1023,6 +1059,18 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     color: var(--text-color);
     transition: background-color .15s ease, box-shadow .15s ease;
 }
+/* Ensure checkbox label text inside rows is readable */
+#pdfCanvasListBody .form-check-label {
+    color: var(--text-color) !important;
+}
+
+.dark-mode #pdfCanvasListBody .form-check-label {
+    color: #e9ecef !important;
+}
+
+.dark-mode #pdfCanvasListBody .form-check-input:checked~.form-check-label {
+    color: #ffffff !important;
+}
 
 #pdfCanvasListBody label.pdf-canvas-row:hover {
     background: var(--input-bg, #f8f9fa);
@@ -1032,6 +1080,18 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 .dark-mode #pdfCanvasListBody label.pdf-canvas-row {
     background: #1f2225;
     border-color: #3a3f44;
+}
+.dark-mode #pdfCanvasListBody label.pdf-canvas-row,
+.dark-mode #pdfCanvasListBody label.pdf-canvas-row * {
+    color: #e9ecef !important;
+    opacity: 1 !important;
+}
+
+/* Fallback: if Canvas list rows render outside expected container, ensure readability in dark mode */
+.dark-mode label.pdf-canvas-row,
+.dark-mode label.pdf-canvas-row * {
+    color: #e9ecef !important;
+    opacity: 1 !important;
 }
 
 .dark-mode #pdfCanvasListBody label.pdf-canvas-row:hover {
