@@ -4,6 +4,8 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.gstatic.com https://www.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://firebasestorage.googleapis.com https://www.gstatic.com; connect-src 'self' https://cdn.jsdelivr.net https://*.googleapis.com https://*.firebaseio.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
     <title>LED Grid Generator</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1183,7 +1185,7 @@
                         </div>
                         <div class="col-md-6">
                             <label for="loginPasswordInput" class="form-label fw-bold">Password</label>
-                            <input id="loginPasswordInput" type="password" class="form-control" placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"
+                            <input id="loginPasswordInput" type="password" class="form-control" placeholder="********"
                                 required>
                         </div>
                         <div class="col-12 d-flex justify-content-end gap-2">
@@ -1970,14 +1972,14 @@
                                             </div>
                                             <div id="pdfPreviewStatus" class="text-muted small d-none">
                                                 <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                                                Generating previewΓÇª
+                                                Generating preview...
                                             </div>
                                         </div>
                                         </div>
                                         <div class="d-flex flex-grow-1">
                                         <div class="pdf-preview-container flex-grow-1" id="pdfPreviewContainer">
                                             <div class="text-center text-muted" id="pdfPreviewPlaceholder">
-                                                <div style="font-size: 3rem; margin-bottom: 1rem;">≡ƒôä</div>
+                                                <div style="font-size: 3rem; margin-bottom: 1rem;" aria-hidden="true">&#128196;</div>
                                                 <h5>PDF Preview</h5>
                                                 <p>Configure your settings and click "Generate Preview" to see how your PDF will look.</p>
                                                 <button id="generatePdfPreviewBtn" class="btn btn-primary">Generate Preview</button>
@@ -2037,9 +2039,9 @@
                                                 </div>
                                                 <div id="pdfPageList" class="pdf-page-list"></div>
                                                 <div class="small text-muted mt-2">
-                                                    ΓÇó Flat: freely reorder any page across canvases<br>
-                                                    ΓÇó Grouped: reorder canvases; reorder screens within a canvas<br>
-                                                    ΓÇó Spec page is fixed at the end
+                                                    - Flat: freely reorder any page across canvases<br>
+                                                    - Grouped: reorder canvases; reorder screens within a canvas<br>
+                                                    - Spec page is fixed at the end
                                                 </div>
                                             </div>
                                         </aside>
@@ -2134,7 +2136,7 @@
                             <!-- About Developer Section -->
                             <div id="aboutDeveloperCard" class="card p-3">
                                 <div class="d-flex align-items-center mb-2">
-                                    <span class="me-2" aria-hidden="true">≡ƒæ¿ΓÇì≡ƒÆ╗</span>
+                                    <span class="me-2" aria-hidden="true">&#128187;</span>
                                     <h6 class="m-0">About Developer</h6>
                                 </div>
                                 <h5 class="text-center fw-bold mb-2">JOSEPH SHARUN</h5>
@@ -2157,12 +2159,12 @@
                                     </a>
                                     <a href="https://buymeacoffee.com/sharun" target="_blank" rel="noopener" class="btn btn-sm d-flex align-items-center"
                                         style="background:#FF813F;color:#fff;">
-                                        <span class="me-2" aria-hidden="true">Γÿò</span>
+                                        <span class="me-2" aria-hidden="true">&#9749;</span>
                                         Coffee
                                     </a>
                             </div>
                             <div class="text-center text-muted small mb-2">
-                                <span class="me-1" aria-hidden="true">≡ƒîÉ</span> Portfolio Website
+                                <span class="me-1" aria-hidden="true">&#128279;</span> Portfolio Website
                             </div>
                             <div class="text-center">
                                 <a id="visitPortfolioBtn" href="https://sharun.in/" target="_blank" rel="noopener" class="btn btn-primary">Visit

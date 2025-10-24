@@ -2713,6 +2713,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 // --- PixelMap Sent Bottom Gallery ---
+                const safeHideTooltip = (el) => {
+                    if (!el || !window.bootstrap || !bootstrap.Tooltip) return;
+                    try {
+                        const instance = bootstrap.Tooltip.getInstance(el);
+                        if (!instance) return;
+                        // Bootstrap expects _activeTrigger to be an object when evaluating hide state
+                        if (!instance._activeTrigger) instance._activeTrigger = {};
+                        instance.hide();
+                    } catch {
+                        try {
+                            const fallback = bootstrap.Tooltip.getInstance(el);
+                            fallback?.dispose?.();
+                        } catch { }
+                    }
+                };
+
                 const renderPixelMapSentGallery = () => {
                     const gallery = document.getElementById('pixelMapSentGallery');
                     const countEl = document.getElementById('pixelMapSentCount');
@@ -2819,7 +2835,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         loadBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             // Hide tooltip if visible
-                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
+                            safeHideTooltip(item);
                             loadSentMapForEdit(map);
                             // Set active highlight
                             state.sentActiveId = map.id;
@@ -2833,7 +2849,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         saveBtn.title = 'Save current PixelMap changes to this item';
                         saveBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
+                            safeHideTooltip(item);
 
                             // Temporarily hide selection rectangle for saving
                             const currentSelection = state.selectionRect;
@@ -2929,6 +2945,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 customText: state.customText,
                                 customTextSize: state.customTextSize,
                                 customTextColor: state.customTextColor,
+                                customTextX: state.customTextX,
+                                customTextY: state.customTextY,
+                                customTextPositionManuallySet: state.customTextPositionManuallySet,
                                 customTextBgEnabled: state.customTextBgEnabled,
                                 customTextBgColor: state.customTextBgColor,
                                 customTextBgOpacity: state.customTextBgOpacity,
@@ -2971,7 +2990,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         renameBtn.textContent = 'Rename';
                         renameBtn.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            try { const t = bootstrap.Tooltip.getInstance(item); if (t) t.hide(); } catch { }
+                                safeHideTooltip(item);
                             const current = map.filename || '';
                             const newName = prompt('Rename screen', current);
                             if (newName && newName.trim()) {
@@ -3248,7 +3267,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         'circleEffectEnabled', 'circleEffectColor', 'circleEffectSize', 'circleEffectThickness',
                         'crossLineEffectEnabled', 'crossLineColor', 'crossLineSize',
                         'numberingEnabled', 'numberingFormat', 'numberingPosition', 'numberingSize', 'numberingColor',
-                        'customTextEnabled', 'customText', 'customTextSize', 'customTextColor',
+                        'customTextEnabled', 'customText', 'customTextSize', 'customTextColor', 'customTextX', 'customTextY',
                         'customTextBgEnabled', 'customTextBgColor', 'customTextBgOpacity',
                         'specificationEnabled', 'specificationColor', 'specificationSize', 'specificationX', 'specificationY', 'specificationFormat',
                         'specificationBgEnabled', 'specificationBgColor', 'oneLineText'
@@ -3259,9 +3278,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Reset some derived/manual flags sensibly
                     state.circleEffectSizeManuallySet = true;
                     state.customTextSizeManuallySet = true;
-                    state.customTextPositionManuallySet = true;
                     state.specificationSizeManuallySet = true;
                     state.specificationPositionManuallySet = true;
+
+                    const hasSavedCustomTextPosition = (snap.customTextX !== undefined && snap.customTextY !== undefined);
+                    if (hasSavedCustomTextPosition) {
+                        state.customTextX = snap.customTextX;
+                        state.customTextY = snap.customTextY;
+                        state.customTextPositionManuallySet = snap.customTextPositionManuallySet !== undefined
+                            ? !!snap.customTextPositionManuallySet
+                            : true;
+                    } else {
+                        state.customTextX = null;
+                        state.customTextY = null;
+                        state.customTextPositionManuallySet = false;
+                    }
 
                     // Sync UI and redraw
                     updateUIFromState();
@@ -4669,6 +4700,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         customText: state.customText,
                         customTextSize: state.customTextSize,
                         customTextColor: state.customTextColor,
+                        customTextX: state.customTextX,
+                        customTextY: state.customTextY,
+                        customTextPositionManuallySet: state.customTextPositionManuallySet,
                         customTextBgEnabled: state.customTextBgEnabled,
                         customTextBgColor: state.customTextBgColor,
                         customTextBgOpacity: state.customTextBgOpacity,
