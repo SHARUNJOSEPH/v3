@@ -1,0 +1,1663 @@
+:root {
+    --bg-color: #f0f2f5;
+    --text-color: #333;
+    --secondary-text-color: #6c757d;
+    --card-bg: #ffffff;
+    --border-color: #dee2e6;
+    --input-bg: #e9ecef;
+    --accent-color: #4a90e2;
+    --accent-hover: #357ABD;
+    --ruler-size: 25px;
+    --accent: #4a90e2;
+}
+
+.dark-mode {
+    --bg-color: #1a1a1a;
+    --text-color: #e9ecef;
+    --secondary-text-color: #adb5bd;
+    --card-bg: #2c2c2c;
+    --border-color: #495057;
+    --input-bg: #3a3a3a;
+}
+
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 20px;
+    min-height: 100vh;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-attachment: fixed;
+    transition: background-color 0.3s, color 0.3s, background-image 0.3s;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+h1 {
+    font-size: 2.5rem;
+}
+
+h2 {
+    font-size: 2rem;
+}
+
+h3 {
+    font-size: 1.75rem;
+}
+
+h4 {
+    font-size: 1.5rem;
+}
+
+h5 {
+    font-size: 1.25rem;
+}
+
+h6 {
+    font-size: 1rem;
+}
+
+.login-page body {
+    background: radial-gradient(1200px 800px at 10% 10%, rgba(13, 110, 253, 0.15), transparent),
+        radial-gradient(1200px 800px at 90% 90%, rgba(32, 201, 151, 0.12), transparent),
+        var(--bg-color);
+}
+
+.pdf-preview-page body {
+    background-color: #f8f9fa;
+}
+
+.container-fluid {
+    padding: 0;
+}
+
+/* General component styles */
+.card {
+    border: none;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.15);
+}
+
+.login-container .card {
+    backdrop-filter: blur(6px);
+    background: rgba(52, 58, 64, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 30px -18px rgba(13, 110, 253, 0.6);
+    border-radius: 16px;
+    transition: transform .15s ease, box-shadow .2s ease;
+}
+
+.login-container .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 36px -18px rgba(13, 110, 253, 0.7);
+}
+
+/* Custom styling for the collapsible headers */
+.collapse-header {
+    width: 100%;
+    text-align: left;
+    font-weight: 700;
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.btn {
+    border-radius: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    padding: 0.75rem 1.5rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+    border: none;
+    box-shadow: 0 6px 20px -6px var(--accent-color);
+}
+
+.btn-primary:hover {
+    filter: brightness(1.05);
+    box-shadow: 0 10px 25px -8px var(--accent-color);
+}
+
+.login-container .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #16a085);
+    border: 0;
+    box-shadow: 0 10px 24px -12px rgba(13, 110, 253, 0.7);
+}
+
+.btn-secondary {
+    background-color: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.btn-secondary:active,
+.btn-secondary:focus,
+.btn-secondary.active {
+    color: var(--bg-color);
+    background-color: var(--text-color);
+    border-color: var(--text-color);
+}
+
+.form-control,
+.form-select,
+.form-range {
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-range:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.25rem rgba(var(--accent-color), 0.25);
+}
+
+.login-container .form-control {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #e9ecef;
+}
+
+.login-container .form-label {
+    color: #e9ecef;
+}
+
+
+/* Sticky toolbars for action rows */
+.toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--card-bg);
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 24px -18px rgba(0, 0, 0, 0.35);
+}
+
+/* PDF preview skeleton shimmer while generating */
+.pdf-preview-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.pdf-preview-container.loading::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.02) 100%);
+    animation: shimmer 1.2s infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+
+/* General Settings polish */
+.modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+}
+
+.modal-header,
+.modal-footer {
+    background: transparent;
+    border-color: var(--border-color);
+}
+
+.modal-title {
+    color: var(--text-color);
+}
+
+body.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%);
+    opacity: .85;
+}
+
+.settings-hint {
+    color: var(--secondary-text-color);
+    font-size: 0.85rem;
+}
+
+.font-preview-chip {
+    background: linear-gradient(135deg, rgba(13, 110, 253, .08), rgba(22, 160, 133, .08));
+    border: 1px dashed var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    display: inline-block;
+    color: var(--text-color);
+}
+
+.accent-swatches {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.accent-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+}
+
+.accent-swatch.active {
+    outline: 3px solid rgba(13, 110, 253, .25);
+    border-color: #fff;
+}
+
+.settings-divider {
+    border-color: var(--border-color);
+    opacity: 1;
+}
+
+.input-group-text {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+    border-top-right-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+}
+
+.preview-panel {
+    overflow: hidden;
+    border-radius: 1rem;
+}
+
+.canvas-container {
+    border: 2px dashed var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    overflow: auto;
+    width: 100%;
+    height: 500px;
+    display: block;
+    position: relative;
+    /* For absolute positioning of children */
+}
+
+#pixelMapCanvas,
+#drawingOverlayCanvas {
+    border: none;
+    display: block;
+    position: absolute;
+    /* Position canvases on top of each other */
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* Ensure they fill the container */
+    height: 100%;
+}
+
+#drawingOverlayCanvas {
+    background-color: transparent;
+    /* Make it transparent */
+    z-index: 2;
+    /* Ensure it's on top */
+}
+
+#pixelMapCanvas {
+    z-index: 1;
+    /* Base layer */
+}
+
+/* Accordion polish for right-side menus */
+.collapse-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.collapse-header .toggle-icon {
+    display: inline-block;
+    transition: transform 160ms ease;
+}
+
+.collapse-header[aria-expanded="true"] {
+    background: rgba(13, 110, 253, 0.06);
+}
+
+.collapse-header[aria-expanded="true"] .toggle-icon {
+    transform: rotate(45deg) scale(1.05);
+}
+
+/* Subtle fade when a section opens (Bootstrap handles height) */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.collapse.show {
+    animation: fadeIn 180ms ease;
+}
+
+/* Drop highlight for PixelMap canvas container */
+#canvasContainer.drop-target {
+    outline: 2px dashed var(--accent-color, #0d6efd);
+    outline-offset: 6px;
+    border-radius: 8px;
+}
+
+#drawingOverlayCanvas.drawing-mode,
+#canvasMapCanvas.drawing-mode {
+    cursor: crosshair;
+}
+
+/* CanvasMap-specific canvas styling */
+#canvasMapCanvas {
+    border: none;
+    display: block;
+    /* Will be sized by its width/height attributes set in JS */
+}
+
+.canvas-info {
+    font-size: 0.9rem;
+    color: var(--secondary-text-color);
+    /* Changed from hardcoded color to CSS variable */
+    text-align: center;
+}
+
+.color-preview {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+    cursor: pointer;
+}
+
+input[type="color"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch {
+    border-radius: 50%;
+    border: none;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.two-column-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.two-column-row>* {
+    flex-grow: 1;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+
+.modal-backdrop.visible {
+    display: block;
+}
+
+.message-box {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 2rem;
+    background-color: var(--card-bg);
+    border-radius: 1rem;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none;
+    text-align: center;
+    min-width: 300px;
+}
+
+.message-box.visible {
+    display: block;
+}
+
+/* Styling for the single scrollbar on the right menu */
+.right-menu-card-body {
+    max-height: calc(100vh - 120px);
+    /* Adjust based on overall page layout and header/footer */
+    overflow-y: auto;
+    padding-right: 15px;
+    /* To prevent content from being hidden by scrollbar */
+    box-sizing: border-box;
+    /* Include padding in height calculation */
+}
+
+/* Styles for imported maps gallery & saved canvases */
+.imported-map-item,
+.saved-canvas-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    background-color: var(--input-bg);
+    transition: background-color 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.imported-map-item {
+    cursor: grab;
+}
+
+.imported-map-item:hover,
+.saved-canvas-item:hover {
+    background-color: var(--border-color);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.imported-map-item img,
+.saved-canvas-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 4px;
+    background-color: white;
+    /* Ensure transparent parts are visible */
+}
+
+.imported-map-item .filename-label,
+.saved-canvas-item .filename-label {
+    font-size: 0.75rem;
+    color: var(--text-color);
+    text-align: center;
+    word-break: break-all;
+    max-width: 80px;
+    /* Limit width for long filenames */
+}
+
+.map-item-controls {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: flex;
+    gap: 2px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 4px;
+    padding: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.imported-map-item:hover .map-item-controls,
+.saved-canvas-item:hover .map-item-controls {
+    opacity: 1;
+}
+
+.map-control-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.map-control-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: var(--text-color);
+}
+
+.map-control-btn:hover svg {
+    fill: var(--accent-color);
+}
+
+.rename-input {
+    width: 100%;
+    font-size: 0.75rem;
+    text-align: center;
+    border: 1px solid var(--accent-color);
+    border-radius: 4px;
+}
+
+/* Specific styles for saved canvas items */
+.saved-canvas-item .saved-canvas-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.saved-canvas-item .btn-sm {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.5rem;
+}
+
+
+/* Ruler specific styles */
+.ruler-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.ruler-corner,
+.ruler-horizontal,
+.ruler-vertical {
+    position: absolute;
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+    display: none;
+    /* Hidden by default */
+}
+
+.ruler-container.rulers-on .ruler-corner,
+.ruler-container.rulers-on .ruler-horizontal,
+.ruler-container.rulers-on .ruler-vertical {
+    display: block;
+    /* Show when active */
+}
+
+.ruler-corner {
+    top: 0;
+    left: 0;
+    width: var(--ruler-size);
+    height: var(--ruler-size);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 3;
+}
+
+.ruler-horizontal {
+    top: 0;
+    left: var(--ruler-size);
+    right: 0;
+    height: var(--ruler-size);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 2;
+}
+
+.ruler-vertical {
+    top: var(--ruler-size);
+    left: 0;
+    bottom: 0;
+    width: var(--ruler-size);
+    border-right: 1px solid var(--border-color);
+    z-index: 2;
+}
+
+#canvasMapContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transition: all 0.3s ease;
+}
+
+.ruler-container.rulers-on #canvasMapContainer {
+    top: var(--ruler-size);
+    left: var(--ruler-size);
+}
+
+.ruler-container.rulers-on.rulers-inside #canvasMapContainer {
+    top: 0;
+    left: 0;
+}
+
+.ruler-container.rulers-on.rulers-inside .ruler-horizontal,
+.ruler-container.rulers-on.rulers-inside .ruler-vertical,
+.ruler-container.rulers-on.rulers-inside .ruler-corner {
+    background-color: rgba(248, 249, 250, 0.7);
+    /* --bg-color with alpha */
+    z-index: 10;
+}
+
+.dark-mode .ruler-container.rulers-on.rulers-inside .ruler-horizontal,
+.dark-mode .ruler-container.rulers-on.rulers-inside .ruler-vertical,
+.dark-mode .ruler-container.rulers-on.rulers-inside .ruler-corner {
+    background-color: rgba(33, 37, 41, 0.7);
+    /* --bg-color dark with alpha */
+}
+
+.ruler-mark {
+    position: absolute;
+    background-color: var(--text-color);
+    font-size: 10px;
+}
+
+.ruler-horizontal .ruler-mark {
+    width: 1px;
+    bottom: 0;
+}
+
+.ruler-vertical .ruler-mark {
+    height: 1px;
+    right: 0;
+}
+
+.ruler-mark-label {
+    position: absolute;
+    font-size: 10px;
+    color: var(--text-color);
+}
+
+.ruler-horizontal .ruler-mark-label {
+    bottom: 5px;
+    transform: translateX(-50%);
+}
+
+.ruler-vertical .ruler-mark-label {
+    right: 5px;
+    transform: translateY(-50%) rotate(-90deg);
+    transform-origin: center;
+}
+
+/* Dark Mode Fixes */
+.dark-mode .form-label,
+.dark-mode .form-check-label {
+    color: var(--text-color);
+}
+
+.dark-mode .text-muted {
+    color: var(--secondary-text-color) !important;
+}
+
+.dark-mode #importedMapsGallery,
+.dark-mode #savedCanvasesGallery {
+    color: var(--secondary-text-color);
+}
+
+/* Color Palette Styles */
+.color-swatch {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--border-color);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.color-swatch:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 3px var(--accent-color);
+}
+
+.topology-btn {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.topology-btn svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--accent-color);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.topology-btn svg .topo-dot {
+    fill: var(--accent-color);
+}
+
+.topology-btn:hover {
+    background-color: var(--input-bg);
+}
+
+.topology-btn.active {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.topology-btn.active svg {
+    stroke: white;
+}
+
+.topology-btn.active svg .topo-dot {
+    fill: white;
+}
+
+#logoPreview {
+    max-width: 100px;
+    max-height: 50px;
+    margin-top: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+}
+
+/* PDF Preview Container Styles */
+.pdf-preview-container {
+    border: 2px dashed var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    min-height: 400px;
+    display: flex;
+    align-items: stretch;
+    /* Stretch children to fill height so iframe can size to 100% */
+    justify-content: center;
+    background-color: var(--input-bg);
+    transition: border-color 0.3s;
+}
+
+/* Ensure the content wrapper can grow to fill the preview container */
+#pdfPreviewContent {
+    flex: 1 1 auto;
+    display: block;
+}
+
+/* Right sidebar card refinements */
+.pdf-sidebar-card {
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .08);
+    border-radius: 0.75rem;
+}
+
+.dark-mode .pdf-sidebar-card {
+    background: #1b1f22;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+}
+
+.pdf-sidebar-card .card-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: inherit;
+}
+
+.pdf-sidebar-card .card-body {
+    max-height: calc(100% - 56px);
+    overflow: auto;
+}
+
+/* PDF page sidebar */
+.pdf-page-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 100%;
+    overflow: initial;
+    border-left: none;
+    padding-left: 0;
+}
+
+/* Sticky toolbar at top of sidebar */
+.pdf-sidebar-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bs-body-bg, #fff);
+    padding-top: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--bs-border-color, #dee2e6);
+}
+
+.dark-mode .pdf-sidebar-toolbar {
+    background: #1f2225;
+    border-bottom-color: #3a3f44;
+}
+
+/* Active tab visual emphasis */
+#pdfPageSidebar .btn-outline-secondary.active {
+    background-color: var(--accent-color, #0d6efd);
+    color: #fff;
+    border-color: var(--accent-color, #0d6efd);
+}
+
+#pdfPageSidebar .btn-outline-secondary {
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.pdf-page-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+    padding-right: 2px;
+}
+
+/* Colorful, gradient cards inspired by the reference */
+.pdf-page-thumb,
+.pdf-page-sub {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--page-c1, #6f42c1), var(--page-c2, #b07cff));
+    box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .35);
+    transition: transform .15s ease, box-shadow .2s ease;
+    cursor: grab;
+    overflow: hidden;
+}
+
+.pdf-page-thumb.dragging {
+    opacity: 0.75;
+    cursor: grabbing;
+}
+
+.pdf-page-thumb:hover,
+.pdf-page-sub:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 16px 36px -18px rgba(0, 0, 0, .5);
+}
+
+.pdf-page-thumb::after,
+.pdf-page-sub::after {
+    content: '';
+    position: absolute;
+    inset: 48% 0 0 0;
+    /* white lower pad */
+    background: var(--card-bg, #fff);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.dark-mode .pdf-page-thumb::after,
+.dark-mode .pdf-page-sub::after {
+    background: #1f2225;
+}
+
+.pdf-page-thumb .thumb,
+.pdf-page-sub .thumb {
+    width: 72px;
+    height: 52px;
+    align-self: center;
+    background: rgba(255, 255, 255, .2);
+    border: 1px solid rgba(255, 255, 255, .4);
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, .08);
+    position: relative;
+    z-index: 1;
+}
+
+.pdf-page-thumb .thumb img,
+.pdf-page-sub .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    border-radius: 8px;
+}
+
+.pdf-page-thumb .meta,
+.pdf-page-sub .meta {
+    font-size: 12px;
+    line-height: 1.3;
+    position: relative;
+    z-index: 1;
+}
+
+.pdf-page-thumb .meta .title,
+.pdf-page-sub .meta .title {
+    font-weight: 700;
+}
+
+/* Ensure text is readable on gradient headers */
+.pdf-page-thumb .meta,
+.pdf-page-thumb .meta .title,
+.pdf-page-sub .meta,
+.pdf-page-sub .meta .title {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+}
+
+.pdf-page-thumb .sub,
+.pdf-page-sub .sub {
+    background: transparent;
+    border: 0;
+    color: rgba(255, 255, 255, .9);
+    padding-left: 0;
+}
+
+.pdf-page-thumb.drop-target {
+    outline: 2px dashed rgba(255, 255, 255, .75);
+    outline-offset: -6px;
+}
+
+/* Per-kind color themes */
+.pdf-page-thumb[data-kind="canvas"],
+.pdf-page-sub[data-kind="screen"] {
+    --page-c1: #0d6efd;
+    --page-c2: #53a2ff;
+}
+
+.pdf-page-sub[data-kind="map"],
+.pdf-page-thumb[data-kind="map"] {
+    --page-c1: #20c997;
+    --page-c2: #5be0bf;
+}
+
+.pdf-page-sub[data-kind="spec"],
+.pdf-page-thumb[data-kind="spec"] {
+    --page-c1: #6f42c1;
+    --page-c2: #b07cff;
+}
+
+/* Light content plate inside (white lower area) */
+.pdf-page-thumb .content,
+.pdf-page-sub .content {
+    position: relative;
+    z-index: 1;
+}
+
+/* Canvas list rows */
+#pdfCanvasListBody label.pdf-canvas-row {
+    padding: 6px 8px;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 6px;
+    background: var(--bs-body-bg, #fff);
+    color: var(--text-color);
+    transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+#pdfCanvasListBody label.pdf-canvas-row:hover {
+    background: var(--input-bg, #f8f9fa);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .04);
+}
+
+.dark-mode #pdfCanvasListBody label.pdf-canvas-row {
+    background: #1f2225;
+    border-color: #3a3f44;
+}
+
+.dark-mode #pdfCanvasListBody label.pdf-canvas-row:hover {
+    background: #23272b;
+}
+
+/* Selection count badge */
+#pdfCanvasSelectionCount.badge {
+    font-weight: 600;
+}
+
+.dark-mode #pdfCanvasSelectionCount {
+    background: #2b2f33;
+    color: #c9d1d9;
+    border-color: #3a3f44;
+}
+
+/* Nested items inherit the same card look; tighten spacing */
+.pdf-page-sub {
+    font-size: 12px;
+}
+
+.pdf-page-sub .meta {
+    font-size: 12px;
+}
+
+.pdf-page-sub .meta .title {
+    font-weight: 700;
+}
+
+/* Subline simplified */
+.pdf-page-thumb .sub,
+.pdf-page-sub .sub {
+    font-size: 11px;
+    opacity: .9;
+}
+
+/* Remove old left borders; color is handled by gradients */
+
+/* Dark mode tuning */
+.dark-mode .pdf-page-thumb,
+.dark-mode .pdf-page-sub {
+    box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6);
+}
+
+.dark-mode .pdf-page-thumb .thumb,
+.dark-mode .pdf-page-sub .thumb {
+    background: rgba(255, 255, 255, .12);
+    border-color: rgba(255, 255, 255, .25);
+}
+
+/* Floating toast for PDF generation */
+.pdf-toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1060;
+    /* above offcanvas/modals backdrop */
+    background: var(--bs-body-bg, #fff);
+    color: var(--bs-body-color, #212529);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .5rem;
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+    padding: .5rem .75rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.dark-mode .pdf-toast {
+    background: #2b2f33;
+    color: #e9ecef;
+    border-color: #3a3f44;
+}
+
+/* Placeholder should span full width when visible */
+#pdfPreviewPlaceholder {
+    width: 100%;
+}
+
+.pdf-preview-container:hover {
+    border-color: var(--accent-color);
+}
+
+/* Image-based preview pages */
+.pdf-image-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    overflow: auto;
+}
+
+.pdf-image-page {
+    background: #fff;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+}
+
+.pdf-image-page img {
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    will-change: transform;
+}
+
+/* Disabled tab look for PDF Settings until a canvas is saved */
+.nav-link.disabled-tab {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* More specific hook for CanvasMap disabled state if needed */
+#canvasmap-tab.disabled-tab {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Bottom gallery for PixelMap sent screens */
+.sent-gallery {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* prevent controls from spilling under scrollbar */
+    padding: 6px 8px;
+    border: 1px dashed var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--input-bg);
+    min-height: 190px;
+    /* accommodate actions and text without overflow */
+    align-items: flex-start;
+    padding-bottom: 28px;
+    /* space for horizontal scrollbar so buttons are not covered */
+    scrollbar-gutter: stable;
+    /* reserve space for scrollbar in supporting browsers */
+    position: relative;
+}
+
+/* Subtle scroll shadows */
+.sent-gallery::before,
+.sent-gallery::after {
+    content: '';
+    position: sticky;
+    top: 0;
+    bottom: 0;
+    width: 18px;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.sent-gallery::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--card-bg), transparent);
+    opacity: 0;
+    transition: opacity .2s;
+}
+
+.sent-gallery::after {
+    right: 0;
+    background: linear-gradient(270deg, var(--card-bg), transparent);
+    opacity: 0;
+    transition: opacity .2s;
+}
+
+.sent-gallery.has-left-shadow::before {
+    opacity: .6;
+}
+
+.sent-gallery.has-right-shadow::after {
+    opacity: .6;
+}
+
+.sent-item {
+    flex: 0 0 auto;
+    width: 260px;
+    /* increased width so buttons fit comfortably */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: transform .1s ease, box-shadow .15s ease;
+    overflow: hidden;
+    /* keep buttons inside rounded border */
+    box-sizing: border-box;
+}
+
+.sent-item .sent-title,
+.sent-item .sent-meta {
+    margin-bottom: 2px;
+}
+
+.sent-item .sent-actions {
+    margin-top: auto;
+}
+
+.sent-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -10px rgba(0, 0, 0, .35);
+}
+
+.sent-item.active {
+    outline: 2px solid var(--accent-color);
+}
+
+.sent-thumb {
+    position: relative;
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+.sent-thumb img {
+    width: 100%;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+}
+
+.sent-badges {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    display: flex;
+    gap: 4px;
+}
+
+.badge-chip {
+    font-size: .65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, .65);
+    color: #fff;
+    backdrop-filter: saturate(150%) blur(2px);
+}
+
+.sent-item .sent-title {
+    font-size: .8rem;
+    text-align: center;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.sent-item .sent-meta {
+    font-size: .7rem;
+    color: var(--secondary-text-color);
+    text-align: center;
+}
+
+.sent-item .sent-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 2px;
+}
+
+.sent-item .sent-actions .btn {
+    padding: .25rem .5rem;
+    font-size: .75rem;
+    width: 100%;
+}
+
+.sent-item .sent-actions .btn-primary {
+    grid-column: 1 / -1;
+}
+
+/* Actions layout to prevent overlap */
+.sent-item .sent-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+}
+
+.sent-item .sent-actions .btn {
+    padding: .2rem .45rem;
+    font-size: .75rem;
+}
+
+.sent-item .sent-actions .btn-primary {
+    grid-column: 1 / -1;
+}
+
+.sent-item .btn-success {
+    --bs-btn-bg: #16a34a;
+    --bs-btn-border-color: #16a34a;
+}
+
+/* Saved Canvases polished grid */
+.saved-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px;
+    border: 1px dashed var(--border-color);
+    border-radius: .5rem;
+    background: var(--input-bg);
+}
+
+.saved-card {
+    width: 260px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform .1s ease, box-shadow .15s ease;
+}
+
+.saved-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -10px rgba(0, 0, 0, .35);
+}
+
+.saved-thumb {
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+.saved-thumb img {
+    width: 100%;
+    height: 90px;
+    object-fit: contain;
+    display: block;
+}
+
+.saved-title {
+    font-size: .85rem;
+    text-align: center;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.saved-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.saved-actions .btn {
+    padding: .25rem .5rem;
+    font-size: .75rem;
+}
+
+/* Section title visibility */
+.section-title {
+    color: var(--text-color);
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+body.dark-mode .section-title {
+    color: var(--accent-color);
+}
+
+/* Glass blur backdrop for Login modal */
+.modal-backdrop.login-blur {
+    backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+    -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+    background-color: rgba(10, 15, 25, 0.45);
+    /* slightly stronger tint for clarity */
+    transition: backdrop-filter 0.2s ease, background-color 0.2s ease;
+}
+
+/* Optional: slight glass style for login content */
+#loginModal .modal-content {
+    border: 1px solid var(--border-color);
+    box-shadow: 0 18px 36px -20px rgba(13, 110, 253, 0.45);
+}
+
+/* Full-screen blur overlay for stronger glass effect */
+#screenBlurOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1049;
+    /* just under Bootstrap modal (1050) */
+    backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+    -webkit-backdrop-filter: blur(18px) saturate(140%) brightness(0.9);
+    background-color: rgba(10, 15, 25, 0.45);
+    display: none;
+}
+
+/* Google login button - polished UX */
+.btn-google {
+    background: #fff;
+    color: #3c4043;
+    border: 1px solid #dadce0;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+}
+
+.btn-google:hover {
+    background: #f8faff;
+    border-color: #c2e7ff;
+    box-shadow: 0 6px 16px -8px rgba(66, 133, 244, 0.45);
+}
+
+.btn-google:active {
+    transform: translateY(1px);
+}
+
+.btn-google .g-icon {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+}
+
+/* Variant to align with primary button feel while preserving Google icon */
+.btn-google-primary {
+    background: linear-gradient(135deg, var(--accent-color), #16a085);
+    color: #fff;
+    border: 0;
+    box-shadow: 0 10px 24px -12px rgba(13, 110, 253, 0.6);
+}
+
+.btn-google-primary:hover {
+    filter: brightness(1.02);
+    box-shadow: 0 12px 28px -12px rgba(13, 110, 253, 0.7);
+}
+
+.btn-google-primary .g-icon svg {
+    filter: brightness(1.1) saturate(1.1);
+}
+
+/* Dropdown menu colors in dark mode */
+body.dark-mode .dropdown-menu {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+/* Ensure all dropdown links adopt light text in dark mode */
+body.dark-mode .dropdown-menu .dropdown-item,
+body.dark-mode .dropdown-menu a.dropdown-item,
+body.dark-mode .dropdown-menu .dropdown-item:visited {
+    color: var(--text-color) !important;
+}
+
+body.dark-mode .dropdown-menu .dropdown-item:hover,
+body.dark-mode .dropdown-menu .dropdown-item:focus {
+    background-color: var(--input-bg);
+    color: var(--text-color) !important;
+}
+
+/* Active item styling */
+body.dark-mode .dropdown-menu .dropdown-item.active,
+body.dark-mode .dropdown-menu .dropdown-item:active {
+    background-color: var(--accent-color) !important;
+    color: #fff !important;
+}
+
+/* Dropdown header styling: ensure visibility in both themes */
+.dropdown-menu .dropdown-header,
+.dropdown-menu .dropdown-item.dropdown-header {
+    color: var(--accent-color) !important;
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+body.dark-mode .dropdown-divider {
+    border-top-color: var(--border-color);
+}
+
+/* Password field UX */
+.password-input-wrapper {
+    position: relative;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 0;
+    color: var(--secondary-text-color);
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-toggle:hover {
+    color: var(--text-color);
+}
+
+.password-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+.password-requirements {
+    font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+    color: var(--secondary-text-color);
+    margin-top: .5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .5rem;
+    align-items: center;
+    width: 100%;
+}
+
+.password-requirements li {
+    margin-left: 0;
+    display: inline;
+    white-space: nowrap;
+}
+
+.password-requirements li+li::before {
+    content: '|';
+    margin: 0 .35rem;
+    color: var(--secondary-text-color);
+}
+
+/* Allow wrapping on all screen sizes so full message is visible (wrap to second line if needed) */
+.password-requirements .ok {
+    color: #20c997;
+}
+
+.password-requirements .bad {
+    color: #dc3545;
+}
+
+/* Readonly field styling cue */
+input.readonly[readonly] {
+    background-color: rgba(255, 255, 255, 0.05);
+    cursor: not-allowed;
+}
+
+/* Subtle shake on auth error */
+@keyframes shakeX {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    20% {
+        transform: translateX(-6px);
+    }
+
+    40% {
+        transform: translateX(6px);
+    }
+
+    60% {
+        transform: translateX(-4px);
+    }
+
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+#loginModal .modal-content.shake {
+    animation: shakeX 0.45s ease;
+}
+
+/* Force uppercase visuals for all PDF tab text/email fields */
+#pdfsettings-pane input.form-control[type="text"],
+#pdfsettings-pane input.form-control[type="email"] {
+    text-transform: uppercase;
+}
+
+.preview-container {
+    position: relative;
+    border: 1px solid #ccc;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.preview-content {
+    padding: 2rem;
+    font-family: 'Times New Roman', Times, serif;
+    line-height: 1.5;
+}
+
+.watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    font-size: 5rem;
+    color: rgba(0, 0, 0, 0.1);
+    pointer-events: none;
+    font-weight: bold;
+}
+
+.header,
+.footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.header {
+    top: 0;
+}
+
+.footer {
+    bottom: 0;
+}
