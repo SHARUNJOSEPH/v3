@@ -1058,6 +1058,31 @@
             </li>
             <li><a id="loginMenuItem" class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
             </li>
+<div class="container-fluid py-5 more-section-wrapper">
+    <section id="more-tools" class="more-section">
+        <h2 class="more-section__title">Tools Overview</h2>
+        <p class="more-section__text">Explore additional LED workflow helpers, calculators, and quick references
+            tailored to production teams.</p>
+    </section>
+    <section id="more-guides" class="more-section">
+        <h2 class="more-section__title">Guides</h2>
+        <p class="more-section__text">Step-by-step walkthroughs covering screen layouts, media prep, and deployment best
+            practices.</p>
+    </section>
+    <section id="more-support" class="more-section">
+        <h2 class="more-section__title">Support</h2>
+        <p class="more-section__text">Find troubleshooting resources, FAQs, and contact points for rapid assistance.</p>
+    </section>
+    <section id="more-updates" class="more-section">
+        <h2 class="more-section__title">Updates</h2>
+        <p class="more-section__text">Stay informed about the latest features, fixes, and performance improvements.</p>
+    </section>
+    <section id="more-contact" class="more-section">
+        <h2 class="more-section__title">Contact</h2>
+        <p class="more-section__text">Reach out directly for custom development, integration support, or collaboration
+            opportunities.</p>
+    </section>
+</div>
             <li>
                 <hr class="dropdown-divider">
             </li>
@@ -1232,6 +1257,19 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="pdfsettings-tab" data-bs-toggle="tab" data-bs-target="#pdfsettings-pane" type="button" role="tab" aria-controls="pdfsettings-pane" aria-selected="false">PDF Settings</button>
+                    </li>
+                    <li class="nav-item dropdown ms-auto" role="presentation">
+                        <button class="nav-link dropdown-toggle" id="moreTabDropdown" type="button" role="tab" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            More
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="moreTabDropdown">
+                            <li><button class="dropdown-item" type="button" data-page-target="more-tools">Tools Overview</button></li>
+                            <li><button class="dropdown-item" type="button" data-page-target="more-guides">Guides</button></li>
+                            <li><button class="dropdown-item" type="button" data-page-target="more-support">Support</button></li>
+                            <li><button class="dropdown-item" type="button" data-page-target="more-updates">Updates</button></li>
+                            <li><button class="dropdown-item" type="button" data-page-target="more-contact">Contact</button></li>
+                        </ul>
                     </li>
                 </ul>
                 <div class="tab-content border-start border-end border-bottom p-4 rounded-bottom" id="myTabContent" style="border-color: var(--border-color) !important;">

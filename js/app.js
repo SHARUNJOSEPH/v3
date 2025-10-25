@@ -226,6 +226,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                     }
                 }
+
+                const dropdownItems = document.querySelectorAll('[data-page-target]');
+                if (dropdownItems.length) {
+                    const dropdownToggle = document.getElementById('moreTabDropdown');
+                    dropdownItems.forEach((item) => {
+                        item.addEventListener('click', () => {
+                            const targetId = item.getAttribute('data-page-target');
+                            if (!targetId) return;
+                            const destination = document.getElementById(targetId);
+                            if (!destination) return;
+                            try {
+                                destination.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            } catch {
+                                destination.scrollIntoView();
+                            }
+                            try { bootstrap.Dropdown.getInstance(dropdownToggle)?.hide(); } catch { }
+                        });
+                    });
+                }
             // Enable Bootstrap tooltips globally
             try {
                 const proto = bootstrap?.Tooltip?.prototype;

@@ -1772,3 +1772,40 @@ input.readonly[readonly] {
 .footer {
     bottom: 0;
 }
+.more-section-wrapper {
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.more-section {
+    padding: 2.5rem 1.5rem;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    margin-bottom: 2rem;
+}
+
+.more-section__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.more-section__text {
+    font-size: 1rem;
+    color: #495057;
+    margin: 0;
+}
+
+@media (min-width: 992px) {
+    .more-section-wrapper {
+        display: grid;
+        gap: 2rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .more-section:last-child {
+        grid-column: 1 / -1;
+    }
+}
