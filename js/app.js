@@ -449,6 +449,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Hover effect state
                 hoveredPanelCoords: null, // Stores {row, col} of the currently hovered panel
+
+                // Derived physical dimensions (meters) for current layout
+                computedWidthMeters: 0,
+                computedHeightMeters: 0,
+                currentPanelsWidth: 0,
+                currentPanelsHeight: 0,
+                actualWidthMeters: 0,
+                actualHeightMeters: 0,
+
+                // Advanced sizing state
+                advancedEnabled: false,
+                advancedMode: 'add-strip',
+                advancedPlacement: 'bottom',
+                advancedStripSize: 0,
+                advancedTargetWidth: null,
+                advancedTargetHeight: null,
+
+                // Advanced Designer (multi-module) state
+                advancedDesigner: {
+                    modules: [],
+                    baseModuleId: null,
+                    gridRows: 0,
+                    gridCols: 0,
+                    grid: [], // 2D array of moduleIds
+                    warnings: [],
+                    summary: null,
+                    paletteIndex: 0,
+                },
             };
 
             const unitConversions = {
@@ -456,6 +484,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 cm: 100,
                 mm: 1000,
                 feet: 3.28084,
+            };
+
+            const unitSuffixMap = {
+                meter: 'm',
+                cm: 'cm',
+                mm: 'mm',
+                feet: 'ft',
+            };
+
+            const trimTrailingZeros = (value) => String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+
+            const formatValueInUnit = (value) => {
+                if (!Number.isFinite(value)) return '0';
+                const abs = Math.abs(value);
+                if (abs >= 1000) return trimTrailingZeros(value.toFixed(0));
+                if (abs >= 100) return trimTrailingZeros(value.toFixed(1));
+                if (abs >= 10) return trimTrailingZeros(value.toFixed(2));
+                if (abs >= 1) return trimTrailingZeros(value.toFixed(3));
+                return trimTrailingZeros(value.toFixed(4));
+            };
+
+            const formatNumericInputValue = (value) => {
+                if (value == null || Number.isNaN(value)) return '';
+                const num = Number(value);
+                if (!Number.isFinite(num)) return '';
+                const abs = Math.abs(num);
+                if (abs >= 1000) return trimTrailingZeros(num.toFixed(0));
+                if (abs >= 100) return trimTrailingZeros(num.toFixed(1));
+                if (abs >= 10) return trimTrailingZeros(num.toFixed(2));
+                if (abs >= 1) return trimTrailingZeros(num.toFixed(3));
+                return trimTrailingZeros(num.toFixed(4));
             };
             
             // --- DOM Elements ---
@@ -498,6 +557,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const panelPresetCombo = document.getElementById('panelPresetCombo');
             const panelResWidthInput = document.getElementById('panelResWidth');
             const panelResHeightInput = document.getElementById('panelResHeight');
+            const advancedSettingsEnable = document.getElementById('advancedSettingsEnable');
+            const advancedSettingsMode = document.getElementById('advancedSettingsMode');
+            const advancedStripFields = document.getElementById('advancedStripFields');
+            const advancedTargetFields = document.getElementById('advancedTargetFields');
+            const advancedStripSizeInput = document.getElementById('advancedStripSize');
+            const advancedPlacementSelect = document.getElementById('advancedPlacement');
+            const advancedTargetWidthInput = document.getElementById('advancedTargetWidth');
+            const advancedTargetHeightInput = document.getElementById('advancedTargetHeight');
+            const advancedSettingsHint = document.getElementById('advancedSettingsHint');
             // Profile modal elements
             const profileModalEl = document.getElementById('profileModal');
             const profileNameInput = document.getElementById('profileNameInput');
@@ -770,6 +838,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const loadProjectInput = document.getElementById('loadProjectInputModal');
             const collapseToggles = document.querySelectorAll('.collapse-header');
 
+            // Advanced Designer elements
+            const advDesignerTabBtn = document.getElementById('advdesigner-tab');
+            const advModuleForm = document.getElementById('advModuleForm');
+            const advModuleNameInput = document.getElementById('advModuleName');
+            const advModuleWidthInput = document.getElementById('advModuleWidth');
+            const advModuleHeightInput = document.getElementById('advModuleHeight');
+            const advModuleResWidthInput = document.getElementById('advModuleResWidth');
+            const advModuleResHeightInput = document.getElementById('advModuleResHeight');
+            const advModuleColorInput = document.getElementById('advModuleColor');
+            const advAddModuleBtn = document.getElementById('advAddModuleBtn');
+            const advSetBaseModuleBtn = document.getElementById('advSetBaseModuleBtn');
+            const advResetModulesBtn = document.getElementById('advResetModulesBtn');
+            const advModuleList = document.getElementById('advModuleList');
+            const advGridRowsInput = document.getElementById('advGridRowsInput');
+            const advGridColsInput = document.getElementById('advGridColsInput');
+            const advApplyGridBtn = document.getElementById('advApplyGridBtn');
+            const advFillGridBtn = document.getElementById('advFillGridBtn');
+            const advGridTable = document.getElementById('advGridTable');
+            const advSummaryList = document.getElementById('advSummaryList');
+            const advRefreshCanvasBtn = document.getElementById('advRefreshCanvasBtn');
+            const advSendToCanvasBtn = document.getElementById('advSendToCanvasBtn');
+            const advWarningsBox = document.getElementById('advWarnings');
+            const advancedDesignerCanvas = document.getElementById('advancedDesignerCanvas');
+            const advancedDesignerCtx = advancedDesignerCanvas?.getContext?.('2d', { alpha: true });
+
+            // Advanced Designer appearance controls
+            const advOutlineToggle = document.getElementById('advOutlineToggle');
+            const advOutlineColorInput = document.getElementById('advOutlineColorInput');
+            const advOutlineSizeInput = document.getElementById('advOutlineSizeInput');
+            const advRasterToggle = document.getElementById('advRasterToggle');
+            const advRasterColorInput = document.getElementById('advRasterColorInput');
+            const advRasterSizeInput = document.getElementById('advRasterSizeInput');
+            const advColor1Input = document.getElementById('advColor1Input');
+            const advColor2Input = document.getElementById('advColor2Input');
+            const advNumberingToggle = document.getElementById('advNumberingToggle');
+            const advNumberingPosition = document.getElementById('advNumberingPosition');
+            const advNumberingSizeInput = document.getElementById('advNumberingSizeInput');
+            const advNumberingColorInput = document.getElementById('advNumberingColorInput');
+            const advCustomTextToggle = document.getElementById('advCustomTextToggle');
+            const advCustomTextInput = document.getElementById('advCustomTextInput');
+            const advCustomTextSizeInput = document.getElementById('advCustomTextSizeInput');
+            const advCustomTextColor = document.getElementById('advCustomTextColor');
+
 
 
             // Modal & Message Box Elements
@@ -959,8 +1070,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmOkBtn.addEventListener('click', () => { if (confirmResolve) confirmResolve(true); hideConfirm(); });
                 confirmCancelBtn.addEventListener('click', () => { if (confirmResolve) confirmResolve(false); hideConfirm(); });
 
-            // Non-blocking global toast notifications (always on top)
-            const showToast = (message, variant = 'primary', delayMs = 2200) => {
+        // Non-blocking global toast notifications (always on top)
+        const showToast = (message, variant = 'primary', delayMs = 2200) => {
                 try {
                     const container = document.getElementById('toastContainer');
                     if (!container) return;
@@ -1425,6 +1536,1081 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!trimmed) return false;
                     return !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed);
                 };
+                const setAdvancedHint = (message = '', tone = 'info') => {
+                    if (!advancedSettingsHint) return;
+                    if (!message) {
+                        advancedSettingsHint.style.display = 'none';
+                        advancedSettingsHint.textContent = '';
+                        advancedSettingsHint.className = 'alert alert-info small mb-0';
+                        return;
+                    }
+                    advancedSettingsHint.style.display = '';
+                    advancedSettingsHint.textContent = message;
+                    advancedSettingsHint.className = `alert alert-${tone === 'warning' ? 'warning' : 'info'} small mb-0`;
+                };
+                const updateAdvancedControlsState = () => {
+                    if (!advancedSettingsEnable) return;
+                    const enabled = !!state.advancedEnabled;
+                    advancedSettingsEnable.checked = enabled;
+                    if (advancedSettingsMode) {
+                        advancedSettingsMode.disabled = !enabled;
+                        advancedSettingsMode.value = state.advancedMode === 'match-target' ? 'match-target' : 'add-strip';
+                        state.advancedMode = advancedSettingsMode.value;
+                    }
+                    if (advancedPlacementSelect) {
+                        advancedPlacementSelect.disabled = !enabled;
+                        advancedPlacementSelect.value = state.advancedPlacement || 'bottom';
+                        state.advancedPlacement = advancedPlacementSelect.value;
+                    }
+                    if (advancedStripSizeInput) {
+                        advancedStripSizeInput.disabled = !enabled || state.advancedMode !== 'add-strip';
+                        advancedStripSizeInput.value = formatNumericInputValue(state.advancedStripSize || 0);
+                    }
+                    if (advancedTargetWidthInput) {
+                        advancedTargetWidthInput.disabled = !enabled || state.advancedMode !== 'match-target';
+                        advancedTargetWidthInput.value = state.advancedTargetWidth == null ? '' : formatNumericInputValue(state.advancedTargetWidth);
+                    }
+                    if (advancedTargetHeightInput) {
+                        advancedTargetHeightInput.disabled = !enabled || state.advancedMode !== 'match-target';
+                        advancedTargetHeightInput.value = state.advancedTargetHeight == null ? '' : formatNumericInputValue(state.advancedTargetHeight);
+                    }
+                    if (advancedStripFields) {
+                        advancedStripFields.style.display = enabled && state.advancedMode === 'add-strip' ? '' : 'none';
+                    }
+                    if (advancedTargetFields) {
+                        advancedTargetFields.style.display = enabled && state.advancedMode === 'match-target' ? '' : 'none';
+                    }
+                    if (!enabled) {
+                        setAdvancedHint('');
+                    }
+                };
+                const wireAdvancedNumericInput = (inputEl, stateKey, options = {}) => {
+                    if (!inputEl) return;
+                    const { allowNull = false, min = 0 } = options;
+                    const commit = (val) => {
+                        if (allowNull && (val === null || val === undefined || Number.isNaN(val))) {
+                            state[stateKey] = null;
+                            inputEl.value = '';
+                        } else {
+                            const numericVal = Math.max(min, Number(val));
+                            state[stateKey] = numericVal;
+                            inputEl.value = formatNumericInputValue(numericVal);
+                        }
+                        state.removedPanels.clear();
+                        updatePixelMap();
+                    };
+
+                    inputEl.addEventListener('input', (e) => {
+                        if (!state.advancedEnabled) return;
+                        const raw = e.target.value;
+                        if (allowNull && !String(raw || '').trim()) {
+                            commit(null);
+                            return;
+                        }
+                        if (shouldDeferNumericInput(raw)) return;
+                        const parsed = parseFloat(raw);
+                        if (!Number.isNaN(parsed)) commit(parsed);
+                    });
+
+                    const finalize = () => {
+                        if (!state.advancedEnabled) return;
+                        const raw = inputEl.value;
+                        if (allowNull && !String(raw || '').trim()) {
+                            commit(null);
+                            return;
+                        }
+                        const base = state[stateKey] == null ? 0 : state[stateKey];
+                        const parsed = parseNumericExpression(raw, base);
+                        if (Number.isFinite(parsed)) {
+                            commit(parsed);
+                        } else {
+                            if (allowNull && state[stateKey] == null) {
+                                inputEl.value = '';
+                            } else {
+                                inputEl.value = formatNumericInputValue(state[stateKey] == null ? 0 : state[stateKey]);
+                            }
+                        }
+                    };
+
+                    inputEl.addEventListener('blur', finalize);
+                    inputEl.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            finalize();
+                        }
+                    });
+                };
+
+                // --- Advanced Designer (multi-module layout) ---
+                const advancedModulePalette = ['#4a90e2', '#50e3c2', '#f5a623', '#bd10e0', '#ff4f81', '#7ed321', '#9013fe', '#417505'];
+
+                const generateAdvancedModuleId = () => `adv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+                const advEscapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (match) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[match] || match));
+
+                const getAdvancedState = () => state.advancedDesigner;
+
+                const getAdvancedModuleMap = () => {
+                    const adv = getAdvancedState();
+                    const map = new Map();
+                    (adv.modules || []).forEach((mod) => { map.set(mod.id, mod); });
+                    return map;
+                };
+
+                const ensureAdvancedDesignerDefaults = (force = false) => {
+                    const adv = getAdvancedState();
+                    if (!adv) return;
+
+                    if (force) {
+                        adv.modules = [];
+                        adv.baseModuleId = null;
+                        adv.paletteIndex = 0;
+                    }
+
+                    if (!Array.isArray(adv.modules)) adv.modules = [];
+                    if (!Number.isInteger(adv.paletteIndex)) adv.paletteIndex = 0;
+
+                    if (!adv.modules.length) {
+                        const baseModule = {
+                            id: generateAdvancedModuleId(),
+                            name: 'Base Panel',
+                            width: Number(state.panelWidth) || 0.5,
+                            height: Number(state.panelHeight) || 0.5,
+                            resWidth: Number(state.panelResWidth) || 128,
+                            resHeight: Number(state.panelResHeight) || 128,
+                            color: '#4a90e2',
+                        };
+                        adv.modules.push(baseModule);
+                        adv.baseModuleId = baseModule.id;
+                        adv.paletteIndex = 1 % advancedModulePalette.length;
+                    }
+
+                    if (!adv.baseModuleId || !adv.modules.find((m) => m.id === adv.baseModuleId)) {
+                        adv.baseModuleId = adv.modules[0]?.id || null;
+                    }
+
+                    const defaultRows = Math.max(1, Number.isFinite(state.currentPanelsHeight) && state.currentPanelsHeight > 0
+                        ? Math.round(state.currentPanelsHeight)
+                        : (state.panelsInHeight || 2));
+                    const defaultCols = Math.max(1, Number.isFinite(state.currentPanelsWidth) && state.currentPanelsWidth > 0
+                        ? Math.round(state.currentPanelsWidth)
+                        : (state.panelsInWidth || 4));
+
+                    if (force || adv.gridRows <= 0 || adv.gridCols <= 0) {
+                        adv.gridRows = defaultRows;
+                        adv.gridCols = defaultCols;
+                        adv.grid = Array.from({ length: adv.gridRows }, () => Array.from({ length: adv.gridCols }, () => adv.baseModuleId));
+                    } else {
+                        adv.gridRows = Math.max(1, adv.gridRows);
+                        adv.gridCols = Math.max(1, adv.gridCols);
+                        if (!Array.isArray(adv.grid)) adv.grid = [];
+                        const rows = [];
+                        for (let r = 0; r < adv.gridRows; r++) {
+                            const existingRow = Array.isArray(adv.grid[r]) ? adv.grid[r] : [];
+                            const row = [];
+                            for (let c = 0; c < adv.gridCols; c++) {
+                                const val = existingRow[c];
+                                row.push(val && getAdvancedModuleMap().has(val) ? val : adv.baseModuleId);
+                            }
+                            rows.push(row);
+                        }
+                        adv.grid = rows;
+                    }
+                };
+
+                const addAdvancedModule = (payload, setAsBase = false, skipRefresh = false) => {
+                    const adv = getAdvancedState();
+                    if (!adv) return null;
+                    const module = { ...payload };
+                    if (!module.id) module.id = generateAdvancedModuleId();
+                    module.name = module.name?.trim() || `Module ${adv.modules.length + 1}`;
+                    module.width = Number(module.width) || 0;
+                    module.height = Number(module.height) || 0;
+                    module.resWidth = Math.max(1, Number(module.resWidth) || 1);
+                    module.resHeight = Math.max(1, Number(module.resHeight) || 1);
+                    module.color = module.color || advancedModulePalette[adv.paletteIndex % advancedModulePalette.length];
+                    adv.paletteIndex = (adv.paletteIndex + 1) % advancedModulePalette.length;
+
+                    const existingIndex = adv.modules.findIndex((m) => m.id === module.id);
+                    if (existingIndex >= 0) {
+                        adv.modules[existingIndex] = module;
+                    } else {
+                        adv.modules.push(module);
+                    }
+
+                    if (setAsBase || !adv.baseModuleId) {
+                        adv.baseModuleId = module.id;
+                    }
+
+                    // Ensure any empty grid slots use a valid module
+                    if (Array.isArray(adv.grid)) {
+                        const moduleIds = new Set(adv.modules.map((m) => m.id));
+                        for (let r = 0; r < adv.grid.length; r++) {
+                            for (let c = 0; c < adv.grid[r].length; c++) {
+                                if (!moduleIds.has(adv.grid[r][c])) {
+                                    adv.grid[r][c] = adv.baseModuleId;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!skipRefresh) {
+                        renderAdvancedModuleList();
+                        renderAdvancedGridTable();
+                        refreshAdvancedDesignerOutputs();
+                    }
+
+                    return module;
+                };
+
+                const removeAdvancedModule = (moduleId) => {
+                    const adv = getAdvancedState();
+                    if (!adv) return;
+                    const mod = adv.modules.find((m) => m.id === moduleId);
+                    if (!mod) return;
+                    if (adv.modules.length === 1) {
+                        showToast('At least one module is required.', 'warning');
+                        return;
+                    }
+                    adv.modules = adv.modules.filter((m) => m.id !== moduleId);
+                    if (adv.baseModuleId === moduleId) {
+                        adv.baseModuleId = adv.modules[0]?.id || null;
+                    }
+                    const fallback = adv.baseModuleId || adv.modules[0]?.id || null;
+                    if (Array.isArray(adv.grid)) {
+                        for (let r = 0; r < adv.grid.length; r++) {
+                            for (let c = 0; c < adv.grid[r].length; c++) {
+                                if (adv.grid[r][c] === moduleId) {
+                                    adv.grid[r][c] = fallback;
+                                }
+                            }
+                        }
+                    }
+                    renderAdvancedModuleList();
+                    renderAdvancedGridTable();
+                    refreshAdvancedDesignerOutputs();
+                };
+
+                const renderAdvancedModuleList = () => {
+                    if (!advModuleList) return;
+                    const adv = getAdvancedState();
+                    if (!adv.modules.length) {
+                        advModuleList.innerHTML = '<div class="text-muted small">No modules defined yet.</div>';
+                        return;
+                    }
+                    const parts = ['<div class="d-flex flex-column gap-2">'];
+                    adv.modules.forEach((mod) => {
+                        const isBase = mod.id === adv.baseModuleId;
+                        const summary = `${formatValueInUnit(mod.width)}m x ${formatValueInUnit(mod.height)}m · ${mod.resWidth}x${mod.resHeight}px`;
+                        parts.push(`
+                            <div class="border rounded p-2">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div>
+                                        <div class="fw-semibold">${advEscapeHtml(mod.name)} ${isBase ? '<span class="badge bg-primary ms-1">Base</span>' : ''}</div>
+                                        <div class="text-muted small">${advEscapeHtml(summary)}</div>
+                                    </div>
+                                    <div class="ms-auto" style="width:18px;height:18px;border-radius:4px;border:1px solid var(--border-color);background:${advEscapeHtml(mod.color)};"></div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-action="adv-set-base" data-module-id="${advEscapeHtml(mod.id)}">Set Base</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-action="adv-fill-grid" data-module-id="${advEscapeHtml(mod.id)}">Fill Grid</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="adv-remove-module" data-module-id="${advEscapeHtml(mod.id)}">Remove</button>
+                                </div>
+                            </div>
+                        `);
+                    });
+                    parts.push('</div>');
+                    advModuleList.innerHTML = parts.join('');
+                };
+
+                const changeAdvancedGridSize = (rows, cols) => {
+                    const adv = getAdvancedState();
+                    if (!adv) return;
+                    adv.gridRows = Math.max(1, Math.min(50, Math.floor(rows)) || 1);
+                    adv.gridCols = Math.max(1, Math.min(50, Math.floor(cols)) || 1);
+                    if (!Array.isArray(adv.grid)) adv.grid = [];
+                    const moduleIds = new Set(adv.modules.map((m) => m.id));
+                    const rowsArr = [];
+                    for (let r = 0; r < adv.gridRows; r++) {
+                        const existingRow = Array.isArray(adv.grid[r]) ? adv.grid[r] : [];
+                        const row = [];
+                        for (let c = 0; c < adv.gridCols; c++) {
+                            const val = existingRow[c];
+                            row.push(val && moduleIds.has(val) ? val : adv.baseModuleId);
+                        }
+                        rowsArr.push(row);
+                    }
+                    adv.grid = rowsArr;
+                };
+
+                const fillAdvancedGrid = (moduleId) => {
+                    const adv = getAdvancedState();
+                    if (!adv || !moduleId) return;
+                    for (let r = 0; r < adv.gridRows; r++) {
+                        for (let c = 0; c < adv.gridCols; c++) {
+                            adv.grid[r][c] = moduleId;
+                        }
+                    }
+                };
+
+                const renderAdvancedGridTable = () => {
+                    if (!advGridTable) return;
+                    const adv = getAdvancedState();
+                    if (!adv.modules.length) {
+                        advGridTable.innerHTML = '<div class="text-muted small p-3">Add at least one module to begin.</div>';
+                        return;
+                    }
+                    if (!adv.gridRows || !adv.gridCols) {
+                        advGridTable.innerHTML = '<div class="text-muted small p-3">Create a grid to begin assigning modules.</div>';
+                        return;
+                    }
+                    const moduleMap = getAdvancedModuleMap();
+                    const rows = ['<table class="table table-sm table-bordered align-middle text-center mb-0"><tbody>'];
+                    for (let r = 0; r < adv.gridRows; r++) {
+                        rows.push('<tr>');
+                        for (let c = 0; c < adv.gridCols; c++) {
+                            const moduleId = adv.grid[r]?.[c] && moduleMap.has(adv.grid[r][c]) ? adv.grid[r][c] : adv.baseModuleId;
+                            if (!moduleMap.has(moduleId)) {
+                                const firstId = adv.modules[0]?.id || '';
+                                adv.grid[r][c] = firstId;
+                            }
+                            const currentId = adv.grid[r][c];
+                            const mod = moduleMap.get(currentId);
+                            const summary = mod ? `${formatValueInUnit(mod.width)}m x ${formatValueInUnit(mod.height)}m` : 'Unknown';
+                            const options = adv.modules.map((module) => `<option value="${advEscapeHtml(module.id)}"${module.id === currentId ? ' selected' : ''}>${advEscapeHtml(module.name)}</option>`).join('');
+                            rows.push(`
+                                <td class="p-1 align-top">
+                                    <select class="form-select form-select-sm adv-grid-select" data-row="${r}" data-col="${c}">
+                                        ${options}
+                                    </select>
+                                    <div class="text-muted small mt-1">${advEscapeHtml(summary)}</div>
+                                </td>
+                            `);
+                        }
+                        rows.push('</tr>');
+                    }
+                    rows.push('</tbody></table>');
+                    advGridTable.innerHTML = rows.join('');
+                };
+
+                const computeAdvancedSummary = () => {
+                    const adv = getAdvancedState();
+                    const moduleMap = getAdvancedModuleMap();
+                    const summary = {
+                        widthMeters: 0,
+                        heightMeters: 0,
+                        resWidth: 0,
+                        resHeight: 0,
+                        moduleCount: 0,
+                        moduleBreakdown: [],
+                        warnings: [],
+                        columnWidths: [],
+                        rowHeights: [],
+                        columnRes: [],
+                        rowRes: [],
+                    };
+
+                    if (!adv.gridRows || !adv.gridCols || !adv.modules.length) {
+                        state.advancedDesigner.summary = summary;
+                        state.advancedDesigner.warnings = summary.warnings;
+                        return summary;
+                    }
+
+                    const columnWidths = Array.from({ length: adv.gridCols }, () => 0);
+                    const columnRes = Array.from({ length: adv.gridCols }, () => 0);
+                    const rowHeights = Array.from({ length: adv.gridRows }, () => 0);
+                    const rowRes = Array.from({ length: adv.gridRows }, () => 0);
+                    const breakdownMap = new Map();
+
+                    for (let r = 0; r < adv.gridRows; r++) {
+                        for (let c = 0; c < adv.gridCols; c++) {
+                            const moduleId = adv.grid[r]?.[c];
+                            const mod = moduleMap.get(moduleId);
+                            if (!mod) {
+                                summary.warnings.push(`Cell ${r + 1},${c + 1} is missing a module assignment.`);
+                                continue;
+                            }
+                            summary.moduleCount += 1;
+
+                            const colWidth = columnWidths[c];
+                            if (colWidth && Math.abs(colWidth - mod.width) > 1e-6) {
+                                summary.warnings.push(`Column ${c + 1} mixes modules with different widths.`);
+                            }
+                            columnWidths[c] = Math.max(columnWidths[c], mod.width);
+                            columnRes[c] = Math.max(columnRes[c], mod.resWidth);
+
+                            const rowHeight = rowHeights[r];
+                            if (rowHeight && Math.abs(rowHeight - mod.height) > 1e-6) {
+                                summary.warnings.push(`Row ${r + 1} mixes modules with different heights.`);
+                            }
+                            rowHeights[r] = Math.max(rowHeights[r], mod.height);
+                            rowRes[r] = Math.max(rowRes[r], mod.resHeight);
+
+                            const key = mod.id;
+                            const existing = breakdownMap.get(key) || { module: mod, count: 0 };
+                            existing.count += 1;
+                            breakdownMap.set(key, existing);
+                        }
+                    }
+
+                    summary.columnWidths = columnWidths;
+                    summary.rowHeights = rowHeights;
+                    summary.columnRes = columnRes;
+                    summary.rowRes = rowRes;
+                    summary.widthMeters = columnWidths.reduce((total, val) => total + val, 0);
+                    summary.heightMeters = rowHeights.reduce((total, val) => total + val, 0);
+                    summary.resWidth = columnRes.reduce((total, val) => total + val, 0);
+                    summary.resHeight = rowRes.reduce((total, val) => total + val, 0);
+                    summary.moduleBreakdown = Array.from(breakdownMap.values()).map(({ module, count }) => `${module.name} x ${count}`);
+
+                    // Remove duplicate warnings
+                    summary.warnings = Array.from(new Set(summary.warnings));
+                    state.advancedDesigner.summary = summary;
+                    state.advancedDesigner.warnings = summary.warnings;
+                    return summary;
+                };
+
+                const renderAdvancedSummary = (summary) => {
+                    if (!advSummaryList) return;
+                    const data = summary || computeAdvancedSummary();
+                    if (!data || !data.moduleCount || !data.widthMeters || !data.heightMeters) {
+                        advSummaryList.innerHTML = '<li class="list-group-item">Define a layout to view summary.</li>';
+                        return;
+                    }
+                    const unitSuffix = unitSuffixMap[state.unit] || state.unit;
+                    const widthInUnit = formatValueInUnit(convertUnits(data.widthMeters, 'meter', state.unit));
+                    const heightInUnit = formatValueInUnit(convertUnits(data.heightMeters, 'meter', state.unit));
+                    const lines = [
+                        `<li class="list-group-item"><strong>Size:</strong> ${widthInUnit} ${unitSuffix} x ${heightInUnit} ${unitSuffix}</li>`,
+                        `<li class="list-group-item"><strong>Resolution:</strong> ${Math.round(data.resWidth)} x ${Math.round(data.resHeight)} px</li>`,
+                        `<li class="list-group-item"><strong>Modules:</strong> ${data.moduleCount}</li>`,
+                    ];
+                    if (data.moduleBreakdown.length) {
+                        lines.push(`<li class="list-group-item"><strong>Breakdown:</strong><br>${advEscapeHtml(data.moduleBreakdown.join(', '))}</li>`);
+                    }
+                    advSummaryList.innerHTML = lines.join('');
+                };
+
+                const ensureAdvancedCanvasDimensions = () => {
+                    if (!advancedDesignerCanvas) return { width: 0, height: 0, pixelRatio: 1 };
+                    const ratio = window.devicePixelRatio || 1;
+                    const rect = advancedDesignerCanvas.getBoundingClientRect();
+                    const width = Math.max(1, Math.floor(rect.width * ratio));
+                    const height = Math.max(1, Math.floor(rect.height * ratio));
+                    if (advancedDesignerCanvas.width !== width || advancedDesignerCanvas.height !== height) {
+                        advancedDesignerCanvas.width = width;
+                        advancedDesignerCanvas.height = height;
+                    }
+                    return { width, height, pixelRatio: ratio };
+                };
+
+                const renderAdvancedCanvas = (summary) => {
+                    if (!advancedDesignerCanvas || !advancedDesignerCtx) return;
+                    const ctx = advancedDesignerCtx;
+                    const data = summary || computeAdvancedSummary();
+                    const { width: canvasWidth, height: canvasHeight, pixelRatio } = ensureAdvancedCanvasDimensions();
+                    ctx.save();
+                    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+                    if (!data || !data.moduleCount || data.widthMeters <= 0 || data.heightMeters <= 0) {
+                        ctx.fillStyle = '#6c757d';
+                        ctx.font = `${14 * pixelRatio}px Poppins, sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('Nothing to preview yet.', canvasWidth / 2, canvasHeight / 2);
+                        ctx.restore();
+                        return;
+                    }
+
+                    const padding = Math.min(canvasWidth, canvasHeight) * 0.06;
+                    const availableWidth = canvasWidth - padding * 2;
+                    const availableHeight = canvasHeight - padding * 2;
+                    const scale = Math.min(availableWidth / data.widthMeters, availableHeight / data.heightMeters);
+                    const offsetX = (canvasWidth - data.widthMeters * scale) / 2;
+                    const offsetY = (canvasHeight - data.heightMeters * scale) / 2;
+                    const moduleMap = getAdvancedModuleMap();
+
+                    ctx.lineWidth = Math.max(1, 1 * pixelRatio);
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    // local appearance overrides (if set in adv UI, apply to state for preview)
+                    if (advColor1Input?.value) state.color1 = advColor1Input.value;
+                    if (advColor2Input?.value) state.color2 = advColor2Input.value;
+
+                    const outlineEnabledLocal = advOutlineToggle ? advOutlineToggle.checked : state.outlineEnabled;
+                    const outlineColorLocal = advOutlineColorInput?.value || state.outlineColor;
+                    const outlineSizeLocal = advOutlineSizeInput ? Number(advOutlineSizeInput.value) || state.outlineSize : state.outlineSize;
+                    const numberingEnabledLocal = advNumberingToggle ? advNumberingToggle.checked : state.numberingEnabled;
+                    const numberingPosLocal = advNumberingPosition ? advNumberingPosition.value : state.numberingPosition;
+                    const numberingSizeLocal = advNumberingSizeInput ? Number(advNumberingSizeInput.value) || state.numberingSize : state.numberingSize;
+                    const numberingColorLocal = advNumberingColorInput?.value || state.numberingColor;
+                    const customTextEnabledLocal = advCustomTextToggle ? advCustomTextToggle.checked : state.customTextEnabled;
+                    const customTextLocal = advCustomTextInput ? advCustomTextInput.value : state.customText;
+                    const customTextSizeLocal = advCustomTextSizeInput ? Number(advCustomTextSizeInput.value) || state.customTextSize : state.customTextSize;
+                    const customTextColorLocal = advCustomTextColor?.value || state.customTextColor;
+
+                    let y = offsetY;
+                    for (let r = 0; r < data.rowHeights.length; r++) {
+                        const rowHeightMeters = data.rowHeights[r];
+                        const rowHeightPx = rowHeightMeters * scale;
+                        let x = offsetX;
+                        for (let c = 0; c < data.columnWidths.length; c++) {
+                            const colWidthMeters = data.columnWidths[c];
+                            const colWidthPx = colWidthMeters * scale;
+                            const moduleId = state.advancedDesigner.grid[r]?.[c];
+                            const mod = moduleMap.get(moduleId);
+                            const color = mod?.color || '#4a90e2';
+
+                            ctx.fillStyle = color;
+                            ctx.fillRect(x, y, colWidthPx, rowHeightPx);
+                            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                            ctx.strokeRect(x, y, colWidthPx, rowHeightPx);
+
+                            if (mod) {
+                                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                                const lineHeight = Math.max(10 * pixelRatio, Math.min(rowHeightPx / 5, 18 * pixelRatio));
+                                ctx.font = `${lineHeight}px Poppins, sans-serif`;
+                                ctx.fillText(mod.name, x + colWidthPx / 2, y + rowHeightPx / 2 - lineHeight * 0.6);
+                                ctx.font = `${Math.max(9 * pixelRatio, lineHeight * 0.8)}px Poppins, sans-serif`;
+                                ctx.fillText(`${formatValueInUnit(mod.width)}m x ${formatValueInUnit(mod.height)}m`, x + colWidthPx / 2, y + rowHeightPx / 2 + lineHeight * 0.1);
+                            }
+
+                            x += colWidthPx;
+                        }
+                        y += rowHeightPx;
+                    }
+
+                    // Draw numbering per-panel
+                    if (numberingEnabledLocal) {
+                        ctx.fillStyle = numberingColorLocal;
+                        for (let r = 0; r < data.rowHeights.length; r++) {
+                            let yNum = offsetY;
+                            for (let c = 0; c < data.columnWidths.length; c++) {
+                                const colWidthMeters = data.columnWidths[c];
+                                const colWidthPx = colWidthMeters * scale;
+                                const rowHeightMeters = data.rowHeights[r];
+                                const rowHeightPx = rowHeightMeters * scale;
+                                const cellX = offsetX + data.columnWidths.slice(0, c).reduce((s, v) => s + v * scale, 0);
+                                const cellY = offsetY + data.rowHeights.slice(0, r).reduce((s, v) => s + v * scale, 0);
+                                ctx.font = `${Math.max(8 * pixelRatio, numberingSizeLocal * pixelRatio)}px Poppins, sans-serif`;
+                                ctx.textAlign = numberingPosLocal === 'center' ? 'center' : (numberingPosLocal === 'top-right' ? 'right' : 'left');
+                                ctx.textBaseline = numberingPosLocal === 'center' ? 'middle' : 'top';
+                                const text = `${r + 1},${c + 1}`;
+                                const tx = numberingPosLocal === 'top-right' ? cellX + colWidthPx - 6 * pixelRatio : (numberingPosLocal === 'center' ? cellX + colWidthPx / 2 : cellX + 6 * pixelRatio);
+                                const ty = numberingPosLocal === 'center' ? cellY + rowHeightPx / 2 : cellY + 6 * pixelRatio;
+                                ctx.fillText(text, tx, ty);
+                            }
+                        }
+                    }
+
+                    // Draw custom text over layout
+                    if (customTextEnabledLocal && customTextLocal && String(customTextLocal).trim()) {
+                        ctx.fillStyle = customTextColorLocal;
+                        ctx.font = `${Math.max(12 * pixelRatio, customTextSizeLocal * pixelRatio)}px Poppins, sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(String(customTextLocal), canvasWidth / 2, canvasHeight / 2);
+                    }
+
+                    // Draw outlines if requested
+                    if (outlineEnabledLocal) {
+                        // redraw cell borders thicker
+                        let yy = offsetY;
+                        ctx.lineWidth = Math.max(1, outlineSizeLocal * pixelRatio);
+                        ctx.strokeStyle = outlineColorLocal;
+                        for (let r = 0; r < data.rowHeights.length; r++) {
+                            let xx = offsetX;
+                            const rowH = data.rowHeights[r] * scale;
+                            for (let c = 0; c < data.columnWidths.length; c++) {
+                                const colW = data.columnWidths[c] * scale;
+                                ctx.strokeRect(xx + 0.5, yy + 0.5, Math.max(1, colW - 1), Math.max(1, rowH - 1));
+                                xx += colW;
+                            }
+                            yy += rowH;
+                        }
+                    }
+
+                    ctx.restore();
+                };
+
+                const renderAdvancedWarnings = (summary) => {
+                    if (!advWarningsBox) return;
+                    const data = summary || computeAdvancedSummary();
+                    const warnings = data?.warnings || [];
+                    if (!warnings.length) {
+                        advWarningsBox.classList.add('d-none');
+                        advWarningsBox.textContent = '';
+                        return;
+                    }
+                    advWarningsBox.classList.remove('d-none');
+                    advWarningsBox.innerHTML = warnings.map((w) => `<div>${advEscapeHtml(w)}</div>`).join('');
+                };
+
+                const refreshAdvancedDesignerOutputs = () => {
+                    const summary = computeAdvancedSummary();
+                    renderAdvancedSummary(summary);
+                    renderAdvancedCanvas(summary);
+                    renderAdvancedWarnings(summary);
+                };
+
+                const resetAdvancedDesignerState = () => {
+                    ensureAdvancedDesignerDefaults(true);
+                    renderAdvancedModuleList();
+                    renderAdvancedGridTable();
+                    refreshAdvancedDesignerOutputs();
+                };
+
+                const sendAdvancedLayoutToCanvasMap = () => {
+                    const summary = computeAdvancedSummary();
+                    if (!summary || !summary.moduleCount) {
+                        showToast('Create a layout before sending to CanvasMap.', 'warning');
+                        return;
+                    }
+                    renderAdvancedCanvas(summary);
+                    if (!Number.isFinite(summary.resWidth) || summary.resWidth <= 0 || !Number.isFinite(summary.resHeight) || summary.resHeight <= 0) {
+                        showToast('Add module resolutions before exporting.', 'warning');
+                        return;
+                    }
+
+                    const adv = getAdvancedState();
+                    if (!adv || !adv.gridRows || !adv.gridCols) {
+                        showToast('Configure the grid before exporting.', 'warning');
+                        return;
+                    }
+
+                    const columnRes = summary.columnRes || [];
+                    const rowRes = summary.rowRes || [];
+                    if (!columnRes.length || !rowRes.length) {
+                        showToast('Unable to determine layout resolution. Check module assignments.', 'danger');
+                        return;
+                    }
+                    if (columnRes.some((val) => !Number.isFinite(val) || val <= 0) || rowRes.some((val) => !Number.isFinite(val) || val <= 0)) {
+                        showToast('Column or row resolution is invalid. Fix module settings.', 'danger');
+                        return;
+                    }
+
+                    const widthPx = Math.max(1, Math.round(summary.resWidth));
+                    const heightPx = Math.max(1, Math.round(summary.resHeight));
+                    const exportCanvas = document.createElement('canvas');
+                    exportCanvas.width = widthPx;
+                    exportCanvas.height = heightPx;
+                    const exportCtx = exportCanvas.getContext('2d', { alpha: true });
+                    exportCtx.clearRect(0, 0, widthPx, heightPx);
+
+                    const moduleMap = getAdvancedModuleMap();
+                    let y = 0;
+                    for (let r = 0; r < adv.gridRows; r++) {
+                        const rowHeightPx = Math.max(1, Math.round(rowRes[r] || 0));
+                        let x = 0;
+                        for (let c = 0; c < adv.gridCols; c++) {
+                            const colWidthPx = Math.max(1, Math.round(columnRes[c] || 0));
+                            const moduleId = adv.grid[r]?.[c];
+                            const mod = moduleMap.get(moduleId);
+                            const color = mod?.color || advancedModulePalette[0];
+                            exportCtx.fillStyle = color;
+                            exportCtx.fillRect(x, y, colWidthPx, rowHeightPx);
+                            exportCtx.strokeStyle = 'rgba(0,0,0,0.35)';
+                            exportCtx.strokeRect(x + 0.5, y + 0.5, colWidthPx - 1, rowHeightPx - 1);
+
+                            if (mod && colWidthPx >= 60 && rowHeightPx >= 40) {
+                                exportCtx.fillStyle = 'rgba(0,0,0,0.75)';
+                                const fontSize = Math.max(12, Math.min(colWidthPx, rowHeightPx) / 4);
+                                exportCtx.font = `${Math.round(fontSize)}px Poppins, sans-serif`;
+                                exportCtx.textAlign = 'center';
+                                exportCtx.textBaseline = 'middle';
+                                exportCtx.fillText(mod.name, x + colWidthPx / 2, y + rowHeightPx / 2 - fontSize * 0.5);
+                                const detailFont = Math.max(10, fontSize * 0.7);
+                                exportCtx.font = `${Math.round(detailFont)}px Poppins, sans-serif`;
+                                exportCtx.fillText(`${mod.resWidth}x${mod.resHeight}px`, x + colWidthPx / 2, y + rowHeightPx / 2 + detailFont * 0.6);
+                            }
+
+                            x += colWidthPx;
+                        }
+                        y += rowHeightPx;
+                    }
+
+                    const dataUrl = exportCanvas.toDataURL('image/png');
+                    const thumbCanvas = document.createElement('canvas');
+                    const maxThumbWidth = 200;
+                    const thumbScale = Math.min(1, maxThumbWidth / exportCanvas.width);
+                    thumbCanvas.width = Math.max(1, Math.round(exportCanvas.width * thumbScale));
+                    thumbCanvas.height = Math.max(1, Math.round(exportCanvas.height * thumbScale));
+                    thumbCanvas.getContext('2d', { alpha: true }).drawImage(exportCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                    const thumbUrl = thumbCanvas.toDataURL('image/png');
+
+                    const filename = `Advanced-${Math.round(summary.resWidth)}x${Math.round(summary.resHeight)}px`;
+                    const mapObject = {
+                        id: Date.now(),
+                        type: 'advanced-designer',
+                        dataUrl,
+                        filename,
+                        x: 0,
+                        y: 0,
+                        width: exportCanvas.width,
+                        height: exportCanvas.height,
+                        rotation: 0,
+                        selected: false,
+                        image: null,
+                        details: {
+                            layoutType: 'Advanced Designer',
+                            totalModules: summary.moduleCount,
+                            panelsWidth: adv.gridCols,
+                            panelsHeight: adv.gridRows,
+                            resWidth: exportCanvas.width,
+                            resHeight: exportCanvas.height,
+                            actualWidth: summary.widthMeters,
+                            actualHeight: summary.heightMeters,
+                            unit: 'meter',
+                            moduleBreakdown: summary.moduleBreakdown.join(', '),
+                        },
+                        pixelMapState: null,
+                        advancedLayout: {
+                            modules: adv.modules.map((mod) => ({ ...mod })),
+                            baseModuleId: adv.baseModuleId,
+                            gridRows: adv.gridRows,
+                            gridCols: adv.gridCols,
+                            grid: adv.grid.map((row) => [...row]),
+                            summary,
+                            appearance: {
+                                outlineEnabled: advOutlineToggle ? !!advOutlineToggle.checked : state.outlineEnabled,
+                                outlineColor: advOutlineColorInput?.value || state.outlineColor,
+                                outlineSize: advOutlineSizeInput ? Number(advOutlineSizeInput.value) || state.outlineSize : state.outlineSize,
+                                rasterEnabled: advRasterToggle ? !!advRasterToggle.checked : state.rasterEnabled,
+                                rasterColor: advRasterColorInput?.value || state.rasterColor,
+                                rasterSize: advRasterSizeInput ? Number(advRasterSizeInput.value) || state.rasterSize : state.rasterSize,
+                                color1: advColor1Input?.value || state.color1,
+                                color2: advColor2Input?.value || state.color2,
+                                numberingEnabled: advNumberingToggle ? !!advNumberingToggle.checked : state.numberingEnabled,
+                                numberingPosition: advNumberingPosition ? advNumberingPosition.value : state.numberingPosition,
+                                numberingSize: advNumberingSizeInput ? Number(advNumberingSizeInput.value) || state.numberingSize : state.numberingSize,
+                                numberingColor: advNumberingColorInput?.value || state.numberingColor,
+                                customTextEnabled: advCustomTextToggle ? !!advCustomTextToggle.checked : state.customTextEnabled,
+                                customText: advCustomTextInput ? advCustomTextInput.value : state.customText,
+                                customTextSize: advCustomTextSizeInput ? Number(advCustomTextSizeInput.value) || state.customTextSize : state.customTextSize,
+                                customTextColor: advCustomTextColor?.value || state.customTextColor,
+                            },
+                        },
+                        thumbnailUrl: thumbUrl,
+                    };
+
+                    (state.storedPixelMaps || (state.storedPixelMaps = [])).push(mapObject);
+                    try { saveStoredMaps?.(); } catch { }
+                    try { renderImportedMapsGallery?.(); } catch { }
+                    try { renderPixelMapSentGallery?.(); } catch { }
+
+                    // Auto-place on CanvasMap for quicker workflows
+                    try {
+                        state.canvasMapObjects.forEach((obj) => { obj.selected = false; });
+                        const newCanvasObject = {
+                            type: 'image',
+                            id: mapObject.id + 1,
+                            sourceId: mapObject.id,
+                            dataUrl,
+                            x: 0,
+                            y: 0,
+                            width: exportCanvas.width,
+                            height: exportCanvas.height,
+                            rotation: 0,
+                            selected: true,
+                            image: null,
+                            details: mapObject.details,
+                            filename,
+                        };
+                        state.canvasMapObjects.push(newCanvasObject);
+                        selectedCanvasMapObject = newCanvasObject;
+                    } catch { }
+
+                    try { setCanvasMapEnabled?.(true); } catch { }
+                    try { setPdfSettingsEnabled?.(((state.savedCanvases || []).length > 0) && ((state.storedPixelMaps || []).length > 0)); } catch { }
+
+                    updateCanvasMap();
+                    try { updateObjectPropertiesPanel?.(); } catch { }
+                    showToast('Advanced layout sent to CanvasMap.', 'success');
+                };
+
+                const loadAdvancedLayoutFromMap = (map) => {
+                    const snapshot = map?.advancedLayout;
+                    if (!snapshot) return false;
+                    const adv = getAdvancedState();
+                    if (!adv) return false;
+
+                    adv.modules = Array.isArray(snapshot.modules)
+                        ? snapshot.modules.map((mod) => ({ ...mod }))
+                        : [];
+                    adv.baseModuleId = snapshot.baseModuleId || adv.modules[0]?.id || null;
+
+                    const gridRows = Number.isInteger(snapshot.gridRows) ? snapshot.gridRows : (snapshot.grid?.length || 0);
+                    const gridCols = Number.isInteger(snapshot.gridCols) ? snapshot.gridCols : (snapshot.grid && snapshot.grid[0] ? snapshot.grid[0].length : 0);
+                    adv.gridRows = Math.max(0, gridRows);
+                    adv.gridCols = Math.max(0, gridCols);
+                    adv.grid = Array.isArray(snapshot.grid)
+                        ? snapshot.grid.map((row) => Array.isArray(row) ? [...row] : [])
+                        : Array.from({ length: adv.gridRows }, () => Array.from({ length: adv.gridCols }, () => adv.baseModuleId));
+
+                    adv.paletteIndex = adv.modules.length % advancedModulePalette.length;
+                    adv.summary = snapshot.summary || null;
+                    adv.warnings = Array.isArray(snapshot.summary?.warnings) ? [...snapshot.summary.warnings] : [];
+
+                    // Apply appearance snapshot to advanced UI if present
+                    const appearance = snapshot.appearance || {};
+                    try {
+                        if (advOutlineToggle && appearance.outlineEnabled !== undefined) advOutlineToggle.checked = !!appearance.outlineEnabled;
+                        if (advOutlineColorInput && appearance.outlineColor) advOutlineColorInput.value = appearance.outlineColor;
+                        if (advOutlineSizeInput && appearance.outlineSize !== undefined) advOutlineSizeInput.value = appearance.outlineSize;
+                        if (advRasterToggle && appearance.rasterEnabled !== undefined) advRasterToggle.checked = !!appearance.rasterEnabled;
+                        if (advRasterColorInput && appearance.rasterColor) advRasterColorInput.value = appearance.rasterColor;
+                        if (advRasterSizeInput && appearance.rasterSize !== undefined) advRasterSizeInput.value = appearance.rasterSize;
+                        if (advColor1Input && appearance.color1) advColor1Input.value = appearance.color1;
+                        if (advColor2Input && appearance.color2) advColor2Input.value = appearance.color2;
+                        if (advNumberingToggle && appearance.numberingEnabled !== undefined) advNumberingToggle.checked = !!appearance.numberingEnabled;
+                        if (advNumberingPosition && appearance.numberingPosition) advNumberingPosition.value = appearance.numberingPosition;
+                        if (advNumberingSizeInput && appearance.numberingSize !== undefined) advNumberingSizeInput.value = appearance.numberingSize;
+                        if (advNumberingColorInput && appearance.numberingColor) advNumberingColorInput.value = appearance.numberingColor;
+                        if (advCustomTextToggle && appearance.customTextEnabled !== undefined) advCustomTextToggle.checked = !!appearance.customTextEnabled;
+                        if (advCustomTextInput && appearance.customText) advCustomTextInput.value = appearance.customText;
+                        if (advCustomTextSizeInput && appearance.customTextSize !== undefined) advCustomTextSizeInput.value = appearance.customTextSize;
+                        if (advCustomTextColor && appearance.customTextColor) advCustomTextColor.value = appearance.customTextColor;
+                    } catch (e) { /* ignore */ }
+
+                    ensureAdvancedDesignerDefaults();
+
+                    if (advGridRowsInput) advGridRowsInput.value = adv.gridRows || 0;
+                    if (advGridColsInput) advGridColsInput.value = adv.gridCols || 0;
+
+                    renderAdvancedModuleList();
+                    renderAdvancedGridTable();
+                    refreshAdvancedDesignerOutputs();
+                    cycleAdvancedModuleColor();
+
+                    try {
+                        if (typeof bootstrap !== 'undefined' && bootstrap?.Tab && advDesignerTabBtn) {
+                            const tab = bootstrap.Tab.getOrCreateInstance(advDesignerTabBtn);
+                            tab.show();
+                        } else {
+                            advDesignerTabBtn?.click();
+                        }
+                    } catch {
+                        advDesignerTabBtn?.click();
+                    }
+
+                    showToast(`Advanced layout "${map?.filename || 'screen'}" loaded in Advanced Designer.`, 'info', 3600);
+                    return true;
+                };
+
+                const readAdvancedModuleForm = () => {
+                    if (!advModuleForm) return null;
+                    const name = advModuleNameInput?.value?.trim() || '';
+                    const width = Number(advModuleWidthInput?.value);
+                    const height = Number(advModuleHeightInput?.value);
+                    const resWidth = Number(advModuleResWidthInput?.value);
+                    const resHeight = Number(advModuleResHeightInput?.value);
+                    const color = advModuleColorInput?.value || undefined;
+
+                    if (!name) {
+                        showToast('Enter a module name.', 'warning');
+                        return null;
+                    }
+                    if (!Number.isFinite(width) || width <= 0) {
+                        showToast('Module width must be greater than zero.', 'warning');
+                        return null;
+                    }
+                    if (!Number.isFinite(height) || height <= 0) {
+                        showToast('Module height must be greater than zero.', 'warning');
+                        return null;
+                    }
+                    if (!Number.isFinite(resWidth) || resWidth <= 0) {
+                        showToast('Module pixel width must be a positive integer.', 'warning');
+                        return null;
+                    }
+                    if (!Number.isFinite(resHeight) || resHeight <= 0) {
+                        showToast('Module pixel height must be a positive integer.', 'warning');
+                        return null;
+                    }
+
+                    return {
+                        name,
+                        width,
+                        height,
+                        resWidth: Math.round(resWidth),
+                        resHeight: Math.round(resHeight),
+                        color,
+                    };
+                };
+
+                const cycleAdvancedModuleColor = () => {
+                    const adv = getAdvancedState();
+                    if (!advModuleColorInput || !adv) return;
+                    const nextColor = advancedModulePalette[adv.paletteIndex % advancedModulePalette.length] || '#4a90e2';
+                    advModuleColorInput.value = nextColor;
+                };
+
+                ensureAdvancedDesignerDefaults();
+                if (advGridRowsInput) advGridRowsInput.value = state.advancedDesigner.gridRows;
+                if (advGridColsInput) advGridColsInput.value = state.advancedDesigner.gridCols;
+                renderAdvancedModuleList();
+                renderAdvancedGridTable();
+                refreshAdvancedDesignerOutputs();
+                cycleAdvancedModuleColor();
+
+                advModuleForm?.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    advAddModuleBtn?.click();
+                });
+
+                if (advAddModuleBtn) {
+                    advAddModuleBtn.addEventListener('click', () => {
+                        const payload = readAdvancedModuleForm();
+                        if (!payload) return;
+                        addAdvancedModule(payload, false);
+                        cycleAdvancedModuleColor();
+                        showToast('Module added.', 'success');
+                    });
+                }
+
+                if (advSetBaseModuleBtn) {
+                    advSetBaseModuleBtn.addEventListener('click', () => {
+                        const payload = readAdvancedModuleForm();
+                        if (!payload) return;
+                        const mod = addAdvancedModule(payload, true);
+                        if (mod) {
+                            showToast('Base module updated.', 'success');
+                            renderAdvancedGridTable();
+                            refreshAdvancedDesignerOutputs();
+                        }
+                        cycleAdvancedModuleColor();
+                    });
+                }
+
+                if (advResetModulesBtn) {
+                    advResetModulesBtn.addEventListener('click', () => {
+                        const ok = window.confirm('Reset the Advanced Designer to defaults?');
+                        if (!ok) return;
+                        resetAdvancedDesignerState();
+                        if (advGridRowsInput) advGridRowsInput.value = state.advancedDesigner.gridRows;
+                        if (advGridColsInput) advGridColsInput.value = state.advancedDesigner.gridCols;
+                        cycleAdvancedModuleColor();
+                        showToast('Advanced Designer reset.', 'info');
+                    });
+                }
+
+                if (advApplyGridBtn) {
+                    advApplyGridBtn.addEventListener('click', () => {
+                        const rows = Number(advGridRowsInput?.value);
+                        const cols = Number(advGridColsInput?.value);
+                        changeAdvancedGridSize(rows, cols);
+                        if (advGridRowsInput) advGridRowsInput.value = state.advancedDesigner.gridRows;
+                        if (advGridColsInput) advGridColsInput.value = state.advancedDesigner.gridCols;
+                        renderAdvancedGridTable();
+                        refreshAdvancedDesignerOutputs();
+                    });
+                }
+
+                if (advFillGridBtn) {
+                    advFillGridBtn.addEventListener('click', () => {
+                        const baseId = state.advancedDesigner.baseModuleId;
+                        if (!baseId) {
+                            showToast('Set a base module first.', 'warning');
+                            return;
+                        }
+                        fillAdvancedGrid(baseId);
+                        renderAdvancedGridTable();
+                        refreshAdvancedDesignerOutputs();
+                    });
+                }
+
+                if (advGridTable) {
+                    advGridTable.addEventListener('change', (event) => {
+                        const select = event.target.closest('.adv-grid-select');
+                        if (!select) return;
+                        const row = Number(select.getAttribute('data-row'));
+                        const col = Number(select.getAttribute('data-col'));
+                        const moduleId = select.value;
+                        const moduleMap = getAdvancedModuleMap();
+                        if (!moduleMap.has(moduleId)) {
+                            showToast('Select a valid module.', 'warning');
+                            return;
+                        }
+                        state.advancedDesigner.grid[row][col] = moduleId;
+                        const mod = moduleMap.get(moduleId);
+                        const summaryLabel = select.parentElement.querySelector('.text-muted');
+                        if (summaryLabel && mod) {
+                            summaryLabel.textContent = `${formatValueInUnit(mod.width)}m x ${formatValueInUnit(mod.height)}m`;
+                        }
+                        refreshAdvancedDesignerOutputs();
+                    });
+                }
+
+                if (advModuleList) {
+                    advModuleList.addEventListener('click', (event) => {
+                        const target = event.target.closest('button[data-action]');
+                        if (!target) return;
+                        const moduleId = target.getAttribute('data-module-id');
+                        const action = target.getAttribute('data-action');
+                        if (!moduleId || !action) return;
+                        const moduleExists = getAdvancedModuleMap().has(moduleId);
+                        if (!moduleExists && action !== 'adv-remove-module') {
+                            showToast('Module not found.', 'danger');
+                            return;
+                        }
+                        if (action === 'adv-set-base') {
+                            state.advancedDesigner.baseModuleId = moduleId;
+                            renderAdvancedModuleList();
+                            refreshAdvancedDesignerOutputs();
+                            showToast('Base module selected.', 'success');
+                        } else if (action === 'adv-fill-grid') {
+                            fillAdvancedGrid(moduleId);
+                            renderAdvancedGridTable();
+                            refreshAdvancedDesignerOutputs();
+                            showToast('Grid updated.', 'success');
+                        } else if (action === 'adv-remove-module') {
+                            removeAdvancedModule(moduleId);
+                        }
+                    });
+                }
+
+                if (advRefreshCanvasBtn) {
+                    advRefreshCanvasBtn.addEventListener('click', () => {
+                        refreshAdvancedDesignerOutputs();
+                    });
+                }
+
+                if (advSendToCanvasBtn) {
+                    advSendToCanvasBtn.addEventListener('click', () => {
+                        sendAdvancedLayoutToCanvasMap();
+                    });
+                }
+
+                // Wire advanced appearance controls to refresh preview
+                const advAppearanceControls = [advOutlineToggle, advOutlineColorInput, advOutlineSizeInput, advRasterToggle, advRasterColorInput, advRasterSizeInput, advColor1Input, advColor2Input, advNumberingToggle, advNumberingPosition, advNumberingSizeInput, advNumberingColorInput, advCustomTextToggle, advCustomTextInput, advCustomTextSizeInput, advCustomTextColor];
+                advAppearanceControls.forEach(el => {
+                    if (!el) return;
+                    el.addEventListener('input', () => {
+                        try { refreshAdvancedDesignerOutputs(); } catch { }
+                    });
+                    el.addEventListener('change', () => {
+                        try { refreshAdvancedDesignerOutputs(); } catch { }
+                    });
+                });
+
+                if (advDesignerTabBtn) {
+                    advDesignerTabBtn.addEventListener('shown.bs.tab', () => {
+                        ensureAdvancedDesignerDefaults();
+                        if (advGridRowsInput) advGridRowsInput.value = state.advancedDesigner.gridRows;
+                        if (advGridColsInput) advGridColsInput.value = state.advancedDesigner.gridCols;
+                        renderAdvancedModuleList();
+                        renderAdvancedGridTable();
+                        refreshAdvancedDesignerOutputs();
+                        cycleAdvancedModuleColor();
+                    });
+                }
+
+                window.addEventListener('resize', () => {
+                    const advPane = document.getElementById('advdesigner-pane');
+                    if (advPane && advPane.classList.contains('show')) {
+                        renderAdvancedCanvas(state.advancedDesigner.summary);
+                    }
+                });
             
             /**
              * Adjusts the brightness of a hex color.
@@ -1530,6 +2716,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 panelPresetCombo.value = '';
                 panelResWidthInput.value = state.panelResWidth;
                 panelResHeightInput.value = state.panelResHeight;
+                updateAdvancedControlsState();
                 
                 // Color Settings
                 color1Input.value = state.color1;
@@ -1781,6 +2968,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.specificationBgEnabled = true;
                 state.specificationBgColor = '#000000';
                 state.oneLineText = '';
+                state.advancedEnabled = false;
+                state.advancedMode = 'add-strip';
+                state.advancedPlacement = 'bottom';
+                state.advancedStripSize = 0;
+                state.advancedTargetWidth = null;
+                state.advancedTargetHeight = null;
+                state.currentPanelsWidth = 0;
+                state.currentPanelsHeight = 0;
+                state.actualWidthMeters = 0;
+                state.actualHeightMeters = 0;
+                state.computedWidthMeters = 0;
+                state.computedHeightMeters = 0;
                 state.isDrawingMode = false;
                 state.drawingColor = '#ff0000';
                 state.drawingWidth = 5;
@@ -1938,6 +3137,142 @@ document.addEventListener('DOMContentLoaded', () => {
                 context.restore();
             };
 
+            const computePanelsForStrip = (sizeMeters, panelSizeMeters) => {
+                if (!Number.isFinite(sizeMeters) || sizeMeters <= 1e-6) {
+                    return { panels: 0, applied: 0, requested: sizeMeters, raw: 0 };
+                }
+                if (!Number.isFinite(panelSizeMeters) || panelSizeMeters <= 0) {
+                    return { panels: 0, applied: 0, requested: sizeMeters, raw: 0 };
+                }
+                const raw = sizeMeters / panelSizeMeters;
+                let panels = Math.ceil(raw - 1e-6);
+                if (panels <= 0) panels = 1;
+                const applied = panels * panelSizeMeters;
+                return { panels, applied, requested: sizeMeters, raw };
+            };
+
+            const applyAdvancedAdjustments = (numPanelsWidth, numPanelsHeight, baseActualWidthMeters, baseActualHeightMeters) => {
+                let summary = '';
+                let tone = 'info';
+                let finalPanelsWidth = numPanelsWidth;
+                let finalPanelsHeight = numPanelsHeight;
+                let finalWidthMeters = baseActualWidthMeters;
+                let finalHeightMeters = baseActualHeightMeters;
+
+                if (!state.advancedEnabled) {
+                    return { finalPanelsWidth, finalPanelsHeight, finalWidthMeters, finalHeightMeters, summary, tone };
+                }
+
+                const panelWidthMeters = state.panelWidth;
+                const panelHeightMeters = state.panelHeight;
+                if (!Number.isFinite(panelWidthMeters) || panelWidthMeters <= 0 || !Number.isFinite(panelHeightMeters) || panelHeightMeters <= 0) {
+                    summary = 'Advanced adjustment requires valid panel dimensions.';
+                    tone = 'warning';
+                    return { finalPanelsWidth, finalPanelsHeight, finalWidthMeters, finalHeightMeters, summary, tone };
+                }
+
+                const unitSuffix = unitSuffixMap[state.unit] || state.unit;
+                const valueToUnit = (meters) => convertUnits(meters, 'meter', state.unit);
+                const describeMeters = (meters) => `${formatValueInUnit(valueToUnit(meters))} ${unitSuffix}`;
+
+                let appliedExtraWidthMeters = 0;
+                let appliedExtraHeightMeters = 0;
+                let mismatchNote = '';
+                let advancedApplied = false;
+                const placement = state.advancedPlacement || 'bottom';
+
+                if (state.advancedMode === 'add-strip') {
+                    const stripSizeUnit = Number(state.advancedStripSize) || 0;
+                    const stripSizeMeters = convertUnits(stripSizeUnit, state.unit, 'meter');
+                    if (stripSizeMeters > 1e-6) {
+                        const result = (placement === 'left' || placement === 'right')
+                            ? computePanelsForStrip(stripSizeMeters, panelWidthMeters)
+                            : computePanelsForStrip(stripSizeMeters, panelHeightMeters);
+                        if (result.panels > 0) {
+                            advancedApplied = true;
+                            if (placement === 'left' || placement === 'right') {
+                                finalPanelsWidth += result.panels;
+                                appliedExtraWidthMeters += result.applied;
+                            } else {
+                                finalPanelsHeight += result.panels;
+                                appliedExtraHeightMeters += result.applied;
+                            }
+                            if (Math.abs(result.applied - result.requested) > 1e-6) {
+                                mismatchNote = `Requested ${describeMeters(result.requested)} but panel size requires ${describeMeters(result.applied)}.`;
+                                tone = 'warning';
+                            }
+                        }
+                    } else {
+                        summary = 'Advanced adjustment enabled. Increase the strip size to add panels.';
+                    }
+                } else if (state.advancedMode === 'match-target') {
+                    if (state.isPanelCountMode) {
+                        summary = 'Match Target Size works only when using Physical Dimensions mode.';
+                        tone = 'warning';
+                    } else {
+                        const targetWidthMeters = state.advancedTargetWidth == null
+                            ? baseActualWidthMeters
+                            : convertUnits(state.advancedTargetWidth, state.unit, 'meter');
+                        const targetHeightMeters = state.advancedTargetHeight == null
+                            ? baseActualHeightMeters
+                            : convertUnits(state.advancedTargetHeight, state.unit, 'meter');
+                        const widthDiff = Math.max(0, targetWidthMeters - baseActualWidthMeters);
+                        const heightDiff = Math.max(0, targetHeightMeters - baseActualHeightMeters);
+                        const placementIsHorizontal = placement === 'left' || placement === 'right';
+                        const primaryDiff = placementIsHorizontal ? widthDiff : heightDiff;
+                        const secondaryDiff = placementIsHorizontal ? heightDiff : widthDiff;
+                        if (primaryDiff > 1e-6) {
+                            const result = placementIsHorizontal
+                                ? computePanelsForStrip(primaryDiff, panelWidthMeters)
+                                : computePanelsForStrip(primaryDiff, panelHeightMeters);
+                            if (result.panels > 0) {
+                                advancedApplied = true;
+                                if (placementIsHorizontal) {
+                                    finalPanelsWidth += result.panels;
+                                    appliedExtraWidthMeters += result.applied;
+                                } else {
+                                    finalPanelsHeight += result.panels;
+                                    appliedExtraHeightMeters += result.applied;
+                                }
+                                if (Math.abs(result.applied - primaryDiff) > 1e-6) {
+                                    mismatchNote = `Requested ${describeMeters(primaryDiff)} but panel size requires ${describeMeters(result.applied)}.`;
+                                    tone = 'warning';
+                                }
+                            }
+                        } else {
+                            summary = 'Advanced adjustment enabled. Target already meets current layout.';
+                        }
+                        if (secondaryDiff > 1e-6) {
+                            const orientationHint = placementIsHorizontal ? 'top/bottom' : 'left/right';
+                            const ignored = `Additional difference of ${describeMeters(secondaryDiff)} is ignored. Choose ${orientationHint} placement to apply it.`;
+                            mismatchNote = mismatchNote ? `${mismatchNote} ${ignored}` : ignored;
+                            tone = 'warning';
+                        }
+                    }
+                }
+
+                finalWidthMeters = finalPanelsWidth * panelWidthMeters;
+                finalHeightMeters = finalPanelsHeight * panelHeightMeters;
+
+                if (advancedApplied) {
+                    const finalWidthDisplay = describeMeters(finalWidthMeters);
+                    const finalHeightDisplay = describeMeters(finalHeightMeters);
+                    const parts = [`Advanced adjustment active → Final size ${finalWidthDisplay} × ${finalHeightDisplay}.`];
+                    const appliedMeters = (placement === 'left' || placement === 'right')
+                        ? appliedExtraWidthMeters
+                        : appliedExtraHeightMeters;
+                    if (appliedMeters > 0) {
+                        parts.push(`Added ${describeMeters(appliedMeters)} on the ${placement}.`);
+                    }
+                    if (mismatchNote) parts.push(mismatchNote);
+                    summary = parts.join(' ');
+                } else if (!summary) {
+                    summary = 'Advanced adjustment enabled but no extra panels were added.';
+                }
+
+                return { finalPanelsWidth, finalPanelsHeight, finalWidthMeters, finalHeightMeters, summary, tone };
+            };
+
             /**
              * Renders the pixel map on the canvas based on current state.
              */
@@ -1965,6 +3300,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         numPanelsWidth = state.panelsInWidth || 4;
                         numPanelsHeight = state.panelsInHeight || 4;
                     }
+
+                    const baseActualWidthMeters = numPanelsWidth * state.panelWidth;
+                    const baseActualHeightMeters = numPanelsHeight * state.panelHeight;
+                    const advancedResult = applyAdvancedAdjustments(numPanelsWidth, numPanelsHeight, baseActualWidthMeters, baseActualHeightMeters);
+                    numPanelsWidth = advancedResult.finalPanelsWidth;
+                    numPanelsHeight = advancedResult.finalPanelsHeight;
+                    const actualWidthMeters = advancedResult.finalWidthMeters;
+                    const actualHeightMeters = advancedResult.finalHeightMeters;
+                    setAdvancedHint(advancedResult.summary, advancedResult.tone);
+
+                    state.currentPanelsWidth = numPanelsWidth;
+                    state.currentPanelsHeight = numPanelsHeight;
+                    state.actualWidthMeters = actualWidthMeters;
+                    state.actualHeightMeters = actualHeightMeters;
+                    state.computedWidthMeters = actualWidthMeters;
+                    state.computedHeightMeters = actualHeightMeters;
 
                     // Calculate total resolution
                     state.totalResWidth = numPanelsWidth * state.panelResWidth;
@@ -2018,10 +3369,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         specificationYValue.textContent = Math.round(state.specificationY);
                     }
 
+                    const unitSuffix = unitSuffixMap[state.unit] || state.unit;
+                    const actualWidthInUnit = formatValueInUnit(convertUnits(actualWidthMeters, 'meter', state.unit));
+                    const actualHeightInUnit = formatValueInUnit(convertUnits(actualHeightMeters, 'meter', state.unit));
+
                     // Update UI with calculated values
                     const totalPanels = numPanelsWidth * numPanelsHeight;
                     const enabledPanels = totalPanels - state.removedPanels.size;
-                    canvasInfo.textContent = `Total Resolution: ${state.totalResWidth}x${state.totalResHeight} px | Panels: ${numPanelsWidth}x${numPanelsHeight} | Total Panels: ${totalPanels} | Enabled Panels: ${enabledPanels}`;
+                    canvasInfo.textContent = `Total Resolution: ${state.totalResWidth}x${state.totalResHeight} px | Panels: ${numPanelsWidth}x${numPanelsHeight} | Total Panels: ${totalPanels} | Enabled Panels: ${enabledPanels} | Size: ${actualWidthInUnit} ${unitSuffix} x ${actualHeightInUnit} ${unitSuffix}`;
                     
                     // Set canvas dimensions for both canvases
                     pixelMapCanvas.width = state.totalResWidth;
@@ -2250,7 +3605,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
                         const totalPanels = numPanelsWidth * numPanelsHeight;
+                        const actualWidthMetersSafe = Number.isFinite(state.actualWidthMeters) && state.actualWidthMeters > 0
+                            ? state.actualWidthMeters
+                            : numPanelsWidth * state.panelWidth;
+                        const actualHeightMetersSafe = Number.isFinite(state.actualHeightMeters) && state.actualHeightMeters > 0
+                            ? state.actualHeightMeters
+                            : numPanelsHeight * state.panelHeight;
+                        const unitLabel = unitSuffixMap[state.unit] || state.unit;
+                        const sizeLine = `Size: ${formatValueInUnit(convertUnits(actualWidthMetersSafe, 'meter', state.unit))} ${unitLabel} x ${formatValueInUnit(convertUnits(actualHeightMetersSafe, 'meter', state.unit))} ${unitLabel}`;
                         const autoSpecLines = [
+                            sizeLine,
                             `Panels: ${numPanelsWidth} x ${numPanelsHeight} (${totalPanels} total)`,
                             `Resolution: ${state.totalResWidth} x ${state.totalResHeight}`,
                             `Aspect Ratio: ${state.totalResWidth / divisor}:${state.totalResHeight / divisor}`
@@ -3058,32 +4422,24 @@ document.addEventListener('DOMContentLoaded', () => {
                             const thumbUrl = thumbCanvas.toDataURL('image/png');
 
                             // Compute details
-                            let numPanelsWidth, numPanelsHeight;
-                            if (state.isPanelCountMode) {
-                                numPanelsWidth = state.panelsInWidth;
-                                numPanelsHeight = state.panelsInHeight;
-                            } else {
-                                const screenWidthBase = convertUnits(state.screenWidth, state.unit, 'meter');
-                                const screenHeightBase = convertUnits(state.screenHeight, state.unit, 'meter');
-                                const panelWidthBase = state.panelWidth;
-                                const panelHeightBase = state.panelHeight;
-                                numPanelsWidth = Math.floor(screenWidthBase / panelWidthBase);
-                                numPanelsHeight = Math.floor(screenHeightBase / panelHeightBase);
-                            }
-
                             // Update map object in-place
                             map.dataUrl = dataUrl;
                             map.thumbnailUrl = thumbUrl;
                             map.width = state.totalResWidth;
                             map.height = state.totalResHeight;
+                            const panelsWidth = Number.isFinite(state.currentPanelsWidth) ? state.currentPanelsWidth : 0;
+                            const panelsHeight = Number.isFinite(state.currentPanelsHeight) ? state.currentPanelsHeight : 0;
+                            const actualWidthMeters = Number.isFinite(state.actualWidthMeters) ? state.actualWidthMeters : 0;
+                            const actualHeightMeters = Number.isFinite(state.actualHeightMeters) ? state.actualHeightMeters : 0;
+
                             map.details = {
-                                totalPanels: numPanelsWidth * numPanelsHeight,
-                                panelsWidth: numPanelsWidth,
-                                panelsHeight: numPanelsHeight,
+                                totalPanels: panelsWidth * panelsHeight,
+                                panelsWidth,
+                                panelsHeight,
                                 resWidth: state.totalResWidth,
                                 resHeight: state.totalResHeight,
-                                actualWidth: state.isPanelCountMode ? numPanelsWidth * state.panelWidth : state.screenWidth,
-                                actualHeight: state.isPanelCountMode ? numPanelsHeight * state.panelHeight : state.screenHeight,
+                                actualWidth: actualWidthMeters,
+                                actualHeight: actualHeightMeters,
                                 unit: state.unit,
                                 panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
                                 panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
@@ -3139,6 +4495,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 specificationBgEnabled: state.specificationBgEnabled,
                                 specificationBgColor: state.specificationBgColor,
                                 oneLineText: state.oneLineText,
+                                advancedEnabled: state.advancedEnabled,
+                                advancedMode: state.advancedMode,
+                                advancedPlacement: state.advancedPlacement,
+                                advancedStripSize: state.advancedStripSize,
+                                advancedTargetWidth: state.advancedTargetWidth,
+                                advancedTargetHeight: state.advancedTargetHeight,
                                 removedPanels: Array.from(state.removedPanels || []),
                             };
 
@@ -3374,6 +4736,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const loadSentMapForEdit = (map) => {
+                    if (map?.advancedLayout) {
+                        const loaded = loadAdvancedLayoutFromMap(map);
+                        if (!loaded) {
+                            showMessageBox('This advanced layout could not be loaded. Please resend it from the Advanced Designer tab.');
+                        }
+                        return;
+                    }
                     let snap = map?.pixelMapState;
                     if (!snap) {
                         // Fallback reconstruction for older items without snapshot
@@ -3437,7 +4806,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             specificationBgEnabled: state.specificationBgEnabled,
                             specificationBgColor: state.specificationBgColor,
                             oneLineText: state.oneLineText,
-                            removedPanels: []
+                            removedPanels: [],
+                            advancedEnabled: false,
+                            advancedMode: 'add-strip',
+                            advancedPlacement: 'bottom',
+                            advancedStripSize: 0,
+                            advancedTargetWidth: null,
+                            advancedTargetHeight: null,
                         };
                     }
                     // Apply snapshot to current state
@@ -3454,7 +4829,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         'customTextEnabled', 'customText', 'customTextSize', 'customTextColor', 'customTextX', 'customTextY',
                         'customTextBgEnabled', 'customTextBgColor', 'customTextBgOpacity',
                         'specificationEnabled', 'specificationColor', 'specificationSize', 'specificationX', 'specificationY', 'specificationFormat',
-                        'specificationBgEnabled', 'specificationBgColor', 'oneLineText'
+                        'specificationBgEnabled', 'specificationBgColor', 'oneLineText',
+                        'advancedEnabled', 'advancedMode', 'advancedPlacement', 'advancedStripSize', 'advancedTargetWidth', 'advancedTargetHeight'
                     ].forEach(assignIfDefined);
                     // Restore removed panels set
                     try { state.removedPanels = new Set(Array.isArray(snap.removedPanels) ? snap.removedPanels : []); } catch { state.removedPanels = new Set(); }
@@ -4406,9 +5782,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Convert current values to new unit
                 state.screenWidth = convertUnits(state.screenWidth, oldUnit, newUnit);
                 state.screenHeight = convertUnits(state.screenHeight, oldUnit, newUnit);
+                if (state.advancedStripSize != null) {
+                    state.advancedStripSize = convertUnits(state.advancedStripSize, oldUnit, newUnit);
+                }
+                if (state.advancedTargetWidth != null) {
+                    state.advancedTargetWidth = convertUnits(state.advancedTargetWidth, oldUnit, newUnit);
+                }
+                if (state.advancedTargetHeight != null) {
+                    state.advancedTargetHeight = convertUnits(state.advancedTargetHeight, oldUnit, newUnit);
+                }
                 
                 screenWidthInput.value = state.screenWidth.toFixed(2);
                 screenHeightInput.value = state.screenHeight.toFixed(2);
+                updateAdvancedControlsState();
                 
                 // Reset manual flags on dimension change
                 state.circleEffectSizeManuallySet = false;
@@ -4472,6 +5858,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 screenHeightInput.addEventListener('blur', () => finalizeScreenSize(screenHeightInput, 'screenHeight'));
                 screenWidthInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizeScreenSize(screenWidthInput, 'screenWidth'); } });
                 screenHeightInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finalizeScreenSize(screenHeightInput, 'screenHeight'); } });
+            if (advancedSettingsEnable) {
+                advancedSettingsEnable.addEventListener('change', (e) => {
+                    state.advancedEnabled = !!e.target.checked;
+                    updateAdvancedControlsState();
+                    state.removedPanels.clear();
+                    updatePixelMap();
+                });
+            }
+            if (advancedSettingsMode) {
+                advancedSettingsMode.addEventListener('change', (e) => {
+                    state.advancedMode = e.target.value === 'match-target' ? 'match-target' : 'add-strip';
+                    if (state.advancedMode === 'match-target') {
+                        if (state.advancedTargetWidth == null) state.advancedTargetWidth = state.screenWidth;
+                        if (state.advancedTargetHeight == null) state.advancedTargetHeight = state.screenHeight;
+                    }
+                    updateAdvancedControlsState();
+                    state.removedPanels.clear();
+                    updatePixelMap();
+                });
+            }
+            if (advancedPlacementSelect) {
+                advancedPlacementSelect.addEventListener('change', (e) => {
+                    state.advancedPlacement = e.target.value || 'bottom';
+                    if (state.advancedEnabled) {
+                        state.removedPanels.clear();
+                        updatePixelMap();
+                    }
+                });
+            }
+            wireAdvancedNumericInput(advancedStripSizeInput, 'advancedStripSize', { allowNull: false, min: 0 });
+            wireAdvancedNumericInput(advancedTargetWidthInput, 'advancedTargetWidth', { allowNull: true, min: 0 });
+            wireAdvancedNumericInput(advancedTargetHeightInput, 'advancedTargetHeight', { allowNull: true, min: 0 });
+            updateAdvancedControlsState();
+            setAdvancedHint('');
                 const onPanelNumberInput = () => {
                     const w = parseFloat(panelWidthInput.value);
                     const h = parseFloat(panelHeightInput.value);
@@ -4905,20 +6325,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const thumbUrl = thumbCanvas.toDataURL('image/png');
                 const filename = (state.customTextEnabled && state.customText.trim() !== '') ? state.customText.trim() : `${state.totalResWidth}x${state.totalResHeight}px`;
                 
-                let numPanelsWidth, numPanelsHeight;
-
-                if (state.isPanelCountMode) {
-                    numPanelsWidth = state.panelsInWidth;
-                    numPanelsHeight = state.panelsInHeight;
-                } else {
-                    const currentUnit = state.unit;
-                    const screenWidthBase = convertUnits(state.screenWidth, currentUnit, 'meter');
-                    const screenHeightBase = convertUnits(state.screenHeight, currentUnit, 'meter');
-                    const panelWidthBase = state.panelWidth;
-                    const panelHeightBase = state.panelHeight;
-                    numPanelsWidth = Math.floor(screenWidthBase / panelWidthBase);
-                    numPanelsHeight = Math.floor(screenHeightBase / panelHeightBase);
-                }
+                const panelsWidth = Number.isFinite(state.currentPanelsWidth) ? state.currentPanelsWidth : 0;
+                const panelsHeight = Number.isFinite(state.currentPanelsHeight) ? state.currentPanelsHeight : 0;
+                const actualWidthMeters = Number.isFinite(state.actualWidthMeters) ? state.actualWidthMeters : 0;
+                const actualHeightMeters = Number.isFinite(state.actualHeightMeters) ? state.actualHeightMeters : 0;
 
                 const mapObject = {
                     id: Date.now(), // Unique ID
@@ -4933,13 +6343,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     selected: false,
                     image: null, // Image object will be loaded on render
                     details: {
-                        totalPanels: numPanelsWidth * numPanelsHeight,
-                        panelsWidth: numPanelsWidth,
-                        panelsHeight: numPanelsHeight,
+                        totalPanels: panelsWidth * panelsHeight,
+                        panelsWidth,
+                        panelsHeight,
                         resWidth: state.totalResWidth,
                         resHeight: state.totalResHeight,
-                        actualWidth: state.isPanelCountMode ? numPanelsWidth * state.panelWidth : state.screenWidth,
-                        actualHeight: state.isPanelCountMode ? numPanelsHeight * state.panelHeight : state.screenHeight,
+                        actualWidth: actualWidthMeters,
+                        actualHeight: actualHeightMeters,
                         unit: state.unit,
                         panelSize: `${state.panelWidth}m x ${state.panelHeight}m`,
                         panelRes: `${state.panelResWidth}px x ${state.panelResHeight}px`
@@ -4996,6 +6406,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         specificationBgEnabled: state.specificationBgEnabled,
                         specificationBgColor: state.specificationBgColor,
                         oneLineText: state.oneLineText,
+                        advancedEnabled: state.advancedEnabled,
+                        advancedMode: state.advancedMode,
+                        advancedPlacement: state.advancedPlacement,
+                        advancedStripSize: state.advancedStripSize,
+                        advancedTargetWidth: state.advancedTargetWidth,
+                        advancedTargetHeight: state.advancedTargetHeight,
                         removedPanels: Array.from(state.removedPanels || []),
                     },
                     thumbnailUrl: thumbUrl,

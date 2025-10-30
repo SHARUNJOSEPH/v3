@@ -1231,6 +1231,10 @@
                         <button class="nav-link active" id="pixelmap-tab" data-bs-toggle="tab" data-bs-target="#pixelmap-pane" type="button" role="tab" aria-controls="pixelmap-pane" aria-selected="true">PixelMap</button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="advdesigner-tab" data-bs-toggle="tab" data-bs-target="#advdesigner-pane" type="button"
+                            role="tab" aria-controls="advdesigner-pane" aria-selected="false">Advanced Designer</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                         <button class="nav-link" id="canvasmap-tab" data-bs-toggle="tab" data-bs-target="#canvasmap-pane" type="button" role="tab" aria-controls="canvasmap-pane" aria-selected="false">CanvasMap</button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -1254,7 +1258,7 @@
                     <div class="tab-pane fade show active" id="pixelmap-pane" role="tabpanel" aria-labelledby="pixelmap-tab" tabindex="0">
                             <div class="row g-4">
                             <div class="col-3 col-md-2">
-                                <div class="card p-3 h-100">
+                                <div class="card p-3 h-100" id="pixelmapSettingsAccordion">
 
                                     
                                     <hr class="my-4" style="border-color: var(--border-color);">
@@ -1263,7 +1267,7 @@
                                         Screen Settings
                                         <span class="toggle-icon">+</span>
                                     </button>
-                                    <div class="collapse show" id="screenSettingsCollapse">
+                                    <div class="collapse show" id="screenSettingsCollapse" data-bs-parent="#pixelmapSettingsAccordion">
                                         <div class="d-flex flex-column gap-3">
                                             <div>
                                                 <label for="unitSelector" class="form-label fw-bold">Unit</label>
@@ -1328,6 +1332,7 @@
                                                     <input type="text" id="panelResHeight" class="form-control" value="128" min="1" step="1" inputmode="text">
                                                     <span class="input-group-text">px</span>
                                                 </div>
+                                                
                                             </div>
                                             <hr class="my-2" style="border-color: var(--border-color);">
                                             <!-- <button id="saveProjectBtnModal" class="btn btn-primary w-100">Save led </button>
@@ -1336,6 +1341,66 @@
                                             <button id="resetAllBtnModal" class="btn btn-secondary w-100 mt-3">Reset All</button>
                                         </div>
                                     </div>
+<hr class="my-3" style="border-color: var(--border-color);">
+
+<button class="collapse-header" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSettingsCollapse"
+    aria-expanded="false" aria-controls="advancedSettingsCollapse">
+    Advanced Settings
+    <span class="toggle-icon">+</span>
+</button>
+<div class="collapse" id="advancedSettingsCollapse" data-bs-parent="#pixelmapSettingsAccordion">
+    <div class="d-flex flex-column gap-3">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="advancedSettingsEnable">
+            <label class="form-check-label fw-bold" for="advancedSettingsEnable">Enable Advanced Adjustment</label>
+        </div>
+        <div>
+            <label for="advancedSettingsMode" class="form-label fw-bold">Mode</label>
+            <select id="advancedSettingsMode" class="form-select" disabled>
+                <option value="add-strip">Add Strip</option>
+                <option value="match-target">Match Target Size</option>
+            </select>
+        </div>
+        <div id="advancedStripFields" class="d-flex flex-column gap-2">
+            <div>
+                <label for="advancedStripSize" class="form-label fw-bold">Strip Size</label>
+                <div class="input-group">
+                    <input type="text" id="advancedStripSize" class="form-control" value="0" inputmode="text" min="0"
+                        step="0.01" disabled>
+                    <span class="input-group-text unit-label">m</span>
+                </div>
+            </div>
+            <div>
+                <label for="advancedPlacement" class="form-label fw-bold">Placement</label>
+                <select id="advancedPlacement" class="form-select" disabled>
+                    <option value="top">Top</option>
+                    <option value="bottom" selected>Bottom</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
+        </div>
+        <div id="advancedTargetFields" class="d-flex flex-column gap-2" style="display:none;">
+            <div>
+                <label for="advancedTargetWidth" class="form-label fw-bold">Target Width</label>
+                <div class="input-group">
+                    <input type="text" id="advancedTargetWidth" class="form-control" placeholder="Same as screen width"
+                        inputmode="text" min="0" step="0.01" disabled>
+                    <span class="input-group-text unit-label">m</span>
+                </div>
+            </div>
+            <div>
+                <label for="advancedTargetHeight" class="form-label fw-bold">Target Height</label>
+                <div class="input-group">
+                    <input type="text" id="advancedTargetHeight" class="form-control"
+                        placeholder="Same as screen height" inputmode="text" min="0" step="0.01" disabled>
+                    <span class="input-group-text unit-label">m</span>
+                </div>
+            </div>
+        </div>
+        <div id="advancedSettingsHint" class="alert alert-info small mb-0" role="status" style="display: none;"></div>
+    </div>
+</div>
                                     
                                 </div>
                             </div>
@@ -1680,6 +1745,213 @@
                                                 </div>
                                             </div>
                                             <div id="pixelMapSentGallery" class="sent-gallery"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="advdesigner-pane" role="tabpanel" aria-labelledby="advdesigner-tab" tabindex="0">
+                        <div class="row g-4">
+                            <div class="col-12 col-lg-4">
+                                <div class="card p-3 h-100 d-flex flex-column gap-4">
+                                    <div>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h5 class="mb-0">Module Library</h5>
+                                            <button id="advResetModulesBtn" type="button"
+                                                class="btn btn-link btn-sm text-danger">Reset</button>
+                                        </div>
+                                        <form id="advModuleForm" class="row g-2">
+                                            <div class="col-12">
+                                                <label for="advModuleName" class="form-label fw-bold">Module Name</label>
+                                                <input type="text" id="advModuleName" class="form-control" placeholder="Half Tile" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="advModuleWidth" class="form-label fw-bold">Width (m)</label>
+                                                <input type="number" step="0.01" min="0.01" id="advModuleWidth" class="form-control"
+                                                    value="0.5" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="advModuleHeight" class="form-label fw-bold">Height (m)</label>
+                                                <input type="number" step="0.01" min="0.01" id="advModuleHeight" class="form-control"
+                                                    value="0.5" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="advModuleResWidth" class="form-label fw-bold">Pixels (W)</label>
+                                                <input type="number" step="1" min="1" id="advModuleResWidth" class="form-control"
+                                                    value="128" required>
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="advModuleResHeight" class="form-label fw-bold">Pixels (H)</label>
+                                                <input type="number" step="1" min="1" id="advModuleResHeight" class="form-control"
+                                                    value="128" required>
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="advModuleColor" class="form-label fw-bold">Highlight Color</label>
+                                                <input type="color" id="advModuleColor" class="form-control form-control-color"
+                                                    value="#4a90e2" title="Pick a color for preview">
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <button id="advAddModuleBtn" type="button" class="btn btn-primary w-100">Add Module</button>
+                                                <button id="advSetBaseModuleBtn" type="button" class="btn btn-secondary w-100">Set as
+                                                    Base</button>
+                                            </div>
+                                        </form>
+                                        <div id="advModuleList" class="mt-3">
+                                            <div class="text-muted small">No modules defined yet.</div>
+                                        </div>
+                                    </div>
+                                    <hr class="my-0" style="border-color: var(--border-color);">
+                                    <div>
+                                        <h5 class="mb-3">Layout Builder</h5>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-6">
+                                                <label for="advGridRowsInput" class="form-label fw-bold">Rows</label>
+                                                <input type="number" id="advGridRowsInput" class="form-control" min="1" max="50" value="2">
+                                            </div>
+                                            <div class="col-6">
+                                                <label for="advGridColsInput" class="form-label fw-bold">Columns</label>
+                                                <input type="number" id="advGridColsInput" class="form-control" min="1" max="50" value="4">
+                                            </div>
+                                            <div class="col-12 d-flex gap-2">
+                                                <button id="advApplyGridBtn" type="button" class="btn btn-primary w-100">Apply Grid</button>
+                                                <button id="advFillGridBtn" type="button" class="btn btn-secondary w-100">Fill with
+                                                    Base</button>
+                                            </div>
+                                        </div>
+                                        <div id="advGridTable" class="mt-3 border rounded overflow-auto" style="max-height: 320px;">
+                                            <div class="text-muted small p-3">Create a grid to begin assigning modules.</div>
+                                        </div>
+                                    </div>
+                                    <hr class="my-0" style="border-color: var(--border-color);">
+                                    <div>
+                                        <h5 class="mb-3">Summary</h5>
+                                        <ul id="advSummaryList" class="list-group list-group-flush small">
+                                            <li class="list-group-item">Define a layout to view summary.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-8">
+                                <div class="card p-3 h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="mb-0">Layout Preview</h5>
+                                        <div class="d-flex gap-2">
+                                            <button id="advRefreshCanvasBtn" type="button" class="btn btn-secondary btn-sm">Refresh</button>
+                                            <button id="advSendToCanvasBtn" type="button" class="btn btn-primary btn-sm">Send to
+                                                CanvasMap</button>
+                                        </div>
+                                    </div>
+                                    <div class="ratio ratio-16x9 mb-3">
+                                        <canvas id="advancedDesignerCanvas" class="w-100 h-100 rounded border"
+                                            style="background-color: var(--bg-color);"></canvas>
+                                    </div>
+                                    <div id="advWarnings" class="alert alert-warning small mb-0 d-none" role="status"></div>
+                                </div>
+                                <div class="card p-3 mt-3">
+                                    <h6 class="mb-2">Effects & Appearance</h6>
+                                    <div class="accordion" id="advEffectsAccordion">
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="advEffectsHeader">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#advEffectsBody" aria-expanded="false" aria-controls="advEffectsBody">
+                                                    Effects Menu
+                                                </button>
+                                            </h2>
+                                            <div id="advEffectsBody" class="accordion-collapse collapse" aria-labelledby="advEffectsHeader"
+                                                data-bs-parent="#advEffectsAccordion">
+                                                <div class="accordion-body">
+                                                    <div class="mb-2">
+                                                        <label class="form-label fw-bold">Outline</label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="checkbox" id="advOutlineToggle">
+                                                            <input type="color" id="advOutlineColorInput"
+                                                                class="form-control form-control-color" value="#000000"
+                                                                style="width:44px;height:32px;">
+                                                            <input type="number" id="advOutlineSizeInput" class="form-control" value="2"
+                                                                min="0" step="1" style="width:88px;">
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label fw-bold">Raster</label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="checkbox" id="advRasterToggle">
+                                                            <input type="color" id="advRasterColorInput"
+                                                                class="form-control form-control-color" value="#000000"
+                                                                style="width:44px;height:32px;">
+                                                            <input type="number" id="advRasterSizeInput" class="form-control" value="1"
+                                                                min="0" step="1" style="width:88px;">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="advColorHeader">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#advColorBody" aria-expanded="false" aria-controls="advColorBody">
+                                                    Color Settings
+                                                </button>
+                                            </h2>
+                                            <div id="advColorBody" class="accordion-collapse collapse" aria-labelledby="advColorHeader"
+                                                data-bs-parent="#advEffectsAccordion">
+                                                <div class="accordion-body d-flex gap-3">
+                                                    <div>
+                                                        <label class="form-label">Color 1</label>
+                                                        <input type="color" id="advColor1Input" class="form-control form-control-color"
+                                                            value="#4a90e2">
+                                                    </div>
+                                                    <div>
+                                                        <label class="form-label">Color 2</label>
+                                                        <input type="color" id="advColor2Input" class="form-control form-control-color"
+                                                            value="#50e3c2">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header" id="advTextHeader">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#advTextBody" aria-expanded="false" aria-controls="advTextBody">
+                                                    Text & Numbering Settings
+                                                </button>
+                                            </h2>
+                                            <div id="advTextBody" class="accordion-collapse collapse" aria-labelledby="advTextHeader"
+                                                data-bs-parent="#advEffectsAccordion">
+                                                <div class="accordion-body">
+                                                    <div class="mb-2">
+                                                        <label class="form-label fw-bold">Panel Numbering</label>
+                                                        <div class="d-flex gap-2 align-items-center mb-2">
+                                                            <input type="checkbox" id="advNumberingToggle">
+                                                            <select id="advNumberingPosition" class="form-select form-select-sm"
+                                                                style="width:140px;">
+                                                                <option value="top-left">Top Left</option>
+                                                                <option value="center">Center</option>
+                                                                <option value="top-right">Top Right</option>
+                                                            </select>
+                                                            <input type="number" id="advNumberingSizeInput" class="form-control" value="14"
+                                                                min="6" step="1" style="width:80px;">
+                                                            <input type="color" id="advNumberingColorInput"
+                                                                class="form-control form-control-color" value="#000000"
+                                                                style="width:44px;height:32px;">
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label class="form-label fw-bold">Custom Text</label>
+                                                        <div class="d-flex gap-2 align-items-center">
+                                                            <input type="checkbox" id="advCustomTextToggle">
+                                                            <input type="text" id="advCustomTextInput" class="form-control"
+                                                                placeholder="Led Screen" style="min-width:180px;">
+                                                            <input type="number" id="advCustomTextSizeInput" class="form-control" value="20"
+                                                                min="6" step="1" style="width:88px;">
+                                                            <input type="color" id="advCustomTextColor"
+                                                                class="form-control form-control-color" value="#ffffff"
+                                                                style="width:44px;height:32px;">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
