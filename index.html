@@ -1058,31 +1058,6 @@
             </li>
             <li><a id="loginMenuItem" class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a>
             </li>
-<div class="container-fluid py-5 more-section-wrapper">
-    <section id="more-tools" class="more-section">
-        <h2 class="more-section__title">Bit Rate Calculator</h2>
-        <p class="more-section__text">Estimate stream bandwidth and storage using presets for resolution, frame rate, codec, and
-            detail complexity.</p>
-    </section>
-    <section id="more-guides" class="more-section">
-        <h2 class="more-section__title">Guides</h2>
-        <p class="more-section__text">Step-by-step walkthroughs covering screen layouts, media prep, and deployment best
-            practices.</p>
-    </section>
-    <section id="more-support" class="more-section">
-        <h2 class="more-section__title">Support</h2>
-        <p class="more-section__text">Find troubleshooting resources, FAQs, and contact points for rapid assistance.</p>
-    </section>
-    <section id="more-updates" class="more-section">
-        <h2 class="more-section__title">Updates</h2>
-        <p class="more-section__text">Stay informed about the latest features, fixes, and performance improvements.</p>
-    </section>
-    <section id="more-contact" class="more-section">
-        <h2 class="more-section__title">Contact</h2>
-        <p class="more-section__text">Reach out directly for custom development, integration support, or collaboration
-            opportunities.</p>
-    </section>
-</div>
             <li>
                 <hr class="dropdown-divider">
             </li>
@@ -1131,7 +1106,10 @@
                             <textarea id="profileNotesInput" class="form-control" rows="3"
                                 placeholder="Any extra info"></textarea>
                         </div>
-                    </div>
+                        <div class="d-flex gap-2">
+                            <button id="saveProfileBtn" type="button" class="btn btn-primary">Save</button>
+                        </div>
+                        </div>
 <hr class="my-4" style="border-color: var(--border-color);">
 <div id="passwordChangeSection" class="row g-3" style="display:none;">
     <div class="col-12">
@@ -1185,7 +1163,7 @@
                         <button id="clearProfileBtn" type="button" class="btn btn-outline-secondary">Clear</button>
                     </div>
                     <div class="d-flex gap-2">
-                        <button id="saveProfileBtn" type="button" class="btn btn-primary">Save</button>
+                        <!-- <button id="saveProfileBtn" type="button" class="btn btn-primary">Save</button> -->
                     </div>
                 </div>
             </div>
@@ -1265,9 +1243,9 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="moreTabDropdown">
                             <li><button class="dropdown-item" type="button" data-page-target="more-tools">Bit Rate Calculator</button></li>
-                            <li><button class="dropdown-item" type="button" data-page-target="more-guides">Guides</button></li>
+                        
                             <li><button class="dropdown-item" type="button" data-page-target="more-support">Support</button></li>
-                            <li><button class="dropdown-item" type="button" data-page-target="more-updates">Updates</button></li>
+                        
                             <li><button class="dropdown-item" type="button" data-page-target="more-contact">Contact</button></li>
                         </ul>
                     </li>
@@ -2040,9 +2018,9 @@
                                                     <button id="pdfSidebarTabCanvas" type="button" class="btn btn-outline-secondary">Canvas
                                                         List</button>
                                                     <button id="pdfSidebarTabPages" type="button" class="btn btn-outline-secondary active">Pages</button>
-                                                </div>
-                                                <button id="pdfResetOrderBtn" class="btn btn-sm btn-outline-secondary" title="Reset page order">Reset</button>
+                                                    </div>
                                             </div>
+                                            <button id="pdfResetOrderBtn" class="btn btn-sm btn-outline-secondary" title="Reset page order">Reset</button>
                                     </div>
                                     <div class="card-body pt-3">
                                         <aside id="pdfPageSidebar" class="pdf-page-sidebar" aria-label="PDF pages">
