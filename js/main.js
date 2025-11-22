@@ -5333,13 +5333,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             redrawCanvasMapObjects();
         };
-
         targetXInput.addEventListener('input', applyLiveObjectTransform);
         targetYInput.addEventListener('input', applyLiveObjectTransform);
         targetRotationInput.addEventListener('input', applyLiveObjectTransform);
 
         const applyLiveCrop = () => {
-            if (!selectedCanvasMapObject || !selectedCanvasMapObject.image) return;
+            if (!selectedCanvasMapObject) return;
+
+            // Ensure the image is initialized
+            if (!selectedCanvasMapObject.image) {
+                selectedCanvasMapObject.image = new Image();
+                selectedCanvasMapObject.image.onload = () => applyLiveCrop();
+                selectedCanvasMapObject.image.src = selectedCanvasMapObject.dataUrl;
+                return;
+            }
 
             const img = selectedCanvasMapObject.image;
             if (!img.complete || img.naturalWidth === 0) return;
