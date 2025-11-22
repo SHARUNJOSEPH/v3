@@ -320,8 +320,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const exportJpgBtn = document.getElementById('exportJpgBtn');
         const exportOutlineBtn = document.getElementById('exportOutlineBtn');
         const sendToCanvasBtn = document.getElementById('sendToCanvasBtn');
-        const canvasMapCanvas = document.getElementById('canvasMapCanvas');
-        const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
+            const canvasMapCanvas = document.getElementById('canvasMapCanvas');
+            const canvasContainer = document.getElementById('canvasContainer');
+            const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
+
+            function resizeCanvasMap() {
+                if (canvasMapCanvas && canvasContainer) {
+                    canvasMapCanvas.width = canvasContainer.clientWidth;
+                    canvasMapCanvas.height = canvasContainer.clientHeight;
+                    // Scale drawing so logical map fits canvas
+                    const logicalMapWidth = 3840; // or use state.canvasMapWidth
+                    const logicalMapHeight = 2160; // or use state.canvasMapHeight
+                    const scaleX = canvasMapCanvas.width / logicalMapWidth;
+                    const scaleY = canvasMapCanvas.height / logicalMapHeight;
+                    canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+                    // Redraw grid/content here if needed
+                    if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                }
+            }
+            window.addEventListener('resize', resizeCanvasMap);
+            resizeCanvasMap();
         const canvasWidthInput = document.getElementById('canvasWidth');
         const canvasHeightInput = document.getElementById('canvasHeight');
         const importedMapsGallery = document.getElementById('importedMapsGallery');

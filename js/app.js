@@ -827,7 +827,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const exportOutlineBtn = document.getElementById('exportOutlineBtn');
             const sendToCanvasBtn = document.getElementById('sendToCanvasBtn');
             const canvasMapCanvas = document.getElementById('canvasMapCanvas');
+            const canvasContainer = document.getElementById('canvasContainer');
             const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
+
+            function resizeCanvasMap() {
+                if (canvasMapCanvas && canvasContainer) {
+                    canvasMapCanvas.width = canvasContainer.clientWidth;
+                    canvasMapCanvas.height = canvasContainer.clientHeight;
+                    // Scale drawing so logical map fits canvas
+                    const logicalMapWidth = 3840; // or use state.canvasMapWidth
+                    const logicalMapHeight = 2160; // or use state.canvasMapHeight
+                    const scaleX = canvasMapCanvas.width / logicalMapWidth;
+                    const scaleY = canvasMapCanvas.height / logicalMapHeight;
+                    canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+                    // Redraw grid/content here if needed
+                    if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                }
+            }
+            window.addEventListener('resize', resizeCanvasMap);
+            resizeCanvasMap();
             const canvasWidthInput = document.getElementById('canvasWidth');
             const canvasHeightInput = document.getElementById('canvasHeight');
             const importedMapsGallery = document.getElementById('importedMapsGallery'); 
@@ -3841,23 +3859,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const drawGridlines = (ctx) => {
                 if (!state.canvasMapGridEnabled) return;
 
+                // Use logical map size for grid, scale to canvas
+                const logicalMapWidth = state.canvasMapWidth || 3840;
+                const logicalMapHeight = state.canvasMapHeight || 2160;
                 const spacing = state.canvasMapGridSpacing;
+                ctx.save();
+                ctx.setTransform(
+                    ctx.canvas.width / logicalMapWidth,
+                    0,
+                    0,
+                    ctx.canvas.height / logicalMapHeight,
+                    0,
+                    0
+                );
                 ctx.strokeStyle = state.canvasMapGridColor;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-
                 // Vertical lines
-                for (let x = spacing; x < ctx.canvas.width; x += spacing) {
+                for (let x = spacing; x < logicalMapWidth; x += spacing) {
                     ctx.moveTo(x, 0);
-                    ctx.lineTo(x, ctx.canvas.height);
+                    ctx.lineTo(x, logicalMapHeight);
                 }
-
                 // Horizontal lines
-                for (let y = spacing; y < ctx.canvas.height; y += spacing) {
+                for (let y = spacing; y < logicalMapHeight; y += spacing) {
                     ctx.moveTo(0, y);
-                    ctx.lineTo(ctx.canvas.width, y);
+                    ctx.lineTo(logicalMapWidth, y);
                 }
                 ctx.stroke();
+                ctx.restore();
             };
 
             /**
@@ -3999,10 +4028,15 @@ document.addEventListener('DOMContentLoaded', () => {
              */
             const redrawCanvasMapObjects = () => {
                 canvasMapCtx.clearRect(0, 0, canvasMapCanvas.width, canvasMapCanvas.height);
-                
+
                 drawGridlines(canvasMapCtx);
 
-                // Draw PixelMap objects
+                // Use scaled context for all objects
+                const logicalMapWidth = state.canvasMapWidth || 3840;
+                const logicalMapHeight = state.canvasMapHeight || 2160;
+                const scaleX = canvasMapCanvas.width / logicalMapWidth;
+                const scaleY = canvasMapCanvas.height / logicalMapHeight;
+
                 state.canvasMapObjects.forEach(obj => {
                     if (!obj.image) {
                         obj.image = new Image();
@@ -4012,10 +4046,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (obj.image.complete && obj.image.naturalWidth !== 0) {
                         canvasMapCtx.save();
+                        canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
                         canvasMapCtx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
                         canvasMapCtx.rotate(obj.rotation * Math.PI / 180);
                         canvasMapCtx.drawImage(obj.image, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
-                        
+
                         if (obj.selected) {
                             canvasMapCtx.strokeStyle = 'blue';
                             canvasMapCtx.lineWidth = 2;
