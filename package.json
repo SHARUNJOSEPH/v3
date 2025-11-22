@@ -1,0 +1,11 @@
+{
+  "name": "v3-app",
+  "version": "1.0.0",
+  "description": "Local server for v3 app",
+  "scripts": {
+    "start": "serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}
