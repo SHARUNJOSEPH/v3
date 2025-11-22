@@ -451,6 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetXInput = document.getElementById('targetX');
             const targetYInput = document.getElementById('targetY');
             const targetRotationInput = document.getElementById('targetRotation');
+            const cropTopInput = document.getElementById('cropTopInput');
+            const cropBottomInput = document.getElementById('cropBottomInput');
+            const cropLeftInput = document.getElementById('cropLeftInput');
+            const cropRightInput = document.getElementById('cropRightInput');
             const duplicateBtn = document.getElementById('duplicateBtn');
             const deleteBtn = document.getElementById('deleteBtn');
             const mediaServerSelect = document.getElementById('mediaServerSelect');
@@ -1712,7 +1716,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         canvasMapCtx.save();
                         canvasMapCtx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
                         canvasMapCtx.rotate(obj.rotation * Math.PI / 180);
-                        canvasMapCtx.drawImage(obj.image, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+
+                        // Cropping Logic
+                        const cropLeft = obj.cropLeft || 0;
+                        const cropRight = obj.cropRight || 0;
+                        const cropTop = obj.cropTop || 0;
+                        const cropBottom = obj.cropBottom || 0;
+
+                        const sWidth = obj.image.naturalWidth - cropLeft - cropRight;
+                        const sHeight = obj.image.naturalHeight - cropTop - cropBottom;
+
+                        if (sWidth > 0 && sHeight > 0) {
+                             canvasMapCtx.drawImage(
+                                obj.image, 
+                                cropLeft, cropTop, sWidth, sHeight, 
+                                -obj.width / 2, -obj.height / 2, obj.width, obj.height
+                            );
+                        }
                         
                         if (obj.selected) {
                             canvasMapCtx.strokeStyle = 'blue';
@@ -1782,6 +1802,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetXInput.value = Math.round(selectedCanvasMapObject.x);
                     targetYInput.value = Math.round(selectedCanvasMapObject.y);
                     targetRotationInput.value = selectedCanvasMapObject.rotation;
+                    cropTopInput.value = selectedCanvasMapObject.cropTop || 0;
+                    cropBottomInput.value = selectedCanvasMapObject.cropBottom || 0;
+                    cropLeftInput.value = selectedCanvasMapObject.cropLeft || 0;
+                    cropRightInput.value = selectedCanvasMapObject.cropRight || 0;
                 } else {
                     noObjectSelectedMessage.classList.remove('d-none');
                     propertiesContent.classList.add('d-none');
@@ -5313,6 +5337,28 @@ document.addEventListener('DOMContentLoaded', () => {
             targetXInput.addEventListener('input', applyLiveObjectTransform);
             targetYInput.addEventListener('input', applyLiveObjectTransform);
             targetRotationInput.addEventListener('input', applyLiveObjectTransform);
+
+            const applyLiveCrop = () => {
+                if (!selectedCanvasMapObject) return;
+                
+                selectedCanvasMapObject.cropTop = parseInt(cropTopInput.value, 10) || 0;
+                selectedCanvasMapObject.cropBottom = parseInt(cropBottomInput.value, 10) || 0;
+                selectedCanvasMapObject.cropLeft = parseInt(cropLeftInput.value, 10) || 0;
+                selectedCanvasMapObject.cropRight = parseInt(cropRightInput.value, 10) || 0;
+
+                // Optional: Update width/height to maintain aspect ratio if needed
+                // For now, we just crop the source, which might stretch the image if width/height are not adjusted.
+                // To avoid stretching, we should ideally update the object's width/height to match the new aspect ratio.
+                // However, that might be jarring if the user just wants to "mask" part of the image.
+                // Given the requirements, let's keep it simple first.
+                
+                redrawCanvasMapObjects();
+            };
+
+            cropTopInput.addEventListener('input', applyLiveCrop);
+            cropBottomInput.addEventListener('input', applyLiveCrop);
+            cropLeftInput.addEventListener('input', applyLiveCrop);
+            cropRightInput.addEventListener('input', applyLiveCrop);
             
             // Delete and Duplicate buttons
             deleteBtn.addEventListener('click', () => {
