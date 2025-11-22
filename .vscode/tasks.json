@@ -52,8 +52,33 @@
 		{
 			"label": "debug-inline2",
 			"type": "shell",
-			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); anchor='<script src=\"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js\"></script>'; idx=data.find(anchor); print('idx', idx);\\nif idx != -1:\\n    start = idx + len(anchor); rest = data[start:]; script_marker='\\n    <script>'; script_start = rest.find(script_marker); print('script_start', script_start);\"",
+			"command": "python -c \"import pathlib; path=pathlib.Path('index.html'); data=path.read_text(encoding='utf-8'); anchor='<script src=\\\"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js\\\"></script>'; idx=data.find(anchor); print('idx', idx);\\nif idx != -1:\\n    start = idx + len(anchor); rest = data[start:]; script_marker='\\n    <script>'; script_start = rest.find(script_marker); print('script_start', script_start);\"",
 			"isBackground": false
+		},
+		{
+			"label": "Start Server",
+			"type": "shell",
+			"command": "npx serve .",
+			"isBackground": true,
+			"problemMatcher": {
+				"pattern": [
+					{
+						"regexp": ".",
+						"file": 1,
+						"location": 2,
+						"message": 3
+					}
+				],
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "Serving!",
+					"endsPattern": "Serving!"
+				}
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			}
 		}
 	]
 }
