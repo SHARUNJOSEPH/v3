@@ -1,4 +1,82 @@
-﻿// Minimal scripting to toggle password UI and update password
+﻿// --- Crop controls for selected object ---
+let cropTopInput, cropBottomInput, cropLeftInput, cropRightInput;
+
+function initializeCropInputs() {
+    if (!cropTopInput) {
+        cropTopInput = document.getElementById('cropTopInput');
+        cropBottomInput = document.getElementById('cropBottomInput');
+        cropLeftInput = document.getElementById('cropLeftInput');
+        cropRightInput = document.getElementById('cropRightInput');
+        
+        // Attach event listeners
+        [cropTopInput, cropBottomInput, cropLeftInput, cropRightInput].forEach(input => {
+            if (input) input.addEventListener('input', applyObjectCrop);
+        });
+    }
+}
+
+function applyObjectCrop() {
+    if (!selectedCanvasMapObject) return;
+    
+    initializeCropInputs();
+    
+    const top = Math.max(0, Number(cropTopInput?.value) || 0);
+    const bottom = Math.max(0, Number(cropBottomInput?.value) || 0);
+    const left = Math.max(0, Number(cropLeftInput?.value) || 0);
+    const right = Math.max(0, Number(cropRightInput?.value) || 0);
+    
+    // Set crop values on selected object
+    selectedCanvasMapObject.crop = { top, bottom, left, right };
+    selectedCanvasMapObject.cropTop = top;
+    selectedCanvasMapObject.cropBottom = bottom;
+    selectedCanvasMapObject.cropLeft = left;
+    selectedCanvasMapObject.cropRight = right;
+    
+    console.log('Crop applied to object:', selectedCanvasMapObject.id, { top, bottom, left, right });
+    
+    // Force redraw
+    if (typeof redrawCanvasMapObjects === 'function') {
+        redrawCanvasMapObjects();
+    }
+}
+
+// When selecting an object, populate crop fields
+function populateObjectCropFields(obj) {
+    initializeCropInputs();
+    
+    if (!obj) {
+        cropTopInput.value = 0;
+        cropBottomInput.value = 0;
+        cropLeftInput.value = 0;
+        cropRightInput.value = 0;
+        return;
+    }
+    cropTopInput.value = (obj.crop?.top ?? obj.cropTop ?? 0);
+    cropBottomInput.value = (obj.crop?.bottom ?? obj.cropBottom ?? 0);
+    cropLeftInput.value = (obj.crop?.left ?? obj.cropLeft ?? 0);
+    cropRightInput.value = (obj.crop?.right ?? obj.cropRight ?? 0);
+}
+
+// Patch object selection logic to call populateObjectCropFields(selectedCanvasMapObject)
+// ...existing code...
+// --- CanvasMap Crop Feature ---
+// Restore original resizeCanvasMap for normal canvas scaling
+function resizeCanvasMap() {
+    if (canvasMapCanvas && canvasMapContainer) {
+        canvasMapCanvas.width = canvasMapContainer.clientWidth;
+        canvasMapCanvas.height = canvasMapContainer.clientHeight;
+        const logicalMapWidth = 3840;
+        const logicalMapHeight = 2160;
+        const scaleX = canvasMapCanvas.width / logicalMapWidth;
+        const scaleY = canvasMapCanvas.height / logicalMapHeight;
+        const ctx = canvasMapCanvas.getContext('2d');
+        ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+        if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+    }
+}
+window.addEventListener('resize', resizeCanvasMap);
+resizeCanvasMap();
+// Minimal scripting to toggle password UI and update password
         document.addEventListener('DOMContentLoaded', () => {
             const profileModal = document.getElementById('profileModal');
             const passwordSection = document.getElementById('passwordChangeSection');
@@ -2334,9 +2412,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             image: null,
                             details: mapObject.details,
                             filename,
+                            // Initialize crop properties
+                            crop: { top: 0, bottom: 0, left: 0, right: 0 },
+                            cropTop: 0,
+                            cropBottom: 0,
+                            cropLeft: 0,
+                            cropRight: 0
                         };
                         state.canvasMapObjects.push(newCanvasObject);
                         selectedCanvasMapObject = newCanvasObject;
+                        // Update crop input fields for new object
+                        if (typeof populateObjectCropFields === 'function') {
+                            populateObjectCropFields(newCanvasObject);
+                        }
                     } catch { }
 
                     try { setCanvasMapEnabled?.(true); } catch { }
@@ -4044,12 +4132,38 @@ document.addEventListener('DOMContentLoaded', () => {
                         obj.image.src = obj.dataUrl;
                     }
 
-                    if (obj.image.complete && obj.image.naturalWidth !== 0) {
+                    if (obj.type === 'image' && obj.image && obj.image.complete && obj.image.naturalWidth !== 0) {
                         canvasMapCtx.save();
                         canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
                         canvasMapCtx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
                         canvasMapCtx.rotate(obj.rotation * Math.PI / 180);
-                        canvasMapCtx.drawImage(obj.image, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
+
+                        // --- Crop logic ---
+                        const crop = obj.crop || { top: 0, bottom: 0, left: 0, right: 0 };
+                        const cropLeft = crop.left ?? obj.cropLeft ?? 0;
+                        const cropRight = crop.right ?? obj.cropRight ?? 0;
+                        const cropTop = crop.top ?? obj.cropTop ?? 0;
+                        const cropBottom = crop.bottom ?? obj.cropBottom ?? 0;
+                        
+                        const imgWidth = obj.image.naturalWidth;
+                        const imgHeight = obj.image.naturalHeight;
+                        const sWidth = imgWidth - cropLeft - cropRight;
+                        const sHeight = imgHeight - cropTop - cropBottom;
+                        
+                        // Only draw if crop dimensions are valid
+                        if (sWidth > 0 && sHeight > 0) {
+                            canvasMapCtx.drawImage(
+                                obj.image,
+                                cropLeft, cropTop, sWidth, sHeight,
+                                -obj.width / 2, -obj.height / 2, obj.width, obj.height
+                            );
+                        } else {
+                            // Draw full image if crop is invalid
+                            canvasMapCtx.drawImage(
+                                obj.image,
+                                -obj.width / 2, -obj.height / 2, obj.width, obj.height
+                            );
+                        }
 
                         if (obj.selected) {
                             canvasMapCtx.strokeStyle = 'blue';
@@ -4070,7 +4184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const rectY = -obj.height / 2;
 
                             // Background for the text
-                            canvasMapCtx.fillStyle = 'rgba(23, 162, 184, 0.85)'; // A nice teal color with some transparency
+                            canvasMapCtx.fillStyle = 'rgba(23, 162, 184, 0.85)';
                             canvasMapCtx.fillRect(rectX, rectY, textWidth + padding * 2, textHeight + padding * 2);
 
                             // Position Text
@@ -4079,32 +4193,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             canvasMapCtx.fillText(positionText, rectX + padding, rectY + padding);
                         }
                         // --- END: Draw position text ---
-                        
+                
                         canvasMapCtx.restore();
                     }
                 });
-
-                // Draw snapping guides if any
-                if (isDraggingCanvasMapObject && selectedCanvasMapObject && selectedCanvasMapObject.snapIndicators && selectedCanvasMapObject.snapIndicators.length > 0) {
-                    canvasMapCtx.save();
-                    canvasMapCtx.strokeStyle = '#00ffff'; // A bright cyan
-                    canvasMapCtx.lineWidth = 1.5;
-                    canvasMapCtx.setLineDash([6, 3]);
-
-                    selectedCanvasMapObject.snapIndicators.forEach(line => {
-                        canvasMapCtx.beginPath();
-                        if (line.x !== undefined) { // Vertical line
-                            canvasMapCtx.moveTo(line.x, line.y1);
-                            canvasMapCtx.lineTo(line.x, line.y2);
-                        } else { // Horizontal line
-                            canvasMapCtx.moveTo(line.x1, line.y);
-                            canvasMapCtx.lineTo(line.x2, line.y);
-                        }
-                        canvasMapCtx.stroke();
-                    });
-
-                    canvasMapCtx.restore();
-                }
 
                 drawMeasurementGaps(canvasMapCtx);
             };
@@ -9861,10 +9953,20 @@ document.addEventListener('DOMContentLoaded', () => {
                             selected: true, // Select the newly dropped object
                             image: img, // Store the loaded image object to prevent flickering
                             details: mapToDraw.details, // Copy details for PDF export
-                            filename: mapToDraw.filename
+                            filename: mapToDraw.filename,
+                            // Initialize crop properties
+                            crop: { top: 0, bottom: 0, left: 0, right: 0 },
+                            cropTop: 0,
+                            cropBottom: 0,
+                            cropLeft: 0,
+                            cropRight: 0
                         };
                         state.canvasMapObjects.push(newObject);
                         selectedCanvasMapObject = newObject;
+                        // Update crop input fields for new object
+                        if (typeof populateObjectCropFields === 'function') {
+                            populateObjectCropFields(newObject);
+                        }
                         redrawCanvasMapObjects();
                         updateObjectPropertiesPanel();
                     };
@@ -9886,12 +9988,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Check if mouse is within object bounds
                     if (mouseX >= obj.x && mouseX <= (obj.x + obj.width) &&
                         mouseY >= obj.y && mouseY <= (obj.y + obj.height)) {
-                        
                         selectedCanvasMapObject = obj;
                         selectedCanvasMapObject.selected = true;
                         isDraggingCanvasMapObject = true;
-                        
                         selectedCanvasMapObject.snapIndicators = []; // Initialize for drawing guides
+                        // Update crop input fields for selected object
+                        if (typeof populateObjectCropFields === 'function') {
+                            populateObjectCropFields(selectedCanvasMapObject);
+                        }
                         
                         dragOffsetX = mouseX - obj.x;
                         dragOffsetY = mouseY - obj.y;
