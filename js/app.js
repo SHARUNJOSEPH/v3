@@ -3037,47 +3037,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.drawnLines = [];
                 state.drawingArrowStart = false;
                 state.drawingArrowEnd = false;
-                state.canvasMapZoomLevel = 1;
-                state.storedPixelMaps = [];
-                state.savedCanvases = [];
-                state.canvasMapObjects = [];
-                state.canvasMapWidth = 3840;
-                state.canvasMapHeight = 2160;
-                state.canvasMapRulerEnabled = true;
-                state.canvasMapRulerPosition = 'inside';
-                state.canvasMapGridEnabled = true;
-                state.canvasMapGridColor = '#cccccc';
-                state.canvasMapGridSpacing = 50;
-                state.canvasMapMagnetEnabled = true;
-                state.canvasMapMagnetThreshold = 10;
-                state.canvasMapShowGap = true;
-                state.canvasMapGapColor = '#ff0000';
-                state.canvasMapShowCoordinates = true;
-                state.mediaServer = 'resolume';
-                state.pdfFilename = 'CANVASMAP_DETAILS';
-                state.pdfProjectName = '';
-                state.pdfJobNo = '';
-                state.pdfVenue = '';
-                state.pdfDrawnBy = '';
-                state.pdfSales = '';
-                state.pdfClient = '';
-                state.pdfUnit = '';
-                state.pdfEmail = '';
-                state.pdfCompany = '';
-                state.pdfIncludeCanvasSnapshot = false;
-                state.logoDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-                isDraggingCanvasMapObject = false;
-                selectedCanvasMapObject = null;
+                // CanvasMap elements, stage objects, and saved canvases are KEPT intact!
+                // Resetting PixelMap should NEVER wipe CanvasMap.
                 state.removedPanels.clear();
                 state.hoveredPanelCoords = null;
 
-                // Update UI from the reset state (sentScreens stay persisted)
+                // Update PixelMap UI
                 updateUIFromState();
-                
-                // Re-render everything
-                renderImportedMapsGallery();
-                if (typeof renderPixelMapSentGallery === 'function') renderPixelMapSentGallery();
-                renderSavedCanvases();
+                updatePixelMap();
+                fitPixelMapToScreen();
                 updatePixelMap();
                 updateCanvasMap();
             };

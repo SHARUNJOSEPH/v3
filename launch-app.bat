@@ -1,13 +1,12 @@
 @echo off
 cd /d "%~dp0"
 
-:: Check if local server is already running on port 3000
-netstat -ano | findstr ":3000 " | findstr "LISTENING" >nul
-if %errorlevel% neq 0 (
-    start "PixelMap Server" /min cmd /c "npx serve -l 3000 ."
-    :: Small wait for server initialization
-    timeout /t 2 /nobreak >nul
-)
+:: Kill any stale server on port 3000 to ensure fresh code is loaded
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr "LISTENING"') do taskkill /f /pid %%a >nul 2>&1
+
+:: Start fresh local server
+start "PixelMap Server" /min cmd /c "npx serve -l 3000 ."
+timeout /t 1 /nobreak >nul
 
 :: Open in standalone desktop app window using Edge or Chrome (bypassing stale cache)
 if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
