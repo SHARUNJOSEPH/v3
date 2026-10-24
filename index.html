@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="css/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=2.6">
+    <link rel="stylesheet" href="css/style.css?v=2.8">
     <script src="js/vendor/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -1888,55 +1888,52 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-lg-9 col-xl-10 mb-3">
-                                <div class="card p-3 h-100 d-flex flex-column" style="min-height: 0;">
-                                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3 toolbar">
-                                        <button id="canvasMapZoomInBtn" class="btn btn-secondary">Zoom In</button>
-                                        <button id="canvasMapZoomOutBtn" class="btn btn-secondary">Zoom Out</button>
-                                        <button id="canvasMapFitToScreenBtn" class="btn btn-secondary">Fit to Screen</button>
-                                        <button id="canvasMapActualSizeBtn" class="btn btn-secondary">Actual Size</button>
-                                        <button id="exportCanvasPngBtn" class="btn btn-primary" data-bs-toggle="tooltip"
-                                            title="Download CanvasMap as PNG">Export PNG</button>
-                                        <button id="exportCanvasJpgBtn" class="btn btn-primary" data-bs-toggle="tooltip"
-                                            title="Download CanvasMap as JPEG">Export JPEG</button>
+                            <div class="col-12 col-lg-9 col-xl-10 h-100 d-flex flex-column">
+                                <div class="card p-2 h-100 d-flex flex-column shadow-sm" style="min-height: 0;">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-1 mb-2 toolbar py-1 px-2 flex-shrink-0">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button id="canvasMapZoomInBtn" class="btn btn-secondary py-1" title="Zoom In">+</button>
+                                            <button id="canvasMapZoomOutBtn" class="btn btn-secondary py-1" title="Zoom Out">-</button>
+                                            <button id="canvasMapFitToScreenBtn" class="btn btn-secondary py-1" title="Fit to Screen">Fit Screen</button>
+                                            <button id="canvasMapActualSizeBtn" class="btn btn-secondary py-1" title="Actual 1:1 Size">1:1 Size</button>
+                                        </div>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button id="exportCanvasPngBtn" class="btn btn-primary py-1" data-bs-toggle="tooltip" title="Download CanvasMap as PNG">PNG</button>
+                                            <button id="exportCanvasJpgBtn" class="btn btn-primary py-1" data-bs-toggle="tooltip" title="Download CanvasMap as JPEG">JPEG</button>
+                                        </div>
                                     </div>
-                                    <div class="ruler-container flex-grow-1" id="rulerContainer">
+                                    <div class="ruler-container flex-grow-1" id="rulerContainer" style="position: relative; flex: 1; min-height: 0; width: 100%;">
                                         <div class="ruler-corner"></div>
                                         <div class="ruler-horizontal" id="rulerHorizontal"></div>
                                         <div class="ruler-vertical" id="rulerVertical"></div>
-                                        <div class="canvas-container flex-grow-1" id="canvasMapContainer" style="min-height: 0;">
+                                        <div class="canvas-container flex-grow-1" id="canvasMapContainer" style="min-height: 0; width: 100%; height: 100%;">
                                             <canvas id="canvasMapCanvas"></canvas>
                                         </div>
                                     </div>
-                                    <!-- Bottom: Saved Canvases section (separate card like PixelMap list) -->
-                                    <div class="row mt-3">
-                                        <div class="col-12">
-                                            <div class="card p-2">
-                                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2 px-1">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <h6 class="m-0 section-title">Saved Output Map List</h6>
-                                                        <span class="badge text-bg-secondary" id="savedCanvasesCount">0 items</span>
-                                                        </div>
-                                                    <div class="d-flex flex-wrap align-items-center gap-2">
-                                                        <div class="input-group input-group-sm" style="width: 220px;">
-                                                            <span class="input-group-text">Search</span>
-                                                            <input type="text" id="savedSearchInput" class="form-control" placeholder="name...">
-                                                        </div>
-                                                        <div class="input-group input-group-sm" style="width: 200px;">
-                                                            <span class="input-group-text">Sort</span>
-                                                            <select id="savedSortSelect" class="form-select">
-                                                                <option value="recent">Most recent</option>
-                                                                <option value="name">Name</option>
-                                                                <option value="count">Objects count</option>
-                                                            </select>
-                                                        </div>
-                                                        <button class="btn btn-outline-danger btn-sm" id="clearSavedListBtn" title="Remove all saved canvases">Clear
-                                                            all</button>
-                                                        </div>
-                                                        </div>
-                                                        <div id="savedCanvasesGallery" class="saved-gallery"></div>
-                                                        </div>
+                                    <!-- Bottom: Saved Canvases section -->
+                                    <div class="card p-2 mt-2 flex-shrink-0" style="max-height: 140px; overflow-y: auto;">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-1 gap-2 px-1">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h6 class="m-0 section-title" style="font-size: 0.85rem;">Saved Output Map List</h6>
+                                                <span class="badge text-bg-secondary" id="savedCanvasesCount">0 items</span>
+                                            </div>
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                <div class="input-group input-group-sm" style="width: 170px;">
+                                                    <span class="input-group-text py-0">Search</span>
+                                                    <input type="text" id="savedSearchInput" class="form-control form-control-sm" placeholder="name...">
+                                                </div>
+                                                <div class="input-group input-group-sm" style="width: 170px;">
+                                                    <span class="input-group-text py-0">Sort</span>
+                                                    <select id="savedSortSelect" class="form-select form-select-sm">
+                                                        <option value="recent">Most recent</option>
+                                                        <option value="name">Name</option>
+                                                        <option value="count">Objects count</option>
+                                                    </select>
+                                                </div>
+                                                <button class="btn btn-outline-danger btn-sm py-0 px-2" id="clearSavedListBtn" title="Remove all saved canvases">Clear</button>
+                                            </div>
                                         </div>
+                                        <div id="savedCanvasesGallery" class="saved-gallery"></div>
                                     </div>
                                 </div>
                             </div>
@@ -2226,7 +2223,7 @@
                                     <div class="row g-2 mb-3">
                                         <div class="col-7">
                                             <label for="stage3dAmbientGlow" class="form-label small fw-bold mb-1">LED Brightness</label>
-                                            <input type="range" class="form-range" id="stage3dAmbientGlow" min="0.2" max="1.5" step="0.05" value="0.85">
+                                            <input type="range" class="form-range" id="stage3dAmbientGlow" min="0.2" max="1.5" step="0.05" value="1.05">
                                         </div>
                                         <div class="col-5">
                                             <label for="stage3dSpotlightColor" class="form-label small fw-bold mb-1">Light Tint</label>
@@ -2479,12 +2476,12 @@
 
     <script src="js/vendor/bootstrap.bundle.min.js"></script>
     <!-- Aptabase Analytics -->
-    <script src="js/aptabase.js?v=2.6" defer></script>
+    <script src="js/aptabase.js?v=2.8" defer></script>
     <!-- Three.js & 3D Stage Visualizer -->
     <script src="js/vendor/three.min.js"></script>
     <script src="js/vendor/OrbitControls.js"></script>
-    <script src="js/stage3d.js?v=2.6"></script>
-    <script src="js/app.js?v=2.6" defer></script>
+    <script src="js/stage3d.js?v=2.8"></script>
+    <script src="js/app.js?v=2.8" defer></script>
     <script>
         // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {

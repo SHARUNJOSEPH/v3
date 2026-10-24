@@ -24,10 +24,12 @@
         deckStyle: 'glossy',     // 'glossy', 'matte', 'grid'
         spotlights: true,
         spotlightColor: '#00d4ff',
-        ambientGlow: 0.85,
+        ambientGlow: 1.05,
         testPattern: 'live',     // 'live', 'colorbars', 'grid', 'white'
         autoRotate: false
     };
+
+    let lastFrameKey = '';
 
     function init3DStage() {
         if (isInitialized) {
@@ -48,7 +50,8 @@
         // 1. Scene
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0c10);
-        scene.fog = new THREE.FogExp2(0x0a0c10, 0.025);
+        // Lighter fog so distant / small LED walls stay readable
+        scene.fog = new THREE.FogExp2(0x0a0c10, 0.012);
 
         // 2. Camera
         camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -58,8 +61,13 @@
         renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
         renderer.setSize(width, height);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // Canvas / PixelMap pixels are sRGB — declare that so colors aren't washed out
+        if ('sRGBEncoding' in THREE) {
+            renderer.outputEncoding = THREE.sRGBEncoding;
+        }
+        // Mild tone map for the stage environment; LED face uses unlit BasicMaterial
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -221,14 +229,18 @@
 
         lightsGroup = new THREE.Group();
 
-        // Ambient dim stage light
-        const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+        // Brighter fill so LED walls read clearly even when small
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
         lightsGroup.add(ambient);
 
         // Key spot light
-        const keyLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
         keyLight.position.set(5, 10, 8);
         lightsGroup.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0xb8d4ff, 0.35);
+        fillLight.position.set(-6, 6, 4);
+        lightsGroup.add(fillLight);
 
         // Moving Spotlights
         if (config.spotlights) {
@@ -261,13 +273,31 @@
         scene.add(lightsGroup);
     }
 
+    function applyTextureColorSpace(tex) {
+        if (!tex) return tex;
+        // r128+: canvas pixels are sRGB; without this Three treats them as linear → dark/washed LED
+        if ('sRGBEncoding' in THREE) {
+            tex.encoding = THREE.sRGBEncoding;
+        } else if ('SRGBColorSpace' in THREE) {
+            tex.colorSpace = THREE.SRGBColorSpace;
+        }
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+        tex.needsUpdate = true;
+        return tex;
+    }
+
     function getScreenTexture() {
+        if (screenTexture && typeof screenTexture.dispose === 'function') {
+            try { screenTexture.dispose(); } catch (_) { /* ignore */ }
+            screenTexture = null;
+        }
+
         if (config.testPattern === 'live') {
             const pixelCanvas = document.getElementById('pixelMapCanvas');
             if (pixelCanvas && pixelCanvas.width > 0 && pixelCanvas.height > 0) {
-                screenTexture = new THREE.CanvasTexture(pixelCanvas);
-                screenTexture.minFilter = THREE.LinearFilter;
-                screenTexture.magFilter = THREE.LinearFilter;
+                screenTexture = applyTextureColorSpace(new THREE.CanvasTexture(pixelCanvas));
                 return screenTexture;
             }
         }
@@ -307,7 +337,7 @@
             ctx.fillText('PIXELMAP 3D STAGE', offCanvas.width / 2, offCanvas.height / 2);
         }
 
-        screenTexture = new THREE.CanvasTexture(offCanvas);
+        screenTexture = applyTextureColorSpace(new THREE.CanvasTexture(offCanvas));
         return screenTexture;
     }
 
@@ -332,14 +362,14 @@
         const panelRows = appState.isPanelCountMode ? (appState.panelsInHeight || 5) : Math.max(1, Math.round(screenHeightMeters / (appState.panelHeight || 0.5)));
 
         const tex = getScreenTexture();
-        const mat = new THREE.MeshStandardMaterial({
+        // Unlit LED face — matches PixelMap canvas colors (Standard + map+emissive was washing them out)
+        const glow = Math.max(0.2, Math.min(1.5, Number(config.ambientGlow) || 1));
+        const mat = new THREE.MeshBasicMaterial({
             map: tex,
-            emissive: new THREE.Color(0xffffff),
-            emissiveMap: tex,
-            emissiveIntensity: config.ambientGlow,
-            roughness: 0.25,
-            metalness: 0.1
+            color: new THREE.Color(glow, glow, glow),
+            toneMapped: false // keep PixelMap hues out of ACES wash
         });
+        screenMaterial = mat;
 
         // Calculate Y position (Ground support vs Flown)
         const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
@@ -390,6 +420,41 @@
 
         scene.add(screenGroup);
         updateEngineeringSpecs();
+        frameCameraToScreen(screenWidthMeters, screenHeightMeters, centerY, false);
+    }
+
+    /**
+     * Pull the camera in/out so the LED wall fills a useful portion of the viewport.
+     * Small walls (default 2×2 m) were hard to see from the fixed z=11 FOH seat.
+     */
+    function frameCameraToScreen(screenW, screenH, centerY, force) {
+        if (!camera || !controls) return;
+
+        const wingsExtra = (config.sideWings === 'wings') ? screenW * 0.9 : (config.sideWings === 'dj' ? 1.5 : 0);
+        const span = Math.max(screenW + wingsExtra, screenH, 1);
+        const frameKey = [
+            screenW.toFixed(2),
+            screenH.toFixed(2),
+            centerY.toFixed(2),
+            config.sideWings,
+            config.riggingMode,
+            String(config.flownHeight)
+        ].join('|');
+
+        if (!force && frameKey === lastFrameKey) return;
+        lastFrameKey = frameKey;
+
+        const fovRad = (camera.fov * Math.PI) / 180;
+        // Fit the larger span with ~35% margin so the wall isn't tiny or clipped
+        let distance = (span * 0.55) / Math.tan(fovRad / 2);
+        distance = Math.max(4, Math.min(28, distance));
+
+        const targetY = Math.max(1.2, centerY);
+        controls.target.set(0, targetY, 0);
+        camera.position.set(0, targetY + Math.max(0.6, screenH * 0.15), distance);
+        controls.minDistance = Math.max(1.5, distance * 0.25);
+        controls.maxDistance = Math.max(35, distance * 3);
+        controls.update();
     }
 
     function createScreenPanelMesh(width, height, material, cols, rows) {
@@ -480,28 +545,37 @@
     function setCameraPreset(viewName) {
         if (!controls || !camera) return;
 
+        const appState = window.state || {};
+        let screenW = Number(appState.actualWidthMeters) || 4;
+        let screenH = Number(appState.actualHeightMeters) || 2.5;
+        if (screenW <= 0 || isNaN(screenW)) screenW = 4;
+        if (screenH <= 0 || isNaN(screenH)) screenH = 2.5;
+        const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
+        const centerY = baseY + screenH / 2;
+        const span = Math.max(screenW, screenH, 1);
+        const fovRad = (camera.fov * Math.PI) / 180;
+        const fitDist = Math.max(4, Math.min(28, (span * 0.55) / Math.tan(fovRad / 2)));
+
         controls.reset();
         switch (viewName) {
-            case 'foh': // Audience Front of House
-                camera.position.set(0, 2.5, 12);
-                controls.target.set(0, 1.8, 0);
-                break;
+            case 'foh': // Audience Front of House — size-aware
+                frameCameraToScreen(screenW, screenH, centerY, true);
+                return;
             case 'top': // Overhead Rigging View
-                camera.position.set(0, 16, 0.5);
+                camera.position.set(0, Math.max(10, fitDist * 1.2), 0.5);
                 controls.target.set(0, 0, 0);
                 break;
             case 'side': // 45 degree stage perspective
-                camera.position.set(9, 4, 8);
-                controls.target.set(0, 1.5, 0);
+                camera.position.set(fitDist * 0.75, centerY + screenH * 0.25, fitDist * 0.65);
+                controls.target.set(0, centerY, 0);
                 break;
             case 'detail': // Close-up
-                camera.position.set(0, 1.8, 4.5);
-                controls.target.set(0, 1.8, 0);
+                camera.position.set(0, centerY, Math.max(3, fitDist * 0.45));
+                controls.target.set(0, centerY, 0);
                 break;
-            default:
-                camera.position.set(0, 3.2, 11);
-                controls.target.set(0, 1.8, 0);
-                break;
+            default: // Reset → auto-frame
+                frameCameraToScreen(screenW, screenH, centerY, true);
+                return;
         }
         controls.update();
     }
@@ -734,6 +808,11 @@
             config[key] = value;
             if (key === 'deckStyle') buildStageEnvironment();
             if (key === 'spotlights' || key === 'spotlightColor') buildLighting();
+            if (key === 'ambientGlow' && screenMaterial && screenMaterial.isMeshBasicMaterial) {
+                const glow = Math.max(0.2, Math.min(1.5, Number(value) || 1));
+                screenMaterial.color.setRGB(glow, glow, glow);
+                return;
+            }
             if (key === 'curveAngle' || key === 'curveDirection' || key === 'riggingMode' || key === 'flownHeight' || key === 'sideWings' || key === 'testPattern' || key === 'ambientGlow') {
                 rebuildScreens();
             }

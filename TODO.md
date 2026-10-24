@@ -10,6 +10,9 @@
 - [x] Guard `stage3d.js` rebuild/environment/lighting against pre-init calls from `updatePixelMap` (`if (!scene) return`); bump asset `?v=` to 2.5.
 - [x] Skip `/__/firebase/init.js` on local/dev hosts; guard `firebase.initializeApp` when SDK missing; bump `?v=` to 2.6.
 - [x] Password-change form a11y: hidden username/email field (`#passwordChangeUsername`) populated on profile modal open.
+- [x] 3D Stage visibility: auto-frame camera to LED wall size, lighter fog, brighter fill/exposure; size-aware FOH/Reset/Detail presets.
+- [x] 3D Stage colors: unlit `MeshBasicMaterial` + `toneMapped: false` + sRGB canvas encoding so live PixelMap isn't washed out; bump `?v=` to 2.8.
+- [x] Fix invalid MediaPro regex `/(?i:mediapro)$/i` → `/^mediapro$/i` in `app.js`.
 - [ ] Restore Firebase Auth / Firestore / Storage compat SDKs under `js/vendor/` and load from `index.html` (CDN tags were removed in the vendor pass; without them the app stays in `__IS_DEMO__`).
 - [ ] Add secure Firebase Firestore and Storage rules files, and wire them in `firebase.json`.
 - [ ] Bridge `app.js` `state` → `stage3d.js` (`window.state` is read but never assigned; engineering specs fall back to defaults).

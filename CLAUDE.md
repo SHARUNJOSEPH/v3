@@ -31,7 +31,7 @@ firebase hosting:channel:deploy pr-<n> --project "$FIREBASE_PROJECT_ID"
 
 There is **no** test runner, bundler, TypeScript, or ESLint config yet. `TODO.md` tracks adding ESLint security lint and Firestore/Storage rules. Do not invent a test/lint workflow — document or add it explicitly if introduced.
 
-Cache-bust query strings (`?v=2.6`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
+Cache-bust query strings (`?v=2.8`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
 
 ## Architecture
 

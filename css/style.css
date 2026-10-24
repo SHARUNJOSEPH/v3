@@ -440,9 +440,13 @@ body.dark-mode .btn-close {
 
 /* CanvasMap-specific canvas styling */
 #canvasMapCanvas {
-    border: none;
+    border: 1px solid var(--border-color);
     display: block;
-    /* Will be sized by its width/height attributes set in JS */
+    background-color: #000000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    image-rendering: auto;
+    user-select: none;
+    touch-action: none;
 }
 
 .canvas-info {
@@ -723,6 +727,8 @@ input[type="color"]::-webkit-color-swatch-wrapper {
     right: 0;
     bottom: 0;
     transition: all 0.3s ease;
+    overflow: auto;
+    padding: 12px;
 }
 
 .ruler-container.rulers-on #canvasMapContainer {

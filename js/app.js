@@ -821,24 +821,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const exportJpgBtn = document.getElementById('exportJpgBtn');
             const exportOutlineBtn = document.getElementById('exportOutlineBtn');
             const sendToCanvasBtn = document.getElementById('sendToCanvasBtn');
+            const canvasMapContainer = document.getElementById('canvasMapContainer');
             const canvasMapCanvas = document.getElementById('canvasMapCanvas');
-            const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
+            const canvasMapCtx = canvasMapCanvas ? canvasMapCanvas.getContext('2d', { alpha: true }) : null;
 
-            function resizeCanvasMap() {
-                const container = document.getElementById('canvasMapContainer') || canvasContainer;
-                if (canvasMapCanvas && canvasMapCtx && container) {
-                    const w = container.clientWidth;
-                    const h = container.clientHeight;
-                    if (w > 0 && h > 0) {
-                        canvasMapCanvas.width = w;
-                        canvasMapCanvas.height = h;
-                        const logicalMapWidth = state.canvasMapWidth || 3840;
-                        const logicalMapHeight = state.canvasMapHeight || 2160;
-                        const scaleX = w / logicalMapWidth;
-                        const scaleY = h / logicalMapHeight;
-                        canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-                        if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+            function resizeCanvasMap(forceFit = false) {
+                const container = canvasMapContainer || document.getElementById('canvasMapContainer');
+                if (!canvasMapCanvas || !canvasMapCtx || !container) return;
+                const logicalW = state.canvasMapWidth || 3840;
+                const logicalH = state.canvasMapHeight || 2160;
+                if (canvasMapCanvas.width !== logicalW) {
+                    canvasMapCanvas.width = logicalW;
+                }
+                if (canvasMapCanvas.height !== logicalH) {
+                    canvasMapCanvas.height = logicalH;
+                }
+                const cw = container.clientWidth;
+                const ch = container.clientHeight;
+                if (cw > 0 && ch > 0) {
+                    if (forceFit || !state._canvasManualZoom) {
+                        const scaleX = cw / logicalW;
+                        const scaleY = ch / logicalH;
+                        state.canvasMapZoomLevel = Math.min(scaleX, scaleY) * 0.95;
                     }
+                    if (typeof applyCanvasMapTransform === 'function') applyCanvasMapTransform();
+                    if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                    if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
                 }
             }
             window.addEventListener('resize', () => {
@@ -966,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const canvasMapZoomOutBtn = document.getElementById('canvasMapZoomOutBtn');
             const canvasMapFitToScreenBtn = document.getElementById('canvasMapFitToScreenBtn');
             const canvasMapActualSizeBtn = document.getElementById('canvasMapActualSizeBtn');
-            const canvasMapContainer = document.getElementById('canvasMapContainer');
+            // canvasMapContainer declared above
             const rulerContainer = document.getElementById('rulerContainer');
             const rulerHorizontal = document.getElementById('rulerHorizontal');
             const rulerVertical = document.getElementById('rulerVertical');
@@ -3760,47 +3768,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const updateCanvasMap = () => {
                 // Any CanvasMap change can affect the PDF preview content
                 state.pdfPreviewDirty = true; schedulePdfPreview();
-                const canvasW = state.canvasMapWidth;
-                const canvasH = state.canvasMapHeight;
+                const canvasW = state.canvasMapWidth || 3840;
+                const canvasH = state.canvasMapHeight || 2160;
                 
-                canvasMapCanvas.width = canvasW;
-                canvasMapCanvas.height = canvasH;
+                if (canvasMapCanvas.width !== canvasW) canvasMapCanvas.width = canvasW;
+                if (canvasMapCanvas.height !== canvasH) canvasMapCanvas.height = canvasH;
                 
                 canvasMapCtx.clearRect(0, 0, canvasW, canvasH);
+                if (state.canvasBgColor) {
+                    canvasMapCtx.fillStyle = state.canvasBgColor;
+                    canvasMapCtx.fillRect(0, 0, canvasW, canvasH);
+                }
 
                 applyCanvasMapTransform(); // Apply zoom
                 redrawCanvasMapObjects(); // Redraw all objects on CanvasMap
                 
-                // Draw custom text if enabled (on CanvasMap canvas)
-                if (state.customTextEnabled) {
-                    canvasMapCtx.save();
-                    canvasMapCtx.scale(state.canvasMapZoomLevel, state.canvasMapZoomLevel); // Apply zoom
-                    canvasMapCtx.font = `${state.customTextSize}px Arial`;
-                    canvasMapCtx.textAlign = 'center';
-                    canvasMapCtx.textBaseline = 'middle';
-                    
-                    if (state.customTextBgEnabled) {
-                        const textMetrics = canvasMapCtx.measureText(state.customText);
-                        const textHeight = state.customTextSize * 1.2;
-                        const padding = 5;
-                        const radius = 10;
-                        canvasMapCtx.fillStyle = hexToRgba(state.customTextBgColor, state.customTextBgOpacity);
-                        drawRoundedRect(
-                            canvasMapCtx,
-                            (canvasW / 2) - (textMetrics.width / 2) - padding,
-                            (canvasH / 2) - (textHeight / 2) - padding,
-                            textMetrics.width + (padding * 2),
-                            textHeight + (padding * 2),
-                            radius
-                        );
-                    }
-                    
-                    canvasMapCtx.fillStyle = state.customTextColor;
-                    canvasMapCtx.fillText(state.customText, canvasW / 2, canvasH / 2);
-                    canvasMapCtx.restore();
-                }
-                
-                if (state.canvasMapRulerEnabled) {
+                if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') {
                     drawRulers();
                 }
             };
@@ -4088,15 +4071,18 @@ document.addEventListener('DOMContentLoaded', () => {
              * Redraws all objects and manual drawings on the canvasMapCanvas.
              */
             const redrawCanvasMapObjects = () => {
-                canvasMapCtx.clearRect(0, 0, canvasMapCanvas.width, canvasMapCanvas.height);
-
-                drawGridlines(canvasMapCtx);
-
-                // Use scaled context for all objects
                 const logicalMapWidth = state.canvasMapWidth || 3840;
                 const logicalMapHeight = state.canvasMapHeight || 2160;
-                const scaleX = canvasMapCanvas.width / logicalMapWidth;
-                const scaleY = canvasMapCanvas.height / logicalMapHeight;
+                if (canvasMapCanvas.width !== logicalMapWidth) canvasMapCanvas.width = logicalMapWidth;
+                if (canvasMapCanvas.height !== logicalMapHeight) canvasMapCanvas.height = logicalMapHeight;
+
+                canvasMapCtx.clearRect(0, 0, canvasMapCanvas.width, canvasMapCanvas.height);
+                if (state.canvasBgColor) {
+                    canvasMapCtx.fillStyle = state.canvasBgColor;
+                    canvasMapCtx.fillRect(0, 0, canvasMapCanvas.width, canvasMapCanvas.height);
+                }
+
+                drawGridlines(canvasMapCtx);
 
                 state.canvasMapObjects.forEach(obj => {
                     if (!obj.image) {
@@ -4107,7 +4093,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (obj.type === 'image' && obj.image && obj.image.complete && obj.image.naturalWidth !== 0) {
                         canvasMapCtx.save();
-                        canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
                         canvasMapCtx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
                         canvasMapCtx.rotate(obj.rotation * Math.PI / 180);
 
@@ -4139,8 +4124,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         if (obj.selected) {
-                            canvasMapCtx.strokeStyle = 'blue';
-                            canvasMapCtx.lineWidth = 2;
+                            canvasMapCtx.strokeStyle = '#0d6efd';
+                            canvasMapCtx.lineWidth = 3;
                             canvasMapCtx.strokeRect(-obj.width / 2, -obj.height / 2, obj.width, obj.height);
                         }
 
@@ -4272,6 +4257,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     filenameLabel.className = 'filename-label';
                     filenameLabel.textContent = map.filename;
                     
+                    mapItem.title = "Drag onto canvas or double-click to place";
+                    mapItem.addEventListener('dblclick', (e) => {
+                        if (e.target.closest('.map-item-controls') || e.target.closest('.rename-input')) return;
+                        const logicalW = state.canvasMapWidth || 3840;
+                        const logicalH = state.canvasMapHeight || 2160;
+                        const imgWidth = map.width;
+                        const imgHeight = map.height;
+                        const count = (state.canvasMapObjects || []).length;
+                        const offset = (count * 40) % 240;
+                        let x = Math.max(0, Math.min(offset, logicalW - imgWidth));
+                        let y = Math.max(0, Math.min(offset, logicalH - imgHeight));
+
+                        state.canvasMapObjects.forEach(obj => obj.selected = false);
+                        const newObject = {
+                            type: 'image',
+                            id: Date.now(),
+                            sourceId: map.id,
+                            dataUrl: map.dataUrl,
+                            x: Math.round(x),
+                            y: Math.round(y),
+                            width: imgWidth,
+                            height: imgHeight,
+                            rotation: 0,
+                            selected: true,
+                            image: map.image || img,
+                            details: map.details,
+                            filename: map.filename,
+                            crop: { top: 0, bottom: 0, left: 0, right: 0 },
+                            cropTop: 0,
+                            cropBottom: 0,
+                            cropLeft: 0,
+                            cropRight: 0
+                        };
+                        state.canvasMapObjects.push(newObject);
+                        selectedCanvasMapObject = newObject;
+                        if (typeof populateObjectCropFields === 'function') populateObjectCropFields(newObject);
+                        redrawCanvasMapObjects();
+                        updateObjectPropertiesPanel();
+                    });
+
                     const renameInput = document.createElement('input');
                     renameInput.type = 'text';
                     renameInput.className = 'rename-input';
@@ -5014,7 +5039,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const nameLabel = document.createElement('div');
                     nameLabel.className = 'saved-title';
                     nameLabel.textContent = savedCanvas.name;
-                    const renameInput = document.createElement('input');
+const renameInput = document.createElement('input');
                     renameInput.type = 'text';
                     renameInput.className = 'form-control form-control-sm';
                     renameInput.value = savedCanvas.name;
@@ -6571,31 +6596,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // CanvasMap Zoom and View Listeners
             canvasMapZoomInBtn.addEventListener('click', () => {
-                state.canvasMapZoomLevel *= 1.2;
+                state._canvasManualZoom = true;
+                state.canvasMapZoomLevel = Math.min(5, (state.canvasMapZoomLevel || 1) * 1.2);
                 applyCanvasMapTransform();
-                if(state.canvasMapRulerEnabled) drawRulers();
+                if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
             });
             canvasMapZoomOutBtn.addEventListener('click', () => {
-                state.canvasMapZoomLevel /= 1.2;
+                state._canvasManualZoom = true;
+                state.canvasMapZoomLevel = Math.max(0.05, (state.canvasMapZoomLevel || 1) / 1.2);
                 applyCanvasMapTransform();
-                if(state.canvasMapRulerEnabled) drawRulers();
+                if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
             });
             canvasMapFitToScreenBtn.addEventListener('click', () => {
-                const containerWidth = canvasMapContainer.clientWidth;
-                const containerHeight = canvasMapContainer.clientHeight;
-                
-                const scaleX = canvasMapCanvas.width > 0 ? containerWidth / canvasMapCanvas.width : 1;
-                const scaleY = canvasMapCanvas.height > 0 ? containerHeight / canvasMapCanvas.height : 1;
-                state.canvasMapZoomLevel = Math.min(scaleX, scaleY) * 0.95; // 5% margin
-                
-                applyCanvasMapTransform();
-                if(state.canvasMapRulerEnabled) drawRulers();
+                state._canvasManualZoom = false;
+                resizeCanvasMap(true);
             });
             canvasMapActualSizeBtn.addEventListener('click', () => {
+                state._canvasManualZoom = true;
                 state.canvasMapZoomLevel = 1;
                 applyCanvasMapTransform();
-                if(state.canvasMapRulerEnabled) drawRulers();
+                if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
             });
+
+            if (canvasMapContainer) {
+                canvasMapContainer.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        state._canvasManualZoom = true;
+                        const factor = e.deltaY < 0 ? 1.15 : 0.85;
+                        state.canvasMapZoomLevel = Math.max(0.05, Math.min(5, (state.canvasMapZoomLevel || 1) * factor));
+                        applyCanvasMapTransform();
+                        if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
+                    }
+                }, { passive: false });
+            }
 
             rulerToggle.addEventListener('click', () => {
                 state.canvasMapRulerEnabled = !state.canvasMapRulerEnabled;
@@ -6755,6 +6789,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const val = (e.target.value || '').trim();
                         if (val && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(val)) {
                             state.canvasBgColor = val;
+                            if (canvasMapCanvas) canvasMapCanvas.style.backgroundColor = val;
+                            redrawCanvasMapObjects();
                             // Rebuild pages list thumbnails and mark preview dirty
                             try { typeof buildPdfPageSidebar === 'function' && buildPdfPageSidebar(); } catch { }
                             state.pdfPreviewDirty = true;
@@ -9169,15 +9205,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Prevent opening CanvasMap tab until at least one LED screen is sent from PixelMap
+        // CanvasMap tab is always accessible
         const canvasMapTab = document.getElementById('canvasmap-tab');
         if (canvasMapTab) {
-            canvasMapTab.addEventListener('show.bs.tab', (e) => {
-                if (!Array.isArray(state.storedPixelMaps) || state.storedPixelMaps.length === 0) {
-                    e.preventDefault();
-                    showMessageBox('Please send at least one LED screen from PixelMap to CanvasMap first.');
-                }
-            });
+            // Keep tab openable unconditionally
         }
 
         // Auto-generate preview when switching to the PDF Settings tab
@@ -9267,8 +9298,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canvasMapTabBtn) {
             canvasMapTabBtn.addEventListener('shown.bs.tab', () => {
                 setTimeout(() => {
-                    resizeCanvasMap();
+                    resizeCanvasMap(true);
                     if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                    if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
                 }, 50);
             });
         }
@@ -9893,56 +9925,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            canvasMapCanvas.addEventListener('dragover', (e) => {
-                e.preventDefault(); // Allow drop
-                e.dataTransfer.dropEffect = 'copy';
-            });
-
-            canvasMapCanvas.addEventListener('drop', (e) => {
+            const handleCanvasMapDrop = (e) => {
                 e.preventDefault();
-                const mapId = parseInt(e.dataTransfer.getData('text/plain'));
-                const mapToDraw = state.storedPixelMaps.find(map => map.id === mapId);
+                const rawId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
+                const mapId = parseInt(rawId, 10);
+                const mapToDraw = (state.storedPixelMaps || []).find(map => map.id === mapId);
 
                 if (mapToDraw) {
-                    const img = new Image();
-                    img.onload = () => {
-                        const rect = canvasMapCanvas.getBoundingClientRect();
-                        // Get drop coordinates relative to the canvas's intrinsic resolution
-                        const dropX = (e.clientX - rect.left) * (canvasMapCanvas.width / rect.width);
-                        const dropY = (e.clientY - rect.top) * (canvasMapCanvas.height / rect.height);
+                    const placeObject = (loadedImg) => {
+                        const logicalW = state.canvasMapWidth || 3840;
+                        const logicalH = state.canvasMapHeight || 2160;
+                        if (canvasMapCanvas.width !== logicalW) canvasMapCanvas.width = logicalW;
+                        if (canvasMapCanvas.height !== logicalH) canvasMapCanvas.height = logicalH;
 
-                        // Calculate image dimensions at 1:1 scale
+                        const rect = canvasMapCanvas.getBoundingClientRect();
+                        const scaleX = canvasMapCanvas.width / (rect.width || 1);
+                        const scaleY = canvasMapCanvas.height / (rect.height || 1);
+                        const dropX = (e.clientX - rect.left) * scaleX;
+                        const dropY = (e.clientY - rect.top) * scaleY;
+
                         const imgWidth = mapToDraw.width;
                         const imgHeight = mapToDraw.height;
 
-                        // Calculate initial top-left if centered at drop point
                         let x = dropX - (imgWidth / 2);
                         let y = dropY - (imgHeight / 2);
 
-                        // Clamp X to canvas bounds
-                        x = Math.max(0, Math.min(x, canvasMapCanvas.width - imgWidth));
-                        // Clamp Y to canvas bounds
-                        y = Math.max(0, Math.min(y, canvasMapCanvas.height - imgHeight));
+                        const minX = Math.min(0, logicalW - imgWidth);
+                        const maxX = Math.max(0, logicalW - imgWidth);
+                        const minY = Math.min(0, logicalH - imgHeight);
+                        const maxY = Math.max(0, logicalH - imgHeight);
 
-                        // Deselect all other objects
+                        x = Math.max(minX, Math.min(x, maxX));
+                        y = Math.max(minY, Math.min(y, maxY));
+
                         state.canvasMapObjects.forEach(obj => obj.selected = false);
 
-                        // Add new object to canvasMapObjects, copying details
                         const newObject = {
                             type: 'image',
-                            id: Date.now(), // Unique ID for this instance on CanvasMap
+                            id: Date.now(),
                             sourceId: mapToDraw.id,
                             dataUrl: mapToDraw.dataUrl,
-                            x: x,
-                            y: y,
+                            x: Math.round(x),
+                            y: Math.round(y),
                             width: imgWidth,
                             height: imgHeight,
                             rotation: 0,
-                            selected: true, // Select the newly dropped object
-                            image: img, // Store the loaded image object to prevent flickering
-                            details: mapToDraw.details, // Copy details for PDF export
+                            selected: true,
+                            image: loadedImg,
+                            details: mapToDraw.details,
                             filename: mapToDraw.filename,
-                            // Initialize crop properties
                             crop: { top: 0, bottom: 0, left: 0, right: 0 },
                             cropTop: 0,
                             cropBottom: 0,
@@ -9951,16 +9982,40 @@ document.addEventListener('DOMContentLoaded', () => {
                         };
                         state.canvasMapObjects.push(newObject);
                         selectedCanvasMapObject = newObject;
-                        // Update crop input fields for new object
+
                         if (typeof populateObjectCropFields === 'function') {
                             populateObjectCropFields(newObject);
                         }
                         redrawCanvasMapObjects();
                         updateObjectPropertiesPanel();
                     };
-                    img.src = mapToDraw.dataUrl;
+
+                    if (mapToDraw.image && mapToDraw.image.complete && mapToDraw.image.naturalWidth > 0) {
+                        placeObject(mapToDraw.image);
+                    } else {
+                        const img = new Image();
+                        img.onload = () => {
+                            mapToDraw.image = img;
+                            placeObject(img);
+                        };
+                        img.src = mapToDraw.dataUrl;
+                    }
                 }
+            };
+
+            canvasMapCanvas.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
             });
+            canvasMapCanvas.addEventListener('drop', handleCanvasMapDrop);
+
+            if (canvasMapContainer) {
+                canvasMapContainer.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                });
+                canvasMapContainer.addEventListener('drop', handleCanvasMapDrop);
+            }
 
             // CanvasMap Object Interaction (Selection and Dragging)
             canvasMapCanvas.addEventListener('mousedown', (e) => {
@@ -9973,14 +10028,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Iterate in reverse to select top-most object
                 for (let i = state.canvasMapObjects.length - 1; i >= 0; i--) {
                     const obj = state.canvasMapObjects[i];
-                    // Check if mouse is within object bounds
                     if (mouseX >= obj.x && mouseX <= (obj.x + obj.width) &&
                         mouseY >= obj.y && mouseY <= (obj.y + obj.height)) {
                         selectedCanvasMapObject = obj;
                         selectedCanvasMapObject.selected = true;
                         isDraggingCanvasMapObject = true;
-                        selectedCanvasMapObject.snapIndicators = []; // Initialize for drawing guides
-                        // Update crop input fields for selected object
+                        selectedCanvasMapObject.snapIndicators = [];
+                        
                         if (typeof populateObjectCropFields === 'function') {
                             populateObjectCropFields(selectedCanvasMapObject);
                         }
@@ -9990,15 +10044,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         redrawCanvasMapObjects();
                         updateObjectPropertiesPanel();
-                        return; // Stop after finding the first object
+                        return;
                     }
                 }
-                redrawCanvasMapObjects(); // Redraw if nothing selected
+                redrawCanvasMapObjects();
                 updateObjectPropertiesPanel();
             });
 
-            canvasMapCanvas.addEventListener('mousemove', (e) => {
-                // Handle object dragging
+            window.addEventListener('mousemove', (e) => {
                 if (!isDraggingCanvasMapObject || !selectedCanvasMapObject) return;
 
                 const { x: mouseX, y: mouseY } = getCanvasCoords(e.clientX, e.clientY, canvasMapCanvas);
@@ -10006,11 +10059,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newX = mouseX - dragOffsetX;
                 let newY = mouseY - dragOffsetY;
 
-                selectedCanvasMapObject.snapIndicators = []; // Reset indicators each frame
+                selectedCanvasMapObject.snapIndicators = [];
 
                 // Snapping Logic
                 if (state.canvasMapMagnetEnabled) {
-                    const threshold = state.canvasMapMagnetThreshold;
+                    const threshold = state.canvasMapMagnetThreshold || 10;
                     let xSnapped = false;
                     let ySnapped = false;
                     
@@ -10020,96 +10073,65 @@ document.addEventListener('DOMContentLoaded', () => {
                         const moving = selectedCanvasMapObject;
                         const stationary = stationaryObj;
 
-                        // --- X-axis Snapping (find first match) ---
+                        // --- X-axis Snapping ---
                         if (!xSnapped) {
-                            // moving right to stationary left
                             if (Math.abs((newX + moving.width) - stationary.x) < threshold) {
                                 newX = stationary.x - moving.width;
                                 xSnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ x: stationary.x, y1: Math.max(newY, stationary.y), y2: Math.min(newY + moving.height, stationary.y + stationary.height) });
-                            }
-                            // moving left to stationary right
-                            else if (Math.abs(newX - (stationary.x + stationary.width)) < threshold) {
+                            } else if (Math.abs(newX - (stationary.x + stationary.width)) < threshold) {
                                 newX = stationary.x + stationary.width;
                                 xSnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ x: newX, y1: Math.max(newY, stationary.y), y2: Math.min(newY + moving.height, stationary.y + stationary.height) });
-                            }
-                            // moving left to stationary left
-                            else if (Math.abs(newX - stationary.x) < threshold) {
+                            } else if (Math.abs(newX - stationary.x) < threshold) {
                                 newX = stationary.x;
                                 xSnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ x: newX, y1: Math.max(newY, stationary.y), y2: Math.min(newY + moving.height, stationary.y + stationary.height) });
-                            }
-                            // moving right to stationary right
-                            else if (Math.abs((newX + moving.width) - (stationary.x + stationary.width)) < threshold) {
+                            } else if (Math.abs((newX + moving.width) - (stationary.x + stationary.width)) < threshold) {
                                 newX = stationary.x + stationary.width - moving.width;
                                 xSnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ x: stationary.x + stationary.width, y1: Math.max(newY, stationary.y), y2: Math.min(newY + moving.height, stationary.y + stationary.height) });
                             }
                         }
 
-                        // --- Y-axis Snapping (find first match) ---
+                        // --- Y-axis Snapping ---
                         if (!ySnapped) {
-                            // moving bottom to stationary top
                             if (Math.abs((newY + moving.height) - stationary.y) < threshold) {
                                 newY = stationary.y - moving.height;
                                 ySnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ y: stationary.y, x1: Math.max(newX, stationary.x), x2: Math.min(newX + moving.width, stationary.x + stationary.width) });
-                            }
-                            // moving top to stationary bottom
-                            else if (Math.abs(newY - (stationary.y + stationary.height)) < threshold) {
+                            } else if (Math.abs(newY - (stationary.y + stationary.height)) < threshold) {
                                 newY = stationary.y + stationary.height;
                                 ySnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ y: newY, x1: Math.max(newX, stationary.x), x2: Math.min(newX + moving.width, stationary.x + stationary.width) });
-                            }
-                            // moving top to stationary top
-                            else if (Math.abs(newY - stationary.y) < threshold) {
+                            } else if (Math.abs(newY - stationary.y) < threshold) {
                                 newY = stationary.y;
                                 ySnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ y: newY, x1: Math.max(newX, stationary.x), x2: Math.min(newX + moving.width, stationary.x + stationary.width) });
-                            }
-                            // moving bottom to stationary bottom
-                            else if (Math.abs((newY + moving.height) - (stationary.y + stationary.height)) < threshold) {
+                            } else if (Math.abs((newY + moving.height) - (stationary.y + stationary.height)) < threshold) {
                                 newY = stationary.y + stationary.height - moving.height;
                                 ySnapped = true;
-                                selectedCanvasMapObject.snapIndicators.push({ y: stationary.y + stationary.height, x1: Math.max(newX, stationary.x), x2: Math.min(newX + moving.width, stationary.x + stationary.width) });
                             }
                         }
                         
-                        if(xSnapped && ySnapped) break; // Exit loop if both axes snapped
+                        if (xSnapped && ySnapped) break;
                     }
                 }
                 
-                // Update object position
-                selectedCanvasMapObject.x = newX;
-                selectedCanvasMapObject.y = newY;
+                // Clamp position cleanly within canvas bounds without locking
+                const canvasW = state.canvasMapWidth || 3840;
+                const canvasH = state.canvasMapHeight || 2160;
+                const minX = Math.min(0, canvasW - selectedCanvasMapObject.width);
+                const maxX = Math.max(0, canvasW - selectedCanvasMapObject.width);
+                const minY = Math.min(0, canvasH - selectedCanvasMapObject.height);
+                const maxY = Math.max(0, canvasH - selectedCanvasMapObject.height);
 
-                // Clamp position to canvas bounds
-                selectedCanvasMapObject.x = Math.max(0, Math.min(selectedCanvasMapObject.x, canvasMapCanvas.width - selectedCanvasMapObject.width));
-                selectedCanvasMapObject.y = Math.max(0, Math.min(selectedCanvasMapObject.y, canvasMapCanvas.height - selectedCanvasMapObject.height));
+                selectedCanvasMapObject.x = Math.max(minX, Math.min(newX, maxX));
+                selectedCanvasMapObject.y = Math.max(minY, Math.min(newY, maxY));
 
                 redrawCanvasMapObjects();
                 updateObjectPropertiesPanel();
             });
 
-            canvasMapCanvas.addEventListener('mouseup', () => {
+            window.addEventListener('mouseup', () => {
                 if (isDraggingCanvasMapObject && selectedCanvasMapObject) {
                     selectedCanvasMapObject.snapIndicators = [];
-                    redrawCanvasMapObjects(); // Redraw once more to clear guides
+                    redrawCanvasMapObjects();
                 }
                 isDraggingCanvasMapObject = false;
-            });
-
-            canvasMapCanvas.addEventListener('mouseout', (e) => {
-                // Only stop actions if mouse leaves the canvas area
-                const rect = canvasMapCanvas.getBoundingClientRect();
-                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-                    if (isDraggingCanvasMapObject && selectedCanvasMapObject) {
-                        selectedCanvasMapObject.snapIndicators = [];
-                        redrawCanvasMapObjects(); // Redraw once more to clear guides
-                    }
-                    isDraggingCanvasMapObject = false;
-                }
             });
 
             // Double-click to edit custom text
@@ -10169,11 +10191,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newY = parseInt(targetYInput.value, 10);
                 const newRotation = parseInt(targetRotationInput.value, 10);
 
+                const canvasW = state.canvasMapWidth || 3840;
+                const canvasH = state.canvasMapHeight || 2160;
+                const minX = Math.min(0, canvasW - selectedCanvasMapObject.width);
+                const maxX = Math.max(0, canvasW - selectedCanvasMapObject.width);
+                const minY = Math.min(0, canvasH - selectedCanvasMapObject.height);
+                const maxY = Math.max(0, canvasH - selectedCanvasMapObject.height);
+
                 if (!isNaN(newX)) {
-                    selectedCanvasMapObject.x = Math.max(0, Math.min(newX, canvasMapCanvas.width - selectedCanvasMapObject.width));
+                    selectedCanvasMapObject.x = Math.max(minX, Math.min(newX, maxX));
                 }
                 if (!isNaN(newY)) {
-                    selectedCanvasMapObject.y = Math.max(0, Math.min(newY, canvasMapCanvas.height - selectedCanvasMapObject.height));
+                    selectedCanvasMapObject.y = Math.max(minY, Math.min(newY, maxY));
                 }
                 if (!isNaN(newRotation)) {
                     selectedCanvasMapObject.rotation = newRotation;
@@ -10200,17 +10229,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const originalObject = selectedCanvasMapObject;
                 originalObject.selected = false;
 
+                const canvasW = state.canvasMapWidth || 3840;
+                const canvasH = state.canvasMapHeight || 2160;
                 const newObject = {
                     ...originalObject,
                     id: Date.now(),
-                    x: originalObject.x + 20,
-                    y: originalObject.y + 20,
+                    x: originalObject.x + 40,
+                    y: originalObject.y + 40,
                     selected: true,
                 };
                 
-                // Clamp position
-                newObject.x = Math.max(0, Math.min(newObject.x, canvasMapCanvas.width - newObject.width));
-                newObject.y = Math.max(0, Math.min(newObject.y, canvasMapCanvas.height - newObject.height));
+                const minX = Math.min(0, canvasW - newObject.width);
+                const maxX = Math.max(0, canvasW - newObject.width);
+                const minY = Math.min(0, canvasH - newObject.height);
+                const maxY = Math.max(0, canvasH - newObject.height);
+
+                newObject.x = Math.max(minX, Math.min(newObject.x, maxX));
+                newObject.y = Math.max(minY, Math.min(newObject.y, maxY));
 
                 state.canvasMapObjects.push(newObject);
                 selectedCanvasMapObject = newObject;
@@ -10330,21 +10365,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const canvasMapPane = document.getElementById('canvasmap-pane');
             const setCanvasMapEnabled = (enabled) => {
                 if (!canvasMapTabButton || !canvasMapPane) return;
-                if (enabled) {
-                    canvasMapTabButton.classList.remove('disabled-tab');
-                    canvasMapTabButton.setAttribute('aria-disabled', 'false');
-                    const controls = canvasMapPane.querySelectorAll('input, select, button, canvas');
-                    controls.forEach(ctrl => ctrl.removeAttribute('disabled'));
-                } else {
-                    canvasMapTabButton.classList.add('disabled-tab');
-                    canvasMapTabButton.setAttribute('aria-disabled', 'true');
-                    const controls = canvasMapPane.querySelectorAll('input, select, button');
-                    controls.forEach(ctrl => ctrl.setAttribute('disabled', 'true'));
-                }
+                canvasMapTabButton.classList.remove('disabled-tab');
+                canvasMapTabButton.setAttribute('aria-disabled', 'false');
+                const controls = canvasMapPane.querySelectorAll('input, select, button, canvas');
+                controls.forEach(ctrl => ctrl.removeAttribute('disabled'));
             };
 
-            const hasSentLedScreen = () => Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
-            setCanvasMapEnabled(hasSentLedScreen());
+            const hasSentLedScreen = () => true;
+            setCanvasMapEnabled(true);
 
             // Disable PDF Settings until at least one canvas is saved
             const pdfTabButton = document.getElementById('pdfsettings-tab');
@@ -10375,22 +10403,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // PDF Settings requires both: at least one saved canvas and CanvasMap enabled (at least one sent screen)
                 setPdfSettingsEnabled(hasSavedCanvases() && hasSentLedScreen());
 
-                // If CanvasMap is active and there are no sent LED screens, redirect to PixelMap to create one
-                const redirectToPixelMapIfNoSentScreens = () => {
-                    try {
-                        const hasAny = Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
-                        if (hasAny) return;
-                        const canvasBtn = document.getElementById('canvasmap-tab');
-                        const canvasPane = document.getElementById('canvasmap-pane');
-                        const isActive = !!(canvasBtn?.classList.contains('active') || canvasPane?.classList.contains('active'));
-                        if (!isActive) return;
-                        const pxBtn = document.getElementById('pixelmap-tab');
-                        if (pxBtn) {
-                            try { showToast?.('No screens in CanvasMap. Switching to PixelMap to create one.', 'info'); } catch { }
-                            try { bootstrap?.Tab?.getOrCreateInstance(pxBtn)?.show(); } catch { try { pxBtn.click?.(); } catch { } }
-                        }
-                    } catch { }
-                };
+                // CanvasMap stays active without kicking out
+                const redirectToPixelMapIfNoSentScreens = () => { };
 
                 // Load persisted data
                 try { if (typeof loadSavedCanvases === 'function') loadSavedCanvases(); } catch { }
@@ -10418,7 +10432,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         case 'pdfsettings-tab':
                             return (Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0) && (Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0);
                         case 'canvasmap-tab':
-                            return Array.isArray(state.storedPixelMaps) && state.storedPixelMaps.length > 0;
+                            return true;
                         case 'pixelmap-tab':
                         default:
                             return true;
