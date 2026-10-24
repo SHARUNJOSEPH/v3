@@ -185,53 +185,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 };
                 const getDemoUser = () => { try { return JSON.parse(localStorage.getItem('demoAuthUser') || 'null'); } catch { return null; } };
+                // Standalone App version: Full access without requiring login
                 if (!isDemoMode) {
                     try {
                         const auth = firebase.auth();
                         auth.onAuthStateChanged((user) => {
                             if (user) {
-                                // If no expiry set yet (first login), set it; else enforce expiry
-                                const exp = getAuthExpiry();
-                                if (!exp || Number.isNaN(exp) || exp <= 0) {
-                                    setAuthExpiry();
-                                } else if (nowMs() > exp) {
-                                    clearAuthExpiry();
-                                    auth.signOut().finally(() => { setTimeout(() => { try { showLoginModal(true); } catch { } }, 0); });
-                                    return;
-                                }
                                 showAuthBar(user.displayName || user.email || 'Signed in');
-                            } else {
-                                // Not signed in -> show in-app login modal
-                                setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
                             }
                         });
-                        authLogoutBtn?.addEventListener('click', async () => {
-                            try { await auth.signOut(); } catch { }
-                            clearAuthExpiry();
-                            setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
-                        });
-                    } catch {
-                        // If auth API not available, fall back to in-app login modal
-                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
-                    }
-                } else {
-                    const demo = getDemoUser();
-                    if (demo?.email) {
-                        const exp = getAuthExpiry();
-                        if (!exp || Number.isNaN(exp) || exp <= 0) {
-                            setAuthExpiry();
-                        } else if (nowMs() > exp) {
-                            try { localStorage.removeItem('demoAuthUser'); } catch { }
-                            clearAuthExpiry();
-                            setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
-                            return;
-                        }
-                        showAuthBar(demo.email);
-                        authLogoutBtn?.addEventListener('click', () => { try { localStorage.removeItem('demoAuthUser'); } catch { } clearAuthExpiry(); redirectToLogin(); });
-                    } else {
-                        // No demo session -> show in-app login modal
-                        setTimeout(() => { try { showLoginModal(true); } catch { } }, 0);
-                    }
+                    } catch { }
                 }
 
                 const dropdownItems = document.querySelectorAll('[data-page-target]');
@@ -851,8 +814,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
                 }
             }
-            window.addEventListener('resize', resizeCanvasMap);
-            resizeCanvasMap();
+            window.addEventListener('resize', () => {
+                if (!state._manualZoom) {
+                    fitPixelMapToScreen();
+                } else {
+                    applyCanvasTransform();
+                }
+                resizeCanvasMap();
+            });
+            // Initial responsive fit
+            setTimeout(() => {
+                fitPixelMapToScreen();
+                resizeCanvasMap();
+            }, 100);
             const canvasWidthInput = document.getElementById('canvasWidth');
             const canvasHeightInput = document.getElementById('canvasHeight');
             const importedMapsGallery = document.getElementById('importedMapsGallery'); 
@@ -3729,8 +3703,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     // Apply zoom and fit to screen settings
-                    applyCanvasTransform();
-                    redrawDrawingOverlay(); // Redraw both manual drawing and hover effect
+                    if (!state._manualZoom) {
+                        fitPixelMapToScreen();
+                    } else {
+                        applyCanvasTransform();
+                    }
+                    redrawDrawingOverlay();
                 } catch (error) {
                     console.error("Error in updatePixelMap:", error);
                     showMessageBox("An unexpected error occurred while updating the pixel map.");
@@ -3740,14 +3718,39 @@ document.addEventListener('DOMContentLoaded', () => {
             /**
              * Applies the current zoom level to the canvas display.
              */
+            const fitPixelMapToScreen = () => {
+                if (!canvasContainer || !state.totalResWidth || !state.totalResHeight) return;
+                const pad = 36;
+                const containerWidth = Math.max(100, canvasContainer.clientWidth - pad);
+                const containerHeight = Math.max(100, canvasContainer.clientHeight - pad);
+                const scaleX = containerWidth / state.totalResWidth;
+                const scaleY = containerHeight / state.totalResHeight;
+                state.zoomLevel = Math.min(scaleX, scaleY) * 0.96;
+                applyCanvasTransform();
+            };
+
             const applyCanvasTransform = () => {
-                const canvasDisplayWidth = state.totalResWidth * state.zoomLevel;
-                const canvasDisplayHeight = state.totalResHeight * state.zoomLevel;
+                if (!state.totalResWidth || !state.totalResHeight) return;
+                const canvasDisplayWidth = Math.max(1, Math.round(state.totalResWidth * state.zoomLevel));
+                const canvasDisplayHeight = Math.max(1, Math.round(state.totalResHeight * state.zoomLevel));
                 
                 pixelMapCanvas.style.width = `${canvasDisplayWidth}px`;
                 pixelMapCanvas.style.height = `${canvasDisplayHeight}px`;
                 drawingOverlayCanvas.style.width = `${canvasDisplayWidth}px`;
                 drawingOverlayCanvas.style.height = `${canvasDisplayHeight}px`;
+
+                if (canvasContainer) {
+                    const cW = canvasContainer.clientWidth;
+                    const cH = canvasContainer.clientHeight;
+                    const left = Math.max(0, Math.round((cW - canvasDisplayWidth) / 2));
+                    const top = Math.max(0, Math.round((cH - canvasDisplayHeight) / 2));
+                    pixelMapCanvas.style.position = 'absolute';
+                    pixelMapCanvas.style.left = `${left}px`;
+                    pixelMapCanvas.style.top = `${top}px`;
+                    drawingOverlayCanvas.style.position = 'absolute';
+                    drawingOverlayCanvas.style.left = `${left}px`;
+                    drawingOverlayCanvas.style.top = `${top}px`;
+                }
             };
             
             /**
@@ -5589,18 +5592,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const showLoginModal = (force = false) => {
-                // Only prompt if not logged in
-                if (isLoggedIn()) return;
-                // Honor 24h prompt if not forcing
-                if (!force) {
-                    const last = getPromptStamp();
-                    if (nowMs() - last < hours24Ms) return;
-                }
-                const modalEl = document.getElementById('loginModal');
-                const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
-                inst.show();
-                setPromptStamp();
-                requireLoginUntilAuth = true;
+                // App version: Login is disabled/not required
+                return;
             };
 
             const finishLoginUi = () => {
@@ -6307,11 +6300,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Preview Controls
             zoomInBtn.addEventListener('click', () => {
+                state._manualZoom = true;
                 state.zoomLevel *= 1.2;
                 applyCanvasTransform();
             });
 
             zoomOutBtn.addEventListener('click', () => {
+                state._manualZoom = true;
                 state.zoomLevel /= 1.2;
                 applyCanvasTransform();
             });
@@ -6323,14 +6318,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             fitToScreenBtn.addEventListener('click', () => {
-                const containerWidth = canvasContainer.clientWidth;
-                const containerHeight = canvasContainer.clientHeight;
-                
-                const scaleX = state.totalResWidth > 0 ? containerWidth / state.totalResWidth : 1;
-                const scaleY = state.totalResHeight > 0 ? containerHeight / state.totalResHeight : 1;
-                state.zoomLevel = Math.min(scaleX, scaleY) * 0.95; // 5% margin
-                
-                applyCanvasTransform();
+                state._manualZoom = false;
+                fitPixelMapToScreen();
             });
 
             // PixelMap Export PNG/JPEG (includes drawing overlay)
@@ -9267,7 +9256,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const pixelMapTab = document.getElementById('pixelmap-tab');
         if (pixelMapTab) {
             pixelMapTab.addEventListener('shown.bs.tab', () => {
-                setTimeout(updatePixelMap, 0);
+                setTimeout(() => {
+                    updatePixelMap();
+                    fitPixelMapToScreen();
+                }, 50);
+            });
+        }
+        const canvasMapTabBtn = document.getElementById('canvasmap-tab');
+        if (canvasMapTabBtn) {
+            canvasMapTabBtn.addEventListener('shown.bs.tab', () => {
+                setTimeout(() => {
+                    resizeCanvasMap();
+                    if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                }, 50);
             });
         }
 
