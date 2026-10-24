@@ -9,12 +9,12 @@ if %errorlevel% neq 0 (
     timeout /t 2 /nobreak >nul
 )
 
-:: Open in standalone desktop app window using Edge or Chrome
+:: Open in standalone desktop app window using Edge or Chrome (bypassing stale cache)
 if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
-    start "" "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --app="http://localhost:3000"
+    start "" "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --app="http://localhost:3000/?t=%random%"
 ) else if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
-    start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --app="http://localhost:3000"
+    start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --app="http://localhost:3000/?t=%random%"
 ) else (
-    start "" "http://localhost:3000"
+    start "" "http://localhost:3000/?t=%random%"
 )
 exit

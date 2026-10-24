@@ -800,18 +800,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
 
             function resizeCanvasMap() {
-                if (canvasMapCanvas && (canvasMapContainer || canvasContainer)) {
-                    const container = canvasMapContainer || canvasContainer;
-                    canvasMapCanvas.width = container.clientWidth;
-                    canvasMapCanvas.height = container.clientHeight;
-                    // Scale drawing so logical map fits canvas
-                    const logicalMapWidth = 3840; // or use state.canvasMapWidth
-                    const logicalMapHeight = 2160; // or use state.canvasMapHeight
-                    const scaleX = canvasMapCanvas.width / logicalMapWidth;
-                    const scaleY = canvasMapCanvas.height / logicalMapHeight;
-                    canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-                    // Redraw grid/content here if needed
-                    if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                const container = document.getElementById('canvasMapContainer') || canvasContainer;
+                if (canvasMapCanvas && canvasMapCtx && container) {
+                    const w = container.clientWidth;
+                    const h = container.clientHeight;
+                    if (w > 0 && h > 0) {
+                        canvasMapCanvas.width = w;
+                        canvasMapCanvas.height = h;
+                        const logicalMapWidth = state.canvasMapWidth || 3840;
+                        const logicalMapHeight = state.canvasMapHeight || 2160;
+                        const scaleX = w / logicalMapWidth;
+                        const scaleY = h / logicalMapHeight;
+                        canvasMapCtx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+                        if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
+                    }
                 }
             }
             window.addEventListener('resize', () => {
@@ -5345,22 +5347,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch { return ''; }
                 };
 
-            // Auth UI and profile integration (Firebase or local demo)
+            // Auth UI and profile integration (Standalone app: login disabled, full access)
             const setUiForAuth = (isLoggedIn) => {
-                if (loginMenuItem) loginMenuItem.style.display = isLoggedIn ? 'none' : '';
-                if (logoutMenuItem) logoutMenuItem.style.display = isLoggedIn ? '' : 'none';
+                if (loginMenuItem) loginMenuItem.style.display = 'none';
+                if (logoutMenuItem) logoutMenuItem.style.display = 'none';
                 if (profileMenuItem) {
-                    if (isLoggedIn) {
-                        profileMenuItem.classList.remove('disabled');
-                        profileMenuItem.removeAttribute('aria-disabled');
-                        profileMenuItem.title = 'Profile';
-                    } else {
-                        profileMenuItem.classList.add('disabled');
-                        profileMenuItem.setAttribute('aria-disabled', 'true');
-                        profileMenuItem.title = 'Login required';
-                    }
+                    profileMenuItem.classList.remove('disabled');
+                    profileMenuItem.removeAttribute('aria-disabled');
+                    profileMenuItem.title = 'Profile';
                 }
-                if (logoutInProfileBtn) logoutInProfileBtn.style.display = isLoggedIn ? '' : 'none';
+                if (logoutInProfileBtn) logoutInProfileBtn.style.display = 'none';
                 if (userNameDisplay) {
                     if (isLoggedIn) {
                         const label = getCurrentUserDisplay();

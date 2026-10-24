@@ -2235,10 +2235,16 @@
     <script src="js/aptabase.js" defer></script>
     <script src="js/app.js" defer></script>
     <script>
+        // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (const reg of registrations) reg.unregister();
             });
+            if (window.caches) {
+                caches.keys().then(names => {
+                    for (const name of names) caches.delete(name);
+                });
+            }
         }
     </script>
 </body>
