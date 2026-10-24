@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="css/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=2.8">
+    <link rel="stylesheet" href="css/style.css?v=2.9">
     <script src="js/vendor/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -1911,7 +1911,7 @@
                                         </div>
                                     </div>
                                     <!-- Bottom: Saved Canvases section -->
-                                    <div class="card p-2 mt-2 flex-shrink-0" style="max-height: 140px; overflow-y: auto;">
+                                    <div class="card p-2 mt-2 flex-shrink-0" style="min-height: 0; overflow: hidden;">
                                         <div class="d-flex flex-wrap justify-content-between align-items-center mb-1 gap-2 px-1">
                                             <div class="d-flex align-items-center gap-2">
                                                 <h6 class="m-0 section-title" style="font-size: 0.85rem;">Saved Output Map List</h6>
@@ -2202,11 +2202,13 @@
                                     <div class="mb-3">
                                         <label for="stage3dTextureSelect" class="form-label small fw-bold">Screen Visuals</label>
                                         <select id="stage3dTextureSelect" class="form-select form-select-sm">
-                                            <option value="live" selected>Live 2D PixelMap (Synchronized)</option>
+                                            <option value="saved" selected>Saved CanvasMap (Active)</option>
+                                            <option value="live">Live 2D PixelMap (Fallback)</option>
                                             <option value="colorbars">SMPTE Color Bars</option>
                                             <option value="grid">Pixel Alignment Grid</option>
                                             <option value="white">100% Solid White</option>
                                         </select>
+                                        <div class="form-text small text-secondary mt-1">Default shows the loaded/saved CanvasMap layout. Use Live PixelMap only as a fallback.</div>
                                     </div>
 
                                     <!-- Stage Deck Style -->
@@ -2476,12 +2478,12 @@
 
     <script src="js/vendor/bootstrap.bundle.min.js"></script>
     <!-- Aptabase Analytics -->
-    <script src="js/aptabase.js?v=2.8" defer></script>
+    <script src="js/aptabase.js?v=2.9" defer></script>
     <!-- Three.js & 3D Stage Visualizer -->
     <script src="js/vendor/three.min.js"></script>
     <script src="js/vendor/OrbitControls.js"></script>
-    <script src="js/stage3d.js?v=2.8"></script>
-    <script src="js/app.js?v=2.8" defer></script>
+    <script src="js/stage3d.js?v=2.9"></script>
+    <script src="js/app.js?v=2.9" defer></script>
     <script>
         // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {
