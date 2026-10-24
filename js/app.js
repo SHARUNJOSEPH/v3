@@ -4213,7 +4213,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const SAVED_CANVASES_KEY = 'canvasMap.savedCanvases.v1';
                 const saveSavedCanvases = () => {
                     try {
-                        localStorage.setItem(SAVED_CANVASES_KEY, JSON.stringify(state.savedCanvases || []));
+                        // Strip runtime Image refs (_stageImg / image) before persisting
+                        const serializable = (state.savedCanvases || []).map((c) => ({
+                            id: c.id,
+                            name: c.name,
+                            thumbnailUrl: c.thumbnailUrl,
+                            objects: (c.objects || []).map((obj) => {
+                                const { image, _stageImg, _stageImgLoading, ...rest } = obj || {};
+                                return rest;
+                            })
+                        }));
+                        localStorage.setItem(SAVED_CANVASES_KEY, JSON.stringify(serializable));
                     } catch (e) {
                         console.warn('Saving savedCanvases failed:', e);
                         try { showToast('Could not persist saved canvases (storage full?).', 'danger'); } catch { }
@@ -5090,6 +5100,14 @@ const renameInput = document.createElement('input');
              * Loads a saved canvas state into the main canvas.
              * @param {number} canvasId The ID of the canvas state to load.
              */
+            const notifyStage3dSavedCanvasChanged = () => {
+                try {
+                    if (window.PixelMap3D && typeof window.PixelMap3D.notifySavedCanvasChanged === 'function') {
+                        window.PixelMap3D.notifySavedCanvasChanged();
+                    }
+                } catch { }
+            };
+
             const loadCanvasState = (canvasId) => {
                 const savedState = state.savedCanvases.find(c => c.id === canvasId);
                 if (!savedState) return;
@@ -5099,22 +5117,34 @@ const renameInput = document.createElement('input');
 
                 // Create a deep copy of the objects to avoid mutation issues
                 const objectsToLoad = JSON.parse(JSON.stringify(savedState.objects));
-                
+
                 state.canvasMapObjects = objectsToLoad;
-                
+
                 // Preload all images before drawing
                 const imagePromises = state.canvasMapObjects.map(obj => {
                     return new Promise((resolve, reject) => {
                         obj.image = new Image();
-                        obj.image.onload = resolve;
+                        obj.image.onload = () => {
+                            // Share decoded image with 3D compositor for first-frame texture
+                            try { obj._stageImg = obj.image; } catch { }
+                            resolve();
+                        };
                         obj.image.onerror = reject;
                         obj.image.src = obj.dataUrl;
                     });
                 });
 
                 Promise.all(imagePromises).then(() => {
+                    // Share decoded images with the in-memory saved entry for 3D compositing
+                    try {
+                        (savedState.objects || []).forEach((sObj, i) => {
+                            const live = state.canvasMapObjects[i];
+                            if (sObj && live?.image) sObj._stageImg = live.image;
+                        });
+                    } catch { }
                     redrawCanvasMapObjects();
                     updateCanvasMap();
+                    notifyStage3dSavedCanvasChanged();
                     showMessageBox(`Loaded canvas: "${savedState.name}"`);
                     try { state.pdfPageOrder = Array.from({ length: state.canvasMapObjects.length }, (_, i) => i); } catch { }
                     try { buildPdfPageSidebar?.(); } catch { }
@@ -5129,9 +5159,16 @@ const renameInput = document.createElement('input');
              * @param {number} canvasId The ID of the canvas state to delete.
              */
             const deleteSavedCanvas = (canvasId) => {
+                const wasActive = state.currentCanvasId === canvasId;
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
+                if (wasActive) {
+                    state.currentCanvasId = state.savedCanvases.length
+                        ? state.savedCanvases[state.savedCanvases.length - 1].id
+                        : null;
+                }
                 try { saveSavedCanvases?.(); } catch { }
                 renderSavedCanvases();
+                notifyStage3dSavedCanvasChanged();
                 // Re-evaluate PDF Settings availability after deletion
                 try { setPdfSettingsEnabled?.(Array.isArray(state.savedCanvases) && state.savedCanvases.length > 0); } catch { }
             };
@@ -5157,6 +5194,7 @@ const renameInput = document.createElement('input');
                 renderSavedCanvases();
                 updateCanvasMap();
                 try { saveSavedCanvases?.(); } catch { }
+                notifyStage3dSavedCanvasChanged();
                 try { state.pdfPageOrder = Array.from({ length: state.canvasMapObjects.length }, (_, i) => i); } catch { }
                 try { buildPdfPageSidebar?.(); } catch { }
                 // Ensure PDF Settings is enabled since we now have at least one saved canvas
@@ -9925,8 +9963,14 @@ const renameInput = document.createElement('input');
                 }
             });
 
+            let lastCanvasMapDropTime = 0;
             const handleCanvasMapDrop = (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                const now = Date.now();
+                if (now - lastCanvasMapDropTime < 250) return;
+                lastCanvasMapDropTime = now;
+
                 const rawId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
                 const mapId = parseInt(rawId, 10);
                 const mapToDraw = (state.storedPixelMaps || []).find(map => map.id === mapId);
@@ -10003,18 +10047,13 @@ const renameInput = document.createElement('input');
                 }
             };
 
-            canvasMapCanvas.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-            });
-            canvasMapCanvas.addEventListener('drop', handleCanvasMapDrop);
-
-            if (canvasMapContainer) {
-                canvasMapContainer.addEventListener('dragover', (e) => {
+            const dropTarget = canvasMapContainer || canvasMapCanvas;
+            if (dropTarget) {
+                dropTarget.addEventListener('dragover', (e) => {
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'copy';
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 });
-                canvasMapContainer.addEventListener('drop', handleCanvasMapDrop);
+                dropTarget.addEventListener('drop', handleCanvasMapDrop);
             }
 
             // CanvasMap Object Interaction (Selection and Dragging)
@@ -10296,12 +10335,22 @@ const renameInput = document.createElement('input');
                     thumbnailUrl: thumbnailUrl,
                     objects: savedObjects
                 };
+                // Attach live Image refs for immediate 3D composite (not persisted to localStorage)
+                try {
+                    state.canvasMapObjects.forEach((obj, i) => {
+                        if (newSavedCanvas.objects[i] && obj.image) {
+                            newSavedCanvas.objects[i]._stageImg = obj.image;
+                        }
+                    });
+                } catch { }
 
                 state.savedCanvases.push(newSavedCanvas);
                 state.currentCanvasId = newSavedCanvas.id;
                 state.customText = name; // Set custom text to the canvas name
                 renderSavedCanvases(); // Update the UI to show the new saved canvas
                 try { saveSavedCanvases?.(); } catch { }
+                // 3D Stage defaults to this saved canvas — refresh before clearing the editor
+                notifyStage3dSavedCanvasChanged();
 
                 // Clear the current CanvasMap workspace for the next design
                 state.canvasMapObjects = [];
