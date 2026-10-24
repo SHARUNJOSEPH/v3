@@ -1,81 +1,3 @@
-﻿// --- Crop controls for selected object ---
-let cropTopInput, cropBottomInput, cropLeftInput, cropRightInput;
-
-function initializeCropInputs() {
-    if (!cropTopInput) {
-        cropTopInput = document.getElementById('cropTopInput');
-        cropBottomInput = document.getElementById('cropBottomInput');
-        cropLeftInput = document.getElementById('cropLeftInput');
-        cropRightInput = document.getElementById('cropRightInput');
-        
-        // Attach event listeners
-        [cropTopInput, cropBottomInput, cropLeftInput, cropRightInput].forEach(input => {
-            if (input) input.addEventListener('input', applyObjectCrop);
-        });
-    }
-}
-
-function applyObjectCrop() {
-    if (!selectedCanvasMapObject) return;
-    
-    initializeCropInputs();
-    
-    const top = Math.max(0, Number(cropTopInput?.value) || 0);
-    const bottom = Math.max(0, Number(cropBottomInput?.value) || 0);
-    const left = Math.max(0, Number(cropLeftInput?.value) || 0);
-    const right = Math.max(0, Number(cropRightInput?.value) || 0);
-    
-    // Set crop values on selected object
-    selectedCanvasMapObject.crop = { top, bottom, left, right };
-    selectedCanvasMapObject.cropTop = top;
-    selectedCanvasMapObject.cropBottom = bottom;
-    selectedCanvasMapObject.cropLeft = left;
-    selectedCanvasMapObject.cropRight = right;
-    
-    console.log('Crop applied to object:', selectedCanvasMapObject.id, { top, bottom, left, right });
-    
-    // Force redraw
-    if (typeof redrawCanvasMapObjects === 'function') {
-        redrawCanvasMapObjects();
-    }
-}
-
-// When selecting an object, populate crop fields
-function populateObjectCropFields(obj) {
-    initializeCropInputs();
-    
-    if (!obj) {
-        cropTopInput.value = 0;
-        cropBottomInput.value = 0;
-        cropLeftInput.value = 0;
-        cropRightInput.value = 0;
-        return;
-    }
-    cropTopInput.value = (obj.crop?.top ?? obj.cropTop ?? 0);
-    cropBottomInput.value = (obj.crop?.bottom ?? obj.cropBottom ?? 0);
-    cropLeftInput.value = (obj.crop?.left ?? obj.cropLeft ?? 0);
-    cropRightInput.value = (obj.crop?.right ?? obj.cropRight ?? 0);
-}
-
-// Patch object selection logic to call populateObjectCropFields(selectedCanvasMapObject)
-// ...existing code...
-// --- CanvasMap Crop Feature ---
-// Restore original resizeCanvasMap for normal canvas scaling
-function resizeCanvasMap() {
-    if (canvasMapCanvas && canvasMapContainer) {
-        canvasMapCanvas.width = canvasMapContainer.clientWidth;
-        canvasMapCanvas.height = canvasMapContainer.clientHeight;
-        const logicalMapWidth = 3840;
-        const logicalMapHeight = 2160;
-        const scaleX = canvasMapCanvas.width / logicalMapWidth;
-        const scaleY = canvasMapCanvas.height / logicalMapHeight;
-        const ctx = canvasMapCanvas.getContext('2d');
-        ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
-        if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
-    }
-}
-window.addEventListener('resize', resizeCanvasMap);
-resizeCanvasMap();
 // Minimal scripting to toggle password UI and update password
         document.addEventListener('DOMContentLoaded', () => {
             const profileModal = document.getElementById('profileModal');
@@ -226,6 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             (async () => {
                 let initialized = await ensureFirebaseInitialized();
+        // Initialize Aptabase Analytics for PixelMap
+        try {
+            if (window.Aptabase) {
+                window.Aptabase.init("A-US-4851614753", { appVersion: "1.0.0" });
+                window.Aptabase.trackEvent("app_started");
+            }
+        } catch { }
                 let isDemoMode = !initialized;
                 window.__IS_DEMO__ = isDemoMode;
                 let db = null;
@@ -905,13 +834,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const exportOutlineBtn = document.getElementById('exportOutlineBtn');
             const sendToCanvasBtn = document.getElementById('sendToCanvasBtn');
             const canvasMapCanvas = document.getElementById('canvasMapCanvas');
-            const canvasContainer = document.getElementById('canvasContainer');
             const canvasMapCtx = canvasMapCanvas.getContext('2d', { alpha: true });
 
             function resizeCanvasMap() {
-                if (canvasMapCanvas && canvasContainer) {
-                    canvasMapCanvas.width = canvasContainer.clientWidth;
-                    canvasMapCanvas.height = canvasContainer.clientHeight;
+                if (canvasMapCanvas && (canvasMapContainer || canvasContainer)) {
+                    const container = canvasMapContainer || canvasContainer;
+                    canvasMapCanvas.width = container.clientWidth;
+                    canvasMapCanvas.height = container.clientHeight;
                     // Scale drawing so logical map fits canvas
                     const logicalMapWidth = 3840; // or use state.canvasMapWidth
                     const logicalMapHeight = 2160; // or use state.canvasMapHeight
@@ -1061,6 +990,46 @@ document.addEventListener('DOMContentLoaded', () => {
             // Object Properties Panel
             const noObjectSelectedMessage = document.getElementById('noObjectSelectedMessage');
             const propertiesContent = document.getElementById('propertiesContent');
+                        const cropTopInput = document.getElementById('cropTopInput');
+            const cropBottomInput = document.getElementById('cropBottomInput');
+            const cropLeftInput = document.getElementById('cropLeftInput');
+            const cropRightInput = document.getElementById('cropRightInput');
+
+            function applyObjectCrop() {
+                if (!selectedCanvasMapObject) return;
+                const top = Math.max(0, Number(cropTopInput?.value) || 0);
+                const bottom = Math.max(0, Number(cropBottomInput?.value) || 0);
+                const left = Math.max(0, Number(cropLeftInput?.value) || 0);
+                const right = Math.max(0, Number(cropRightInput?.value) || 0);
+                selectedCanvasMapObject.crop = { top, bottom, left, right };
+                selectedCanvasMapObject.cropTop = top;
+                selectedCanvasMapObject.cropBottom = bottom;
+                selectedCanvasMapObject.cropLeft = left;
+                selectedCanvasMapObject.cropRight = right;
+                if (typeof redrawCanvasMapObjects === 'function') {
+                    redrawCanvasMapObjects();
+                }
+            }
+
+            function populateObjectCropFields(obj) {
+                if (!cropTopInput || !cropBottomInput || !cropLeftInput || !cropRightInput) return;
+                if (!obj) {
+                    cropTopInput.value = 0;
+                    cropBottomInput.value = 0;
+                    cropLeftInput.value = 0;
+                    cropRightInput.value = 0;
+                    return;
+                }
+                cropTopInput.value = (obj.crop?.top ?? obj.cropTop ?? 0);
+                cropBottomInput.value = (obj.crop?.bottom ?? obj.cropBottom ?? 0);
+                cropLeftInput.value = (obj.crop?.left ?? obj.cropLeft ?? 0);
+                cropRightInput.value = (obj.crop?.right ?? obj.cropRight ?? 0);
+            }
+
+            [cropTopInput, cropBottomInput, cropLeftInput, cropRightInput].forEach(inp => {
+                if (inp) inp.addEventListener('input', applyObjectCrop);
+            });
+
             const targetXInput = document.getElementById('targetX');
             const targetYInput = document.getElementById('targetY');
             const targetRotationInput = document.getElementById('targetRotation');
@@ -4211,9 +4180,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     targetXInput.value = Math.round(selectedCanvasMapObject.x);
                     targetYInput.value = Math.round(selectedCanvasMapObject.y);
                     targetRotationInput.value = selectedCanvasMapObject.rotation;
+                    populateObjectCropFields(selectedCanvasMapObject);
                 } else {
                     noObjectSelectedMessage.classList.remove('d-none');
                     propertiesContent.classList.add('d-none');
+                    populateObjectCropFields(null);
                 }
             };
 
