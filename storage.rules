@@ -1,0 +1,34 @@
+rules_version = '2';
+// PixelMap — Storage security rules (P0-2)
+// App paths today:
+//   branding/mediapro/logo.png|webp  — public read (company logo fallback)
+// Future user uploads should live under users/{uid}/...
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Shared branding assets — read-only for clients; writes via Admin/Console only
+    match /branding/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Per-user private objects (ready for future uploads)
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId)
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

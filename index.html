@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="css/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=2.9">
+    <link rel="stylesheet" href="css/style.css?v=3.4">
     <script src="js/vendor/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -2142,6 +2142,18 @@
                                 <div class="sidebar-scrollable h-100 d-flex flex-column gap-2" style="overflow-y: auto; overflow-x: hidden; min-height: 0; padding-right: 4px;">
                                 <!-- 3D Configuration Card -->
                                 <div class="card p-2 shadow-sm">
+                                    <!-- Saved CanvasMap picker — top of sidebar so it is always visible -->
+                                    <div class="mb-3 p-2 rounded border" id="stage3dSavedCanvasGroup" style="border-color: var(--border-color) !important; background: rgba(13,110,253,0.08);">
+                                        <label for="stage3dSavedCanvasSelect" class="form-label small fw-bold mb-1 d-flex align-items-center justify-content-between">
+                                            <span>Saved Canvas for 3D</span>
+                                            <span class="badge text-bg-primary">Select layout</span>
+                                        </label>
+                                        <select id="stage3dSavedCanvasSelect" class="form-select form-select-sm">
+                                            <option value="">No saved canvases yet</option>
+                                        </select>
+                                        <div class="form-text small text-secondary mt-1 mb-0">Choose any layout from CanvasMap → Saved Output Map List. Does not Load the editor.</div>
+                                    </div>
+
                                     <h6 class="fw-bold mb-3 d-flex align-items-center justify-content-between">
                                         <span><i class="bi bi-sliders"></i> Stage Rigging & Layout</span>
                                         <span class="badge text-bg-primary">3D Controls</span>
@@ -2202,13 +2214,13 @@
                                     <div class="mb-3">
                                         <label for="stage3dTextureSelect" class="form-label small fw-bold">Screen Visuals</label>
                                         <select id="stage3dTextureSelect" class="form-select form-select-sm">
-                                            <option value="saved" selected>Saved CanvasMap (Active)</option>
+                                            <option value="saved" selected>Saved CanvasMap</option>
                                             <option value="live">Live 2D PixelMap (Fallback)</option>
                                             <option value="colorbars">SMPTE Color Bars</option>
                                             <option value="grid">Pixel Alignment Grid</option>
                                             <option value="white">100% Solid White</option>
                                         </select>
-                                        <div class="form-text small text-secondary mt-1">Default shows the loaded/saved CanvasMap layout. Use Live PixelMap only as a fallback.</div>
+                                        <div class="form-text small text-secondary mt-1">Use “Saved CanvasMap” with the picker at the top of this sidebar.</div>
                                     </div>
 
                                     <!-- Stage Deck Style -->
@@ -2477,13 +2489,18 @@
 
 
     <script src="js/vendor/bootstrap.bundle.min.js"></script>
+    <!-- Firebase compat SDKs (local vendor — run scripts/fetch-firebase-vendor.ps1 if missing) -->
+    <script src="js/vendor/firebase-app-compat.js"></script>
+    <script src="js/vendor/firebase-auth-compat.js"></script>
+    <script src="js/vendor/firebase-firestore-compat.js"></script>
+    <script src="js/vendor/firebase-storage-compat.js"></script>
     <!-- Aptabase Analytics -->
-    <script src="js/aptabase.js?v=2.9" defer></script>
+    <script src="js/aptabase.js?v=3.4" defer></script>
     <!-- Three.js & 3D Stage Visualizer -->
     <script src="js/vendor/three.min.js"></script>
     <script src="js/vendor/OrbitControls.js"></script>
-    <script src="js/stage3d.js?v=2.9"></script>
-    <script src="js/app.js?v=2.9" defer></script>
+    <script src="js/stage3d.js?v=3.4"></script>
+    <script src="js/app.js?v=3.4" defer></script>
     <script>
         // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {

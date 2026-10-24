@@ -390,8 +390,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvasMapZoomLevel: 1, 
                 storedPixelMaps: [], // Array to store all imported pixel maps
                 savedCanvases: [],
-                currentCanvasId: null, // Array to store saved canvas layouts
-                currentCanvasId: null, // ID of the currently loaded canvas
+                currentCanvasId: null, // ID of the currently loaded canvas in the editor
+                stage3dSelectedCanvasId: null, // 3D Stage picker only — does not Load into editor
                 canvasMapObjects: [], // Array to store objects drawn on CanvasMap
                 canvasMapRulerEnabled: true,
                 canvasMapRulerPosition: 'inside',
@@ -9347,6 +9347,7 @@ const renameInput = document.createElement('input');
             stage3dTab.addEventListener('shown.bs.tab', () => {
                 setTimeout(() => {
                     if (window.PixelMap3D) {
+                        try { window.PixelMap3D.refreshSavedCanvasSelect?.(); } catch { }
                         window.PixelMap3D.init();
                         window.PixelMap3D.rebuild();
                         window.PixelMap3D.resize();

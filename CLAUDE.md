@@ -31,7 +31,7 @@ firebase hosting:channel:deploy pr-<n> --project "$FIREBASE_PROJECT_ID"
 
 There is **no** test runner, bundler, TypeScript, or ESLint config yet. `TODO.md` tracks adding ESLint security lint and Firestore/Storage rules. Do not invent a test/lint workflow — document or add it explicitly if introduced.
 
-Cache-bust query strings (`?v=2.8`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
+Cache-bust query strings (`?v=3.4`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
 
 ## Architecture
 
@@ -48,7 +48,7 @@ Static SPA. No module bundler for the main app. Feature logic lives in a large d
 7. `js/app.js?v=…` (`defer`) — product core
 8. Inline snippet that unregisters any service workers and clears Cache Storage
 
-Firebase Auth / Firestore / Storage compat SDKs were previously loaded from `gstatic` CDN and were removed in the local-vendor pass (`fix: vendor all CDN scripts locally…`). They are **not** present under `js/vendor/` today. `app.js` only loads `config/firebase-config.js` (sets `window.__FIREBASE_CONFIG__`) and optionally `/__/firebase/init.js` on Hosting. Without the compat SDK scripts, `window.firebase` is undefined and the app falls into `__IS_DEMO__ = true`. Restore by vendoring the compat SDKs locally (preferred) or re-adding CDN tags — keep CSP in `firebase.json` aligned either way.
+Firebase Auth / Firestore / Storage compat **10.12.2** are loaded from `js/vendor/firebase-*-compat.js` (before `app.js`). If those files are missing, run `powershell -ExecutionPolicy Bypass -File scripts\fetch-firebase-vendor.ps1`. `app.js` then loads `config/firebase-config.js` (`window.__FIREBASE_CONFIG__`) and skips `/__/firebase/init.js` on local hosts. Without the vendor files, `window.firebase` is undefined → `__IS_DEMO__ = true`.
 
 ### Module map
 
@@ -56,7 +56,7 @@ Firebase Auth / Firestore / Storage compat SDKs were previously loaded from `gst
 |---|---|
 | `js/app.js` (~10.5k lines) | **Active app.** Monolithic `DOMContentLoaded` IIFE: auth/demo, profile/Firestore, global `state`, PixelMap calc/draw, Advanced Designer, CanvasMap, PDF/Resolume exports, 3D tab bridge. |
 | `js/main.js` (~5.7k lines, Nov 2025) | **Legacy / unused.** Not referenced by any HTML. Older subset of app logic. Do not extend; archive or delete only after confirming no external consumers. |
-| `js/stage3d.js` | Three.js stage: curved LED walls, rigging, wings, lighting, engineering specs (kW / amps / RJ45 ports @ 650k px). Public API: `window.PixelMap3D = { init, rebuild, resize, setCamera, exportSnapshot, setConfig, getConfig }`. |
+| `js/stage3d.js` | Three.js stage: curved LED walls (chord-correct), rigging, wings, lighting, engineering specs. Default texture = saved CanvasMap (`testPattern: 'saved'`) via 3D-only picker (`stage3dSelectedCanvasId`); Live PixelMap is fallback. Public API: `window.PixelMap3D = { init, rebuild, resize, setCamera, exportSnapshot, setConfig, getConfig, notifySavedCanvasChanged, refreshSavedCanvasSelect }`. |
 | `js/aptabase.js` | Analytics shim → `window.Aptabase.init` / `trackEvent`. Key `A-US-4851614753` (US). Events today: `app_started`, `export_3d_snapshot`. |
 | `config/firebase-config.js` | Sets `window.__FIREBASE_CONFIG__` for project `grid-945d4`. Client API keys are expected to be public; protect data with Auth + security rules (rules files still missing — see Open work). |
 | `login.html` | Standalone modular Firebase v12.4 login (email/password + Google). Demo fallback `admin@gmail.com` / `admin` → `localStorage.demoAuthUser` + 24h `authExpiryAt`. |
@@ -71,7 +71,7 @@ Firebase Auth / Firestore / Storage compat SDKs were previously loaded from `gst
 - `window.firebase` (compat — only when SDK is loaded)
 - `window.Aptabase`, `window.PixelMap3D`, `THREE`
 
-**Known bridge gap:** `stage3d.js` reads `window.state` for engineering specs / screen rebuild, but `app.js` keeps `state` as a local `const` and never assigns `window.state = state`. Specs therefore often fall back to defaults (`4×2.5 m`, etc.). When touching either side, wire the bridge or pass explicit params.
+**State bridge:** `app.js` assigns `window.state = state`. `stage3d.js` reads it for size/texture. After CanvasMap save/load/duplicate/delete, call `PixelMap3D.notifySavedCanvasChanged()`.
 
 ### Feature boundaries inside `app.js`
 
@@ -112,7 +112,9 @@ Standalone product: login is optional for full local use. When Firebase initiali
 
 ## Open work (from `TODO.md`)
 
-- [ ] Add `firestore.rules` + `storage.rules` and wire them in `firebase.json`.
+Squad plan: `docs/TEAM-CHARTER-AND-EXECUTION-PLAN.md` (Waves 0–5, Gates G1–G5).
+
+- [x] P0-1 Firebase compat SDKs vendored + loaded from `index.html`.
+- [x] P0-2 `firestore.rules` + `storage.rules` authored and wired in `firebase.json` (deploy still required — see `docs/P0-2-RULES-DEPLOY.md`).
 - [ ] Introduce ESLint + security plugin.
-- [ ] (Implied by recent vendor commit) Restore Firebase compat SDK via local vendor copies so cloud auth/profile works outside pure demo mode.
-- [ ] Wire `window.state` from `app.js` into `stage3d.js` (or replace with an explicit API).
+- [ ] Optional (Phase C): 3D dropdown to pick any saved canvas without loading it into the editor; multi-object walls from one saved layout.

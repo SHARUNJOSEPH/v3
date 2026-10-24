@@ -1,6 +1,6 @@
 # Plan: 3D Curve Rework + Saved CanvasMap Source
 
-**Status:** Proposed — awaiting approval before implementation  
+**Status:** Phase A + B implemented (2026-10-24, `?v=2.9`). Phase C still optional.  
 **Date:** 2026-10-24  
 **Scope:** `js/stage3d.js`, small bridge in `js/app.js`, `index.html` (3D Screen Visuals UI)  
 **Non-goals (this plan):** Firebase SDK restore, CanvasMap magnet align tools, multi-wall stage from many canvases

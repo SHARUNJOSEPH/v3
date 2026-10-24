@@ -25,11 +25,13 @@
         spotlights: true,
         spotlightColor: '#00d4ff',
         ambientGlow: 1.05,
-        testPattern: 'live',     // 'live', 'colorbars', 'grid', 'white'
+        // 'saved' = active CanvasMap saved layout (default); 'live' = PixelMap canvas fallback
+        testPattern: 'saved',
         autoRotate: false
     };
 
     let lastFrameKey = '';
+    let savedTextureCacheKey = '';
 
     function init3DStage() {
         if (isInitialized) {
@@ -288,13 +290,291 @@
         return tex;
     }
 
-    function getScreenTexture() {
+    function disposeScreenTexture() {
         if (screenTexture && typeof screenTexture.dispose === 'function') {
             try { screenTexture.dispose(); } catch (_) { /* ignore */ }
-            screenTexture = null;
+        }
+        screenTexture = null;
+        savedTextureCacheKey = '';
+    }
+
+    function getActiveSavedCanvas() {
+        const appState = window.state || {};
+        const list = Array.isArray(appState.savedCanvases) ? appState.savedCanvases : [];
+        if (!list.length) return null;
+
+        // Prefer explicit 3D picker selection (does not require CanvasMap Load)
+        const stageId = appState.stage3dSelectedCanvasId;
+        if (stageId != null && stageId !== '') {
+            const picked = list.find((c) => String(c.id) === String(stageId));
+            if (picked) return picked;
         }
 
-        if (config.testPattern === 'live') {
+        // Fallback: editor-loaded canvas, then most recent saved
+        const editorId = appState.currentCanvasId;
+        if (editorId != null) {
+            const found = list.find((c) => String(c.id) === String(editorId));
+            if (found) return found;
+        }
+        return list[list.length - 1] || null;
+    }
+
+    /**
+     * Rebuild the 3D "Saved Canvas for 3D" dropdown from window.state.savedCanvases.
+     * Selection is 3D-only — does not call loadCanvasState / mutate the editor.
+     */
+    function refreshSavedCanvasSelect() {
+        const select = document.getElementById('stage3dSavedCanvasSelect');
+        const group = document.getElementById('stage3dSavedCanvasGroup');
+        if (!select) return;
+
+        const appState = window.state || {};
+        const list = Array.isArray(appState.savedCanvases) ? appState.savedCanvases.slice() : [];
+        // Newest first for easier picking
+        list.sort((a, b) => Number(b.id) - Number(a.id));
+
+        const prev = appState.stage3dSelectedCanvasId != null
+            ? String(appState.stage3dSelectedCanvasId)
+            : (appState.currentCanvasId != null ? String(appState.currentCanvasId) : '');
+
+        select.innerHTML = '';
+        if (!list.length) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No saved canvases yet — save one on CanvasMap';
+            select.appendChild(opt);
+            select.disabled = true;
+            appState.stage3dSelectedCanvasId = null;
+        } else {
+            select.disabled = false;
+            list.forEach((c) => {
+                const opt = document.createElement('option');
+                opt.value = String(c.id);
+                const objCount = Array.isArray(c.objects) ? c.objects.length : 0;
+                opt.textContent = `${c.name || ('Canvas ' + c.id)} (${objCount} screen${objCount === 1 ? '' : 's'})`;
+                select.appendChild(opt);
+            });
+            const stillExists = list.some((c) => String(c.id) === prev);
+            const chosen = stillExists ? prev : String(list[0].id);
+            select.value = chosen;
+            appState.stage3dSelectedCanvasId = chosen === '' ? null : (
+                Number.isFinite(Number(chosen)) ? Number(chosen) : chosen
+            );
+        }
+
+        // Always keep the picker visible at the top of the 3D sidebar
+        if (group) {
+            group.style.display = '';
+            group.hidden = false;
+            group.removeAttribute('hidden');
+        }
+    }
+
+    /**
+     * Physical size + pixel resolution for the 3D wall.
+     * Prefer active saved CanvasMap object details; fall back to live PixelMap state.
+     */
+    function resolveScreenMetrics() {
+        const appState = window.state || {};
+        const result = {
+            widthM: 4,
+            heightM: 2.5,
+            resW: 0,
+            resH: 0,
+            cols: 8,
+            rows: 5,
+            source: 'default'
+        };
+
+        if (config.testPattern === 'saved') {
+            const saved = getActiveSavedCanvas();
+            const objects = Array.isArray(saved?.objects) ? saved.objects : [];
+            if (objects.length) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                let metersPerPx = null;
+                let sumPanelsW = 0, sumPanelsH = 0;
+
+                objects.forEach((obj) => {
+                    const x = Number(obj.x) || 0;
+                    const y = Number(obj.y) || 0;
+                    const w = Number(obj.width) || 0;
+                    const h = Number(obj.height) || 0;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x + w);
+                    maxY = Math.max(maxY, y + h);
+
+                    const d = obj.details || {};
+                    const aw = Number(d.actualWidth);
+                    const ah = Number(d.actualHeight);
+                    const rw = Number(d.resWidth) || w;
+                    const rh = Number(d.resHeight) || h;
+                    if (Number.isFinite(aw) && aw > 0 && rw > 0) {
+                        const mpp = aw / rw;
+                        if (!metersPerPx) metersPerPx = mpp;
+                    } else if (Number.isFinite(ah) && ah > 0 && rh > 0) {
+                        const mpp = ah / rh;
+                        if (!metersPerPx) metersPerPx = mpp;
+                    }
+                    if (Number.isFinite(Number(d.panelsWidth))) sumPanelsW += Number(d.panelsWidth);
+                    if (Number.isFinite(Number(d.panelsHeight))) sumPanelsH = Math.max(sumPanelsH, Number(d.panelsHeight));
+                });
+
+                const pxW = Math.max(1, maxX - minX);
+                const pxH = Math.max(1, maxY - minY);
+                result.resW = Math.round(pxW);
+                result.resH = Math.round(pxH);
+
+                if (metersPerPx && metersPerPx > 0) {
+                    result.widthM = pxW * metersPerPx;
+                    result.heightM = pxH * metersPerPx;
+                } else if (objects.length === 1 && objects[0].details) {
+                    const d = objects[0].details;
+                    if (Number(d.actualWidth) > 0) result.widthM = Number(d.actualWidth);
+                    if (Number(d.actualHeight) > 0) result.heightM = Number(d.actualHeight);
+                }
+
+                const pW = Number(appState.panelWidth) || 0.5;
+                const pH = Number(appState.panelHeight) || 0.5;
+                result.cols = sumPanelsW > 0 ? sumPanelsW : Math.max(1, Math.round(result.widthM / pW));
+                result.rows = sumPanelsH > 0 ? sumPanelsH : Math.max(1, Math.round(result.heightM / pH));
+                result.source = 'saved';
+                return result;
+            }
+        }
+
+        // Live PixelMap / fallbacks
+        let screenW = Number(appState.actualWidthMeters) || 0;
+        let screenH = Number(appState.actualHeightMeters) || 0;
+        if (screenW <= 0) screenW = 4;
+        if (screenH <= 0) screenH = 2.5;
+        result.widthM = screenW;
+        result.heightM = screenH;
+        result.resW = Number(appState.totalResWidth) || Math.round(screenW * 256);
+        result.resH = Number(appState.totalResHeight) || Math.round(screenH * 256);
+        result.cols = appState.isPanelCountMode
+            ? (appState.panelsInWidth || 8)
+            : Math.max(1, Math.round(screenW / (appState.panelWidth || 0.5)));
+        result.rows = appState.isPanelCountMode
+            ? (appState.panelsInHeight || 5)
+            : Math.max(1, Math.round(screenH / (appState.panelHeight || 0.5)));
+        result.source = config.testPattern === 'live' ? 'live' : 'default';
+        return result;
+    }
+
+    function makePlaceholderTexture(message) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 1024;
+        offCanvas.height = 512;
+        const ctx = offCanvas.getContext('2d');
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+        ctx.strokeStyle = '#00d4ff';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(24, 24, offCanvas.width - 48, offCanvas.height - 48);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const lines = String(message || 'No saved CanvasMap selected').split('\n');
+        lines.forEach((line, i) => {
+            ctx.fillText(line, offCanvas.width / 2, offCanvas.height / 2 + (i - (lines.length - 1) / 2) * 40);
+        });
+        return applyTextureColorSpace(new THREE.CanvasTexture(offCanvas));
+    }
+
+    function compositeSavedCanvasTexture(saved) {
+        const objects = Array.isArray(saved?.objects) ? saved.objects : [];
+        if (!objects.length) {
+            return makePlaceholderTexture('Saved canvas has no screens\nAdd screens on CanvasMap, then Save');
+        }
+
+        let maxX = 0, maxY = 0;
+        objects.forEach((obj) => {
+            maxX = Math.max(maxX, (Number(obj.x) || 0) + (Number(obj.width) || 0));
+            maxY = Math.max(maxY, (Number(obj.y) || 0) + (Number(obj.height) || 0));
+        });
+        const appState = window.state || {};
+        const canvasW = Math.max(64, Math.round(maxX) || appState.canvasMapWidth || 1920);
+        const canvasH = Math.max(64, Math.round(maxY) || appState.canvasMapHeight || 1080);
+
+        // Cap texture size for GPU safety while keeping aspect
+        const maxDim = 2048;
+        const scale = Math.min(1, maxDim / canvasW, maxDim / canvasH);
+        const outW = Math.max(64, Math.round(canvasW * scale));
+        const outH = Math.max(64, Math.round(canvasH * scale));
+
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = outW;
+        offCanvas.height = outH;
+        const ctx = offCanvas.getContext('2d');
+        ctx.fillStyle = appState.canvasBgColor || '#000000';
+        ctx.fillRect(0, 0, outW, outH);
+
+        objects.forEach((obj) => {
+            if (!obj || !obj.dataUrl) return;
+            try {
+                // Synchronous path: data URLs from in-memory saves decode via Image only async.
+                // Use thumbnail-style draw when an HTMLImageElement is already attached;
+                // otherwise draw a labeled rect so rebuild stays sync, then kick async upgrade.
+                const x = (Number(obj.x) || 0) * scale;
+                const y = (Number(obj.y) || 0) * scale;
+                const w = Math.max(1, (Number(obj.width) || 1) * scale);
+                const h = Math.max(1, (Number(obj.height) || 1) * scale);
+
+                if (obj._stageImg && obj._stageImg.complete && obj._stageImg.naturalWidth) {
+                    ctx.save();
+                    ctx.translate(x + w / 2, y + h / 2);
+                    ctx.rotate(((Number(obj.rotation) || 0) * Math.PI) / 180);
+                    ctx.drawImage(obj._stageImg, -w / 2, -h / 2, w, h);
+                    ctx.restore();
+                } else {
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                    // Async load then rebuild once
+                    if (!obj._stageImgLoading) {
+                        obj._stageImgLoading = true;
+                        const img = new Image();
+                        img.onload = () => {
+                            obj._stageImg = img;
+                            obj._stageImgLoading = false;
+                            savedTextureCacheKey = ''; // bust cache
+                            if (isInitialized) rebuildScreens();
+                        };
+                        img.onerror = () => { obj._stageImgLoading = false; };
+                        img.src = obj.dataUrl;
+                    }
+                }
+            } catch (_) { /* skip bad object */ }
+        });
+
+        return applyTextureColorSpace(new THREE.CanvasTexture(offCanvas));
+    }
+
+    function getScreenTexture() {
+        const pattern = config.testPattern;
+
+        if (pattern === 'saved') {
+            const saved = getActiveSavedCanvas();
+            const cacheKey = saved
+                ? `saved:${saved.id}:${(saved.objects || []).length}:${(saved.objects || []).map((o) => o.id).join(',')}`
+                : 'saved:none';
+            if (screenTexture && savedTextureCacheKey === cacheKey) {
+                return screenTexture;
+            }
+            disposeScreenTexture();
+            screenTexture = saved
+                ? compositeSavedCanvasTexture(saved)
+                : makePlaceholderTexture('No saved CanvasMap selected\nSave a layout on the CanvasMap tab');
+            savedTextureCacheKey = cacheKey;
+            return screenTexture;
+        }
+
+        disposeScreenTexture();
+
+        if (pattern === 'live') {
             const pixelCanvas = document.getElementById('pixelMapCanvas');
             if (pixelCanvas && pixelCanvas.width > 0 && pixelCanvas.height > 0) {
                 screenTexture = applyTextureColorSpace(new THREE.CanvasTexture(pixelCanvas));
@@ -308,14 +588,14 @@
         offCanvas.height = 512;
         const ctx = offCanvas.getContext('2d');
 
-        if (config.testPattern === 'colorbars') {
+        if (pattern === 'colorbars') {
             const colors = ['#ffffff', '#ffff00', '#00ffff', '#00ff00', '#ff00ff', '#ff0000', '#0000ff', '#000000'];
             const w = offCanvas.width / colors.length;
             colors.forEach((col, i) => {
                 ctx.fillStyle = col;
                 ctx.fillRect(i * w, 0, w, offCanvas.height);
             });
-        } else if (config.testPattern === 'white') {
+        } else if (pattern === 'white') {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, offCanvas.width, offCanvas.height);
         } else {
@@ -350,24 +630,22 @@
 
         screenGroup = new THREE.Group();
 
-        // Get dimensions from global app state
-        const appState = window.state || {};
-        let screenWidthMeters = appState.actualWidthMeters || 4;
-        let screenHeightMeters = appState.actualHeightMeters || 2.5;
-
+        const metrics = resolveScreenMetrics();
+        let screenWidthMeters = metrics.widthM;
+        let screenHeightMeters = metrics.heightM;
         if (screenWidthMeters <= 0 || isNaN(screenWidthMeters)) screenWidthMeters = 4;
         if (screenHeightMeters <= 0 || isNaN(screenHeightMeters)) screenHeightMeters = 2.5;
 
-        const panelCols = appState.isPanelCountMode ? (appState.panelsInWidth || 8) : Math.max(1, Math.round(screenWidthMeters / (appState.panelWidth || 0.5)));
-        const panelRows = appState.isPanelCountMode ? (appState.panelsInHeight || 5) : Math.max(1, Math.round(screenHeightMeters / (appState.panelHeight || 0.5)));
+        const panelCols = Math.max(1, metrics.cols || 8);
+        const panelRows = Math.max(1, metrics.rows || 5);
 
         const tex = getScreenTexture();
-        // Unlit LED face — matches PixelMap canvas colors (Standard + map+emissive was washing them out)
+        // Unlit LED face — matches source canvas colors (Standard + map+emissive was washing them out)
         const glow = Math.max(0.2, Math.min(1.5, Number(config.ambientGlow) || 1));
         const mat = new THREE.MeshBasicMaterial({
             map: tex,
             color: new THREE.Color(glow, glow, glow),
-            toneMapped: false // keep PixelMap hues out of ACES wash
+            toneMapped: false // keep source hues out of ACES wash
         });
         screenMaterial = mat;
 
@@ -379,12 +657,10 @@
         const curveDeg = Number(config.curveAngle) || 0;
 
         if (curveDeg === 0) {
-            // Flat Main Wall
             const screenMesh = createScreenPanelMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows);
             screenMesh.position.set(0, centerY, 0);
             screenGroup.add(screenMesh);
         } else {
-            // Curved Concert Wall (Segmented along circular arc)
             const curvedMesh = createCurvedWallMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows, curveDeg, config.curveDirection);
             curvedMesh.position.set(0, centerY, 0);
             screenGroup.add(curvedMesh);
@@ -398,22 +674,20 @@
             const wingX = screenWidthMeters / 2 + (wingW / 2) * Math.cos(wingAngleRad) + 0.3;
             const wingZ = (wingW / 2) * Math.sin(wingAngleRad) + 0.2;
 
-            // Left Wing
-            const leftWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows);
+            // Wings / DJ booth: LED faces only — no ground stacks (main wall owns support)
+            const leftWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
             leftWing.position.set(-wingX, centerY, wingZ);
             leftWing.rotation.y = wingAngleRad;
             screenGroup.add(leftWing);
 
-            // Right Wing
-            const rightWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows);
+            const rightWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
             rightWing.position.set(wingX, centerY, wingZ);
             rightWing.rotation.y = -wingAngleRad;
             screenGroup.add(rightWing);
         } else if (config.sideWings === 'dj') {
-            // DJ Booth Screen (in front of center wall)
             const djW = Math.min(2.5, screenWidthMeters * 0.6);
             const djH = 1.0;
-            const djScreen = createScreenPanelMesh(djW, djH, mat, 4, 2);
+            const djScreen = createScreenPanelMesh(djW, djH, mat, 4, 2, false);
             djScreen.position.set(0, 0.6, 2.5);
             screenGroup.add(djScreen);
         }
@@ -457,8 +731,75 @@
         controls.update();
     }
 
-    function createScreenPanelMesh(width, height, material, cols, rows) {
+    /**
+     * Ground-support stack in local screen space.
+     * LED face is at z=0 facing +Z (audience). All geometry must stay at z < 0
+     * so uprights/feet never poke through the LED face.
+     */
+    function createGroundSupportLocal(width, height) {
+        const g = new THREE.Group();
+        const steel = new THREE.MeshStandardMaterial({ color: 0x2c333c, metalness: 0.78, roughness: 0.32 });
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, metalness: 0.7, roughness: 0.4 });
+
+        const numLegs = Math.max(2, Math.min(6, Math.round(width / 1.8) + 1));
+        const step = numLegs <= 1 ? 0 : width / (numLegs - 1);
+
+        // Keep a clear gap behind the face (cabinet already occupies ~z=-0.08..0)
+        const faceClearance = 0.10;
+        const uprightW = 0.06;
+        const uprightD = 0.06;
+        const uprightH = Math.max(0.6, height * 0.5);
+        const footW = 0.26;
+        const footH = 0.05;
+        const footL = 0.55; // extends rearward only
+
+        for (let i = 0; i < numLegs; i++) {
+            const x = -width / 2 + i * step;
+
+            // Vertical upright fully behind the cabinet
+            const upright = new THREE.Mesh(
+                new THREE.BoxGeometry(uprightW, uprightH, uprightD),
+                steel
+            );
+            const uprightZ = -(faceClearance + uprightD / 2);
+            const uprightY = -height / 2 + uprightH / 2 - 0.04;
+            upright.position.set(x, uprightY, uprightZ);
+            upright.castShadow = true;
+            g.add(upright);
+
+            // Outrigger / ballast foot — extends further toward stage rear (−Z)
+            const foot = new THREE.Mesh(
+                new THREE.BoxGeometry(footW, footH, footL),
+                baseMat
+            );
+            const footFront = uprightZ - uprightD / 2;
+            const footZ = footFront - footL / 2;
+            const footY = -height / 2 - 0.06;
+            foot.position.set(x, footY, footZ);
+            foot.castShadow = true;
+            g.add(foot);
+
+            // Short diagonal brace (upright mid → foot rear), also behind face
+            const braceLen = 0.42;
+            const brace = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, braceLen, 0.03),
+                steel
+            );
+            brace.position.set(
+                x,
+                footY + braceLen * 0.35,
+                footZ + footL * 0.15
+            );
+            brace.rotation.x = Math.PI / 5;
+            g.add(brace);
+        }
+
+        return g;
+    }
+
+    function createScreenPanelMesh(width, height, material, cols, rows, includeGroundSupport) {
         const group = new THREE.Group();
+        const withSupport = includeGroundSupport !== false;
 
         // Front display panel
         const frontGeo = new THREE.PlaneGeometry(width, height);
@@ -466,7 +807,7 @@
         frontMesh.castShadow = true;
         group.add(frontMesh);
 
-        // Rear cabinet frame structure (depth 0.08m)
+        // Rear cabinet frame structure (depth 0.08m) — entirely behind face
         const frameGeo = new THREE.BoxGeometry(width, height, 0.08);
         const frameMat = new THREE.MeshStandardMaterial({
             color: 0x14171c,
@@ -477,43 +818,72 @@
         frameMesh.position.z = -0.041;
         group.add(frameMesh);
 
-        // Ground Support Base Legs if ground supported
-        if (config.riggingMode === 'ground') {
-            const legMat = new THREE.MeshStandardMaterial({ color: 0x22262e, metalness: 0.7 });
-            const legGeo = new THREE.BoxGeometry(0.08, height + 0.3, 0.8);
-            const numLegs = Math.max(2, Math.round(width / 1.5));
-            const step = width / (numLegs - 1);
-
-            for (let i = 0; i < numLegs; i++) {
-                const leg = new THREE.Mesh(legGeo, legMat);
-                leg.position.set(-width / 2 + i * step, 0, -0.3);
-                group.add(leg);
-            }
+        // Ground support sits behind the LED face (never intersects z>=0)
+        if (withSupport && config.riggingMode === 'ground') {
+            group.add(createGroundSupportLocal(width, height));
         }
 
         return group;
     }
 
+    /**
+     * Chord-correct curved LED wall (concave or convex).
+     *
+     * Camera looks from +Z. Arc length = width, angle = angleDeg.
+     * Concave: ends toward audience (hug) — audience sees inner face.
+     * Convex: center toward audience (bulge) — audience sees outer face.
+     *
+     * Important: do NOT multiply both angle and Z by a shared sign — that
+     * double-flips convex normals and folds the wall inside-out at higher angles.
+     */
     function createCurvedWallMesh(width, height, material, cols, rows, angleDeg, direction) {
         const group = new THREE.Group();
-        const totalAngleRad = (angleDeg * Math.PI) / 180;
-        const isConcave = direction === 'concave';
-        const sign = isConcave ? 1 : -1;
+        const totalAngleRad = Math.max(0.001, (angleDeg * Math.PI) / 180);
+        const isConvex = direction === 'convex';
 
-        const panelWidth = width / cols;
+        // Fine facets for a smooth ribbon; at least one per cabinet column
+        const segs = Math.max(cols || 1, Math.ceil(angleDeg / 2.5), 20);
         const radius = width / totalAngleRad;
-        const angleStep = totalAngleRad / cols;
+        const angleStep = totalAngleRad / segs;
+        const chord = 2 * radius * Math.sin(angleStep / 2);
 
-        for (let i = 0; i < cols; i++) {
-            const panelAngle = (i - (cols - 1) / 2) * angleStep * sign;
+        const backMat = new THREE.MeshStandardMaterial({ color: 0x14171c, metalness: 0.8, roughness: 0.4 });
 
-            // UV mapping segment for this panel column
-            const uMin = i / cols;
-            const uMax = (i + 1) / cols;
+        // Audience-facing normal & pose for a segment at mid-angle α
+        const poseAt = (alpha) => {
+            const s = Math.sin(alpha);
+            const c = Math.cos(alpha);
+            if (isConvex) {
+                // Bulge toward audience: center at z=-R relative to mid chord
+                return {
+                    x: radius * s,
+                    z: radius * (c - 1),
+                    // Outer surface faces audience → normal (sin, 0, cos)
+                    rotY: alpha,
+                    nx: s,
+                    nz: c
+                };
+            }
+            // Concave hug: ends toward audience; center at z=+R
+            return {
+                x: radius * s,
+                z: radius * (1 - c),
+                // Inner surface faces audience → normal (−sin, 0, cos)
+                rotY: -alpha,
+                nx: -s,
+                nz: c
+            };
+        };
 
-            const panelGeo = new THREE.PlaneGeometry(panelWidth, height);
+        for (let i = 0; i < segs; i++) {
+            const alpha = -totalAngleRad / 2 + (i + 0.5) * angleStep;
+            const pose = poseAt(alpha);
+
+            const uMin = i / segs;
+            const uMax = (i + 1) / segs;
+
+            const panelGeo = new THREE.PlaneGeometry(chord, height);
             const uvAttr = panelGeo.attributes.uv;
-            // Map UVs correctly to panel segment
             uvAttr.setXY(0, uMin, 1);
             uvAttr.setXY(1, uMax, 1);
             uvAttr.setXY(2, uMin, 0);
@@ -521,22 +891,62 @@
             uvAttr.needsUpdate = true;
 
             const panelMesh = new THREE.Mesh(panelGeo, material);
-
-            const x = Math.sin(panelAngle) * radius;
-            const z = (Math.cos(panelAngle) * radius - radius) * sign;
-
-            panelMesh.position.set(x, 0, z);
-            panelMesh.rotation.y = panelAngle;
-
-            // Cabinet back
-            const backGeo = new THREE.BoxGeometry(panelWidth, height, 0.08);
-            const backMat = new THREE.MeshStandardMaterial({ color: 0x14171c, metalness: 0.8 });
-            const backMesh = new THREE.Mesh(backGeo, backMat);
-            backMesh.position.set(x, 0, z - 0.041 * Math.cos(panelAngle));
-            backMesh.rotation.y = panelAngle;
-
+            panelMesh.position.set(pose.x, 0, pose.z);
+            panelMesh.rotation.y = pose.rotY;
             group.add(panelMesh);
+
+            // Cabinet back — always opposite the audience normal
+            const backGeo = new THREE.BoxGeometry(chord * 0.98, height, 0.08);
+            const backMesh = new THREE.Mesh(backGeo, backMat);
+            backMesh.position.set(
+                pose.x - pose.nx * 0.041,
+                0,
+                pose.z - pose.nz * 0.041
+            );
+            backMesh.rotation.y = pose.rotY;
             group.add(backMesh);
+        }
+
+        // Ground support at curve ends — uprights/feet stay behind the local face
+        if (config.riggingMode === 'ground') {
+            const steel = new THREE.MeshStandardMaterial({ color: 0x2c333c, metalness: 0.78, roughness: 0.32 });
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, metalness: 0.7, roughness: 0.4 });
+            const faceClearance = 0.10;
+            const uprightW = 0.06, uprightD = 0.06;
+            const uprightH = Math.max(0.6, height * 0.5);
+            const footW = 0.26, footH = 0.05, footL = 0.55;
+
+            [-totalAngleRad / 2, totalAngleRad / 2].forEach((a) => {
+                const pose = poseAt(a);
+
+                const upright = new THREE.Mesh(
+                    new THREE.BoxGeometry(uprightW, uprightH, uprightD),
+                    steel
+                );
+                const backDist = faceClearance + uprightD / 2;
+                upright.position.set(
+                    pose.x - pose.nx * backDist,
+                    -height / 2 + uprightH / 2 - 0.04,
+                    pose.z - pose.nz * backDist
+                );
+                upright.rotation.y = pose.rotY;
+                upright.castShadow = true;
+                group.add(upright);
+
+                const foot = new THREE.Mesh(
+                    new THREE.BoxGeometry(footW, footH, footL),
+                    baseMat
+                );
+                const footDist = faceClearance + uprightD + footL / 2;
+                foot.position.set(
+                    pose.x - pose.nx * footDist,
+                    -height / 2 - 0.06,
+                    pose.z - pose.nz * footDist
+                );
+                foot.rotation.y = pose.rotY;
+                foot.castShadow = true;
+                group.add(foot);
+            });
         }
 
         return group;
@@ -545,9 +955,9 @@
     function setCameraPreset(viewName) {
         if (!controls || !camera) return;
 
-        const appState = window.state || {};
-        let screenW = Number(appState.actualWidthMeters) || 4;
-        let screenH = Number(appState.actualHeightMeters) || 2.5;
+        const metrics = resolveScreenMetrics();
+        let screenW = Number(metrics.widthM) || 4;
+        let screenH = Number(metrics.heightM) || 2.5;
         if (screenW <= 0 || isNaN(screenW)) screenW = 4;
         if (screenH <= 0 || isNaN(screenH)) screenH = 2.5;
         const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
@@ -581,23 +991,21 @@
     }
 
     function updateEngineeringSpecs() {
-        const appState = window.state || {};
-        let screenW = appState.actualWidthMeters || 4;
-        let screenH = appState.actualHeightMeters || 2.5;
+        const metrics = resolveScreenMetrics();
+        let screenW = metrics.widthM;
+        let screenH = metrics.heightM;
         if (screenW <= 0) screenW = 4;
         if (screenH <= 0) screenH = 2.5;
 
-        const resW = appState.totalResWidth || Math.round(screenW * 256);
-        const resH = appState.totalResHeight || Math.round(screenH * 256);
+        const resW = metrics.resW || Math.round(screenW * 256);
+        const resH = metrics.resH || Math.round(screenH * 256);
         const totalPixels = resW * resH;
 
         const areaM2 = screenW * screenH;
         const areaSqFt = areaM2 * 10.7639;
 
-        const pWidth = appState.panelWidth || 0.5;
-        const pHeight = appState.panelHeight || 0.5;
-        const cols = appState.isPanelCountMode ? (appState.panelsInWidth || 8) : Math.max(1, Math.round(screenW / pWidth));
-        const rows = appState.isPanelCountMode ? (appState.panelsInHeight || 5) : Math.max(1, Math.round(screenH / pHeight));
+        const cols = Math.max(1, metrics.cols || 8);
+        const rows = Math.max(1, metrics.rows || 5);
         const totalCabinets = cols * rows;
 
         // AV Engineering standards
@@ -713,13 +1121,36 @@
             });
         }
 
-        // Texture / Test Pattern
+        // Texture / Test Pattern — keep select in sync with config default ('saved')
         const textureSelect = document.getElementById('stage3dTextureSelect');
         if (textureSelect) {
+            try { textureSelect.value = config.testPattern || 'saved'; } catch { }
             textureSelect.addEventListener('change', (e) => {
                 window.PixelMap3D.setConfig('testPattern', e.target.value);
+                refreshSavedCanvasSelect();
             });
         }
+
+        // Saved CanvasMap picker (3D-only — does not Load into CanvasMap editor)
+        const savedCanvasSelect = document.getElementById('stage3dSavedCanvasSelect');
+        if (savedCanvasSelect) {
+            savedCanvasSelect.addEventListener('change', (e) => {
+                const appState = window.state || {};
+                const val = e.target.value;
+                appState.stage3dSelectedCanvasId = val === '' ? null : (
+                    Number.isFinite(Number(val)) ? Number(val) : val
+                );
+                // Selecting a canvas implies Saved CanvasMap mode
+                if (val) {
+                    config.testPattern = 'saved';
+                    const textureSelect = document.getElementById('stage3dTextureSelect');
+                    if (textureSelect) textureSelect.value = 'saved';
+                }
+                savedTextureCacheKey = '';
+                rebuildScreens();
+            });
+        }
+        refreshSavedCanvasSelect();
 
         // Stage Deck
         const deckSelect = document.getElementById('stage3dDeckSelect');
@@ -804,10 +1235,21 @@
         resize: handleResize,
         setCamera: setCameraPreset,
         exportSnapshot: export3DSnapshot,
+        /** Call after CanvasMap save/load/delete so picker + texture + size refresh. */
+        notifySavedCanvasChanged: () => {
+            savedTextureCacheKey = '';
+            refreshSavedCanvasSelect();
+            if (isInitialized) rebuildScreens();
+        },
+        refreshSavedCanvasSelect,
         setConfig: (key, value) => {
             config[key] = value;
             if (key === 'deckStyle') buildStageEnvironment();
             if (key === 'spotlights' || key === 'spotlightColor') buildLighting();
+            if (key === 'testPattern') {
+                savedTextureCacheKey = '';
+                refreshSavedCanvasSelect();
+            }
             if (key === 'ambientGlow' && screenMaterial && screenMaterial.isMeshBasicMaterial) {
                 const glow = Math.max(0.2, Math.min(1.5, Number(value) || 1));
                 screenMaterial.color.setRGB(glow, glow, glow);
