@@ -1,5 +1,20 @@
 // Minimal scripting to toggle password UI and update password
         document.addEventListener('DOMContentLoaded', () => {
+            // Prevent Chrome "Blocked aria-hidden on an element because its descendant retained focus"
+            document.addEventListener('hide.bs.modal', (e) => {
+                if (e.target && e.target.contains(document.activeElement)) {
+                    if (typeof document.activeElement?.blur === 'function') {
+                        document.activeElement.blur();
+                    }
+                }
+            });
+            document.addEventListener('click', (e) => {
+                const dismissBtn = e.target.closest('[data-bs-dismiss="modal"], .btn-close');
+                if (dismissBtn && typeof dismissBtn.blur === 'function') {
+                    dismissBtn.blur();
+                }
+            }, true);
+
             const profileModal = document.getElementById('profileModal');
             const passwordSection = document.getElementById('passwordChangeSection');
             const updateBtn = document.getElementById('updatePasswordBtn');
@@ -7532,6 +7547,8 @@ const renameInput = document.createElement('input');
                 const originalButtonText = multiExportConfirmBtn.textContent;
                 multiExportConfirmBtn.disabled = true;
                 multiExportConfirmBtn.textContent = 'Generating...';
+                // Yield thread to let the UI update and finish the click event tick in <2ms
+                await new Promise(resolve => setTimeout(resolve, 20));
                 try { showPdfToast('Generating PDF...'); } catch { }
 
                 try {
@@ -7711,6 +7728,8 @@ const renameInput = document.createElement('input');
 
                 // New: Export all saved canvases directly (no modal, no need to have a canvas selected)
                 const exportAllSavedCanvasesPdf = async () => {
+                    try { showPdfToast('Preparing PDF export...'); } catch { }
+                    await new Promise(resolve => setTimeout(resolve, 20));
                     if (!Array.isArray(state.savedCanvases) || state.savedCanvases.length === 0) {
                         showMessageBox('No saved canvases found. Save at least one layout in CanvasMap first.');
                         return;
@@ -8780,7 +8799,7 @@ const renameInput = document.createElement('input');
         /**
          * Generates a PDF preview and displays it in the iframe.
          */
-        const generatePdfPreview = () => {
+        const generatePdfPreview = async () => {
             if (!Array.isArray(state.canvasMapObjects)) state.canvasMapObjects = [];
             if (!Array.isArray(state.savedCanvases)) state.savedCanvases = [];
             const useSaved = state.savedCanvases.length > 0; // prefer saved canvases for preview
@@ -8813,7 +8832,7 @@ const renameInput = document.createElement('input');
             try { showPdfToast('Generating PDF preview...'); } catch { }
             pdfPreviewPlaceholder.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Generating PDF preview...</p></div>';
             // Yield to the browser to render the spinner before heavy work
-            setTimeout(() => {
+            await new Promise(resolve => setTimeout(resolve, 20));
             try {
                 const engine = (state.pdfPreviewEngine === 'iframe') ? 'iframe' : 'image';
                 const arrangeMode = state.pdfArrangeMode || 'flat';
@@ -9241,7 +9260,6 @@ const renameInput = document.createElement('input');
                 try { document.getElementById('pdfPreviewStatus')?.classList.add('d-none'); } catch { }
                 try { hidePdfToast(); } catch { }
             }
-            }, 0);
         };
 
         if (generatePdfPreviewBtn) {

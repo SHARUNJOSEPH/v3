@@ -32,8 +32,8 @@
         // 'saved' = active CanvasMap saved layout (default); 'live' = PixelMap canvas fallback
         testPattern: 'saved',
         autoRotate: false,
-        // false = LED screen only (no floor/truss/fog/spotlights) — product default
-        showEnvironment: false
+        // true = floor, truss, fog, spotlights (product default); false = LED screen only
+        showEnvironment: true
     };
 
     let lastFrameKey = '';
@@ -55,9 +55,9 @@
         const width = stageContainer.clientWidth || 800;
         const height = stageContainer.clientHeight || 550;
 
-        // 1. Scene
+        // 1. Scene — cool slate blue-grey so LEDs/panels/outlines stay distinct
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0c10);
+        scene.background = new THREE.Color(0x3a4a5c);
 
         // 2. Camera
         camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -102,6 +102,10 @@
         const animate = () => {
             animationFrameId = requestAnimationFrame(animate);
 
+            // Skip rendering if page is in background or 3D Stage container is hidden/collapsed
+            if (document.hidden) return;
+            if (!stageContainer || stageContainer.offsetParent === null || stageContainer.clientWidth === 0 || stageContainer.clientHeight === 0) return;
+
             if (controls) {
                 if (config.autoRotate) {
                     controls.autoRotate = true;
@@ -145,14 +149,14 @@
         if (!scene) return;
 
         if (config.showEnvironment) {
-            scene.background = new THREE.Color(0x0a0c10);
-            scene.fog = new THREE.FogExp2(0x0a0c10, 0.012);
+            scene.background = new THREE.Color(0x3a4a5c);
+            scene.fog = new THREE.FogExp2(0x3a4a5c, 0.012);
             if (controls) controls.maxPolarAngle = Math.PI / 2 - 0.01;
             buildStageEnvironment();
             buildLighting();
         } else {
             scene.fog = null;
-            scene.background = new THREE.Color(0x111318);
+            scene.background = new THREE.Color(0x445566);
             if (controls) controls.maxPolarAngle = Math.PI; // free orbit around LED only
 
             if (stageDeck) {
