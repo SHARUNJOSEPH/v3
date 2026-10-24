@@ -20,17 +20,26 @@
     --input-bg: #3a3a3a;
 }
 
+html, body {
+    height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Desktop App: Never scroll the main window */
+    box-sizing: border-box;
+}
+
 body {
     font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    padding: 20px;
-    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
     background-attachment: fixed;
-    transition: background-color 0.3s, color 0.3s, background-image 0.3s;
-    font-size: 16px;
-    line-height: 1.6;
+    transition: background-color 0.3s, color 0.3s;
+    font-size: 14px;
+    line-height: 1.4;
 }
 
 h1,
@@ -345,15 +354,15 @@ body.dark-mode .btn-close {
 .canvas-container {
     border: 2px dashed var(--border-color);
     border-radius: 0.75rem;
-    padding: 1rem;
+    padding: 0.5rem;
     overflow: auto;
     width: 100%;
-    height: 70vh;
-        min-height: 500px;
-        max-height: 90vh;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
     display: block;
     position: relative;
-    /* For absolute positioning of children */
+    background-color: var(--input-bg);
 }
 
 #pixelMapCanvas,
@@ -1810,4 +1819,69 @@ input.readonly[readonly] {
     .more-section:last-child {
         grid-column: 1 / -1;
     }
+}
+
+/* Scalable Viewport-Fitting Desktop Layout */
+.app-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tab-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tab-pane {
+    height: 100%;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tab-pane.active {
+    display: flex !important;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.sidebar-scrollable {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    flex: 1;
+    padding-right: 4px;
+}
+
+/* Slim modern scrollbars for desktop panels */
+.sidebar-scrollable::-webkit-scrollbar,
+.canvas-container::-webkit-scrollbar,
+.tab-content::-webkit-scrollbar,
+.pdf-page-sidebar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-track,
+.canvas-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb,
+.canvas-container::-webkit-scrollbar-thumb,
+.pdf-page-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(108, 117, 125, 0.4);
+    border-radius: 4px;
+}
+
+.sidebar-scrollable::-webkit-scrollbar-thumb:hover,
+.canvas-container::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
 }

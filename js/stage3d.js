@@ -124,6 +124,7 @@
     }
 
     function buildStageEnvironment() {
+        if (!scene) return;
         if (stageDeck) scene.remove(stageDeck);
 
         const deckGroup = new THREE.Group();
@@ -173,6 +174,7 @@
     }
 
     function buildOverheadTruss() {
+        if (!scene) return;
         if (trussGroup) scene.remove(trussGroup);
 
         trussGroup = new THREE.Group();
@@ -214,6 +216,7 @@
     }
 
     function buildLighting() {
+        if (!scene) return;
         if (lightsGroup) scene.remove(lightsGroup);
 
         lightsGroup = new THREE.Group();
@@ -309,6 +312,10 @@
     }
 
     function rebuildScreens() {
+        // app.js calls PixelMap3D.rebuild() from updatePixelMap before the 3D tab
+        // has initialized the Three.js scene — no-op until init3DStage() runs.
+        if (!scene) return;
+
         if (screenGroup) scene.remove(screenGroup);
 
         screenGroup = new THREE.Group();

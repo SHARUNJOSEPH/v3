@@ -23,12 +23,18 @@
             if (profileModal) {
                 profileModal.addEventListener('show.bs.modal', () => {
                     const user = getUser();
+                    const usernameInput = document.getElementById('passwordChangeUsername');
+                    if (usernameInput) {
+                        usernameInput.value = user?.email || '';
+                        // readonly keeps managers from overwriting; remove attr so value is submitted if needed
+                        usernameInput.readOnly = true;
+                    }
                     if (user && isPasswordProvider(user)) {
                         passwordSection && (passwordSection.style.display = '');
                     } else {
                         passwordSection && (passwordSection.style.display = 'none');
                     }
-                    // Clear fields on open
+                    // Clear password fields on open
                     [newInput, confirmInput].forEach(el => { if (el) el.value = ''; });
                     // Reset rules state
                     if (rulesEl) {
@@ -125,6 +131,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.head.appendChild(s);
             });
 
+            const isLocalDevHost = () => {
+                try {
+                    const h = (location.hostname || '').toLowerCase();
+                    return location.protocol === 'file:' ||
+                        h === 'localhost' ||
+                        h === '127.0.0.1' ||
+                        h === '[::1]' ||
+                        h === '0.0.0.0' ||
+                        h.endsWith('.local');
+                } catch {
+                    return true;
+                }
+            };
+
             const ensureFirebaseInitialized = async () => {
                 try {
                     // 1) If already initialized (e.g., by a previous script), nothing to do
@@ -133,15 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         await loadScript('config/firebase-config.js'); // should set window.__FIREBASE_CONFIG__
                     } catch { }
-                    if (window.__FIREBASE_CONFIG__) {
+                    if (window.__FIREBASE_CONFIG__ && typeof firebase !== 'undefined') {
                         try { firebase.initializeApp(window.__FIREBASE_CONFIG__); return true; } catch { }
                     }
-                    // 3) If hosted on Firebase Hosting, attempt auto-init script
-                    try {
-                        await loadScript('/__/firebase/init.js');
-                        // If it succeeded, firebase should be initialized now
-                        if (window.firebase?.apps?.length) return true;
-                    } catch { }
+                    // 3) Firebase Hosting reserved URL — skip on local serve to avoid 404 noise
+                    if (!isLocalDevHost()) {
+                        try {
+                            await loadScript('/__/firebase/init.js');
+                            if (window.firebase?.apps?.length) return true;
+                        } catch { }
+                    }
                 } catch { }
                 return false;
             };
@@ -448,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     paletteIndex: 0,
                 },
             };
+            window.state = state;
 
             const unitConversions = {
                 meter: 1,
@@ -826,6 +848,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     applyCanvasTransform();
                 }
                 resizeCanvasMap();
+                if (window.PixelMap3D && typeof window.PixelMap3D.resize === 'function') {
+                    window.PixelMap3D.resize();
+                }
             });
             // Initial responsive fit
             setTimeout(() => {
@@ -5511,7 +5536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         state.pdfEmail = (data.email || '').toUpperCase();
                         if (pdfEmailInput) pdfEmailInput.value = state.pdfEmail;
                         // When company is MediaPro in Profile, lock Drawn By and Validation Email
-                        const isMP = /^(?i:mediapro)$/i.test((data.company || '').trim());
+                        const isMP = /^mediapro$/i.test((data.company || '').trim());
                         if (isMP) {
                             if (pdfDrawnByInput) { pdfDrawnByInput.setAttribute('readonly', 'true'); pdfDrawnByInput.classList.add('readonly'); }
                             if (pdfEmailInput) { pdfEmailInput.setAttribute('readonly', 'true'); pdfEmailInput.classList.add('readonly'); }
