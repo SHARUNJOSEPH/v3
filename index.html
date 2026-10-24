@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 
@@ -1229,6 +1229,11 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="pdfsettings-tab" data-bs-toggle="tab" data-bs-target="#pdfsettings-pane" type="button" role="tab" aria-controls="pdfsettings-pane" aria-selected="false">PDF Settings</button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="stage3d-tab" data-bs-toggle="tab" data-bs-target="#stage3d-pane" type="button" role="tab" aria-controls="stage3d-pane" aria-selected="false">
+                            <span class="badge text-bg-primary me-1" style="font-size:0.7em;">3D</span> Stage Visualizer
+                        </button>
+                    </li>
                 </ul>
                 <div class="tab-content border-start border-end border-bottom p-4 rounded-bottom" id="myTabContent" style="border-color: var(--border-color) !important;">
                     <div class="tab-pane fade show active" id="pixelmap-pane" role="tabpanel" aria-labelledby="pixelmap-tab" tabindex="0">
@@ -2070,6 +2075,191 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 3D Stage Visualizer Pane -->
+                    <div class="tab-pane fade" id="stage3d-pane" role="tabpanel" aria-labelledby="stage3d-tab" tabindex="0">
+                        <div class="row g-3">
+                            <!-- Left Controls & AV Engineering Specs -->
+                            <div class="col-12 col-lg-4 col-xl-3">
+                                <!-- 3D Configuration Card -->
+                                <div class="card p-3 mb-3">
+                                    <h6 class="fw-bold mb-3 d-flex align-items-center justify-content-between">
+                                        <span><i class="bi bi-sliders"></i> Stage Rigging & Layout</span>
+                                        <span class="badge text-bg-primary">3D Controls</span>
+                                    </h6>
+
+                                    <!-- Curvature -->
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label for="stage3dCurveSlider" class="form-label small fw-bold mb-0">Screen Curvature</label>
+                                            <span id="stage3dCurveVal" class="badge text-bg-secondary">0° (Flat)</span>
+                                        </div>
+                                        <input type="range" class="form-range" id="stage3dCurveSlider" min="0" max="45" step="1" value="0">
+                                        <div class="d-flex gap-3 mt-1">
+                                            <div class="form-check form-check-inline small mb-0">
+                                                <input class="form-check-input" type="radio" name="stage3dCurveDir" id="stage3dCurveConcave" value="concave" checked>
+                                                <label class="form-check-label" for="stage3dCurveConcave">Concave (Inner)</label>
+                                            </div>
+                                            <div class="form-check form-check-inline small mb-0">
+                                                <input class="form-check-input" type="radio" name="stage3dCurveDir" id="stage3dCurveConvex" value="convex">
+                                                <label class="form-check-label" for="stage3dCurveConvex">Convex (Outer)</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Rigging Style -->
+                                    <div class="mb-3">
+                                        <label for="stage3dRiggingSelect" class="form-label small fw-bold">Rigging & Support</label>
+                                        <select id="stage3dRiggingSelect" class="form-select form-select-sm">
+                                            <option value="ground" selected>Ground Supported (Floor Legs)</option>
+                                            <option value="flown">Flown / Flown from Truss</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Flown Height (visible when flown) -->
+                                    <div class="mb-3 d-none" id="stage3dFlownHeightGroup">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label for="stage3dFlownHeightSlider" class="form-label small fw-bold mb-0">Trim Height (m)</label>
+                                            <span id="stage3dFlownHeightVal" class="badge text-bg-secondary">1.5 m</span>
+                                        </div>
+                                        <input type="range" class="form-range" id="stage3dFlownHeightSlider" min="0.5" max="4.0" step="0.25" value="1.5">
+                                    </div>
+
+                                    <!-- Side Wings / Secondary Screens -->
+                                    <div class="mb-3">
+                                        <label for="stage3dSideWingsSelect" class="form-label small fw-bold">Stage Multi-Screen Layout</label>
+                                        <select id="stage3dSideWingsSelect" class="form-select form-select-sm">
+                                            <option value="none" selected>Main Screen Only</option>
+                                            <option value="wings">Dual Side Wings (35° Angled)</option>
+                                            <option value="dj">DJ Booth Front Riser</option>
+                                        </select>
+                                    </div>
+
+                                    <hr class="my-3" style="border-color: var(--border-color);">
+
+                                    <h6 class="fw-bold mb-3"><i class="bi bi-palette"></i> Environment & Visuals</h6>
+
+                                    <!-- Texture / Test Pattern -->
+                                    <div class="mb-3">
+                                        <label for="stage3dTextureSelect" class="form-label small fw-bold">Screen Visuals</label>
+                                        <select id="stage3dTextureSelect" class="form-select form-select-sm">
+                                            <option value="live" selected>Live 2D PixelMap (Synchronized)</option>
+                                            <option value="colorbars">SMPTE Color Bars</option>
+                                            <option value="grid">Pixel Alignment Grid</option>
+                                            <option value="white">100% Solid White</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Stage Deck Style -->
+                                    <div class="mb-3">
+                                        <label for="stage3dDeckSelect" class="form-label small fw-bold">Stage Deck Finish</label>
+                                        <select id="stage3dDeckSelect" class="form-select form-select-sm">
+                                            <option value="glossy" selected>Glossy Black (Reflective)</option>
+                                            <option value="matte">Matte Black Concert Deck</option>
+                                            <option value="grid">Technical Wireframe Grid</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Screen Glow & Spotlights -->
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-7">
+                                            <label for="stage3dAmbientGlow" class="form-label small fw-bold mb-1">LED Brightness</label>
+                                            <input type="range" class="form-range" id="stage3dAmbientGlow" min="0.2" max="1.5" step="0.05" value="0.85">
+                                        </div>
+                                        <div class="col-5">
+                                            <label for="stage3dSpotlightColor" class="form-label small fw-bold mb-1">Light Tint</label>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <input type="color" class="form-control form-control-color form-control-sm" id="stage3dSpotlightColor" value="#00d4ff" title="Stage Light Color">
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input" type="checkbox" id="stage3dSpotlightsToggle" checked title="Toggle Spotlights">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Camera Preset Angles -->
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-bold mb-1">Camera Views</label>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill py-1 stage3d-camera-btn" data-camera="foh">FOH (Front)</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill py-1 stage3d-camera-btn" data-camera="side">45° Perspective</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill py-1 stage3d-camera-btn" data-camera="top">Top (Rigging)</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill py-1 stage3d-camera-btn" data-camera="detail">Close-Up</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill py-1 stage3d-camera-btn" data-camera="reset">Reset</button>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="stage3dAutoRotate">
+                                        <label class="form-check-label small" for="stage3dAutoRotate">360° Auto-Orbit Camera</label>
+                                    </div>
+                                </div>
+
+                                <!-- AV Engineering Specs Card -->
+                                <div class="card p-3">
+                                    <h6 class="fw-bold mb-2 text-primary d-flex align-items-center gap-1">
+                                        <i class="bi bi-cpu"></i> AV Engineering Data
+                                    </h6>
+                                    <div class="small d-flex flex-column gap-2">
+                                        <div class="d-flex justify-content-between border-bottom pb-1">
+                                            <span class="text-muted">Total Resolution:</span>
+                                            <span class="fw-bold" id="spec3dResolution">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between border-bottom pb-1">
+                                            <span class="text-muted">Screen Area:</span>
+                                            <span class="fw-bold" id="spec3dArea">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between border-bottom pb-1">
+                                            <span class="text-muted">Cabinet Count:</span>
+                                            <span class="fw-bold" id="spec3dCabinets">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between border-bottom pb-1">
+                                            <span class="text-muted">Power Draw:</span>
+                                            <span class="fw-bold text-warning" id="spec3dPower">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between border-bottom pb-1">
+                                            <span class="text-muted">Data Capacity:</span>
+                                            <span class="fw-bold text-info" id="spec3dDataPorts">-</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="text-muted">Rigging Weight:</span>
+                                            <span class="fw-bold text-danger" id="spec3dWeight">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right 3D Viewport Column -->
+                            <div class="col-12 col-lg-8 col-xl-9">
+                                <div class="card p-3 h-100 d-flex flex-column">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h5 class="m-0 fw-bold">3D Stage Simulation</h5>
+                                            <span class="badge text-bg-dark border border-secondary text-info">Three.js WebGL</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button" id="stage3dSnapshotBtn" class="btn btn-sm btn-primary d-flex align-items-center gap-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera" viewBox="0 0 16 16">
+                                                    <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4z"/>
+                                                    <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5m0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"/>
+                                                </svg>
+                                                Export 3D Render
+                                            </button>
+                                            <button type="button" id="stage3dFullscreenBtn" class="btn btn-sm btn-outline-secondary" title="Toggle Fullscreen">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrows-fullscreen" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707m4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707m0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707m-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="stage3dViewportWrapper" class="position-relative flex-grow-1" style="min-height: 550px;">
+                                        <div id="stage3dContainer" style="width: 100%; height: 100%; min-height: 550px; border-radius: 8px; overflow: hidden; background: #0a0c10;"></div>
+                                        <div class="position-absolute bottom-0 start-0 m-3 px-3 py-1 rounded bg-dark bg-opacity-75 text-white small border border-secondary user-select-none" style="pointer-events: none; z-index: 10;">
+                                            <span>🖱️ <b>Rotate:</b> Left-Click + Drag &nbsp;|&nbsp; <b>Pan:</b> Right-Click + Drag &nbsp;|&nbsp; <b>Zoom:</b> Scroll</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2233,7 +2423,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     <!-- Aptabase Analytics -->
     <script src="js/aptabase.js?v=2.2" defer></script>
-    <script src="js/app.js?v=2.2" defer></script>
+    <!-- Three.js & 3D Stage Visualizer -->
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/vendor/OrbitControls.js"></script>
+    <script src="js/stage3d.js?v=2.3"></script>
+    <script src="js/app.js?v=2.3" defer></script>
     <script>
         // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {

@@ -589,6 +589,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     // Ensure transform/overlay are in sync
                                     applyCanvasTransform();
                                     redrawDrawingOverlay();
+                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                        window.PixelMap3D.rebuild();
+                    }
                                 } catch (err) {
                                     console.warn('Drop-to-edit failed:', err);
                                 }
@@ -3679,6 +3682,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         applyCanvasTransform();
                     }
                     redrawDrawingOverlay();
+                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                        window.PixelMap3D.rebuild();
+                    }
                 } catch (error) {
                     console.error("Error in updatePixelMap:", error);
                     showMessageBox("An unexpected error occurred while updating the pixel map.");
@@ -4469,6 +4475,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const currentSelection = state.selectionRect;
                             state.selectionRect = null;
                             redrawDrawingOverlay();
+                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                        window.PixelMap3D.rebuild();
+                    }
 
                             // Combine PixelMap base and overlay
                             const combinedCanvas = document.createElement('canvas');
@@ -4481,6 +4490,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Restore selection rectangle
                             state.selectionRect = currentSelection;
                             redrawDrawingOverlay();
+                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                        window.PixelMap3D.rebuild();
+                    }
 
                             // Build full image and thumbnail
                             const dataUrl = combinedCanvas.toDataURL('image/png');
@@ -9235,6 +9247,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 50);
             });
         }
+        const stage3dTab = document.getElementById('stage3d-tab');
+        if (stage3dTab) {
+            stage3dTab.addEventListener('shown.bs.tab', () => {
+                setTimeout(() => {
+                    if (window.PixelMap3D) {
+                        window.PixelMap3D.init();
+                        window.PixelMap3D.rebuild();
+                        window.PixelMap3D.resize();
+                    }
+                }, 60);
+            });
+        }
 
                 // If the PDF tab is already active on load (e.g., deep link), set active flag
                 try {
@@ -9795,6 +9819,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!state.hoveredPanelCoords || state.hoveredPanelCoords.row !== panelRow || state.hoveredPanelCoords.col !== panelCol) {
                     state.hoveredPanelCoords = { row: panelRow, col: panelCol };
                     redrawDrawingOverlay();
+                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                        window.PixelMap3D.rebuild();
+                    }
                 }
             });
 
