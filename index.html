@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="css/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=3.4">
+    <link rel="stylesheet" href="css/style.css?v=3.7">
     <script src="js/vendor/jspdf.umd.min.js"></script>
     <style>
         :root {
@@ -2210,6 +2210,12 @@
 
                                     <h6 class="fw-bold mb-3"><i class="bi bi-palette"></i> Environment & Visuals</h6>
 
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="stage3dShowEnvironmentToggle" title="Show stage floor, truss, and lights">
+                                        <label class="form-check-label small fw-bold" for="stage3dShowEnvironmentToggle">Show stage environment</label>
+                                        <div class="form-text small text-secondary">Off = LED screen only (default). On = floor, truss, spotlights.</div>
+                                    </div>
+
                                     <!-- Texture / Test Pattern -->
                                     <div class="mb-3">
                                         <label for="stage3dTextureSelect" class="form-label small fw-bold">Screen Visuals</label>
@@ -2223,28 +2229,28 @@
                                         <div class="form-text small text-secondary mt-1">Use “Saved CanvasMap” with the picker at the top of this sidebar.</div>
                                     </div>
 
-                                    <!-- Stage Deck Style -->
                                     <div class="mb-3">
-                                        <label for="stage3dDeckSelect" class="form-label small fw-bold">Stage Deck Finish</label>
-                                        <select id="stage3dDeckSelect" class="form-select form-select-sm">
-                                            <option value="glossy" selected>Glossy Black (Reflective)</option>
-                                            <option value="matte">Matte Black Concert Deck</option>
-                                            <option value="grid">Technical Wireframe Grid</option>
-                                        </select>
+                                        <label for="stage3dAmbientGlow" class="form-label small fw-bold mb-1">LED Brightness</label>
+                                        <input type="range" class="form-range" id="stage3dAmbientGlow" min="0.2" max="1.5" step="0.05" value="1.05">
                                     </div>
 
-                                    <!-- Screen Glow & Spotlights -->
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-7">
-                                            <label for="stage3dAmbientGlow" class="form-label small fw-bold mb-1">LED Brightness</label>
-                                            <input type="range" class="form-range" id="stage3dAmbientGlow" min="0.2" max="1.5" step="0.05" value="1.05">
+                                    <!-- Stage-only controls (hidden in LED-only mode) -->
+                                    <div id="stage3dEnvExtras" style="display: none;">
+                                        <div class="mb-3">
+                                            <label for="stage3dDeckSelect" class="form-label small fw-bold">Stage Deck Finish</label>
+                                            <select id="stage3dDeckSelect" class="form-select form-select-sm">
+                                                <option value="glossy" selected>Glossy Black (Reflective)</option>
+                                                <option value="matte">Matte Black Concert Deck</option>
+                                                <option value="grid">Technical Wireframe Grid</option>
+                                            </select>
                                         </div>
-                                        <div class="col-5">
+                                        <div class="mb-3">
                                             <label for="stage3dSpotlightColor" class="form-label small fw-bold mb-1">Light Tint</label>
                                             <div class="d-flex align-items-center gap-2">
                                                 <input type="color" class="form-control form-control-color form-control-sm" id="stage3dSpotlightColor" value="#00d4ff" title="Stage Light Color">
                                                 <div class="form-check form-switch mb-0">
                                                     <input class="form-check-input" type="checkbox" id="stage3dSpotlightsToggle" checked title="Toggle Spotlights">
+                                                    <label class="form-check-label small" for="stage3dSpotlightsToggle">Spotlights</label>
                                                 </div>
                                             </div>
                                         </div>
@@ -2495,12 +2501,12 @@
     <script src="js/vendor/firebase-firestore-compat.js"></script>
     <script src="js/vendor/firebase-storage-compat.js"></script>
     <!-- Aptabase Analytics -->
-    <script src="js/aptabase.js?v=3.4" defer></script>
+    <script src="js/aptabase.js?v=3.7" defer></script>
     <!-- Three.js & 3D Stage Visualizer -->
     <script src="js/vendor/three.min.js"></script>
     <script src="js/vendor/OrbitControls.js"></script>
-    <script src="js/stage3d.js?v=3.4"></script>
-    <script src="js/app.js?v=3.4" defer></script>
+    <script src="js/stage3d.js?v=3.7"></script>
+    <script src="js/app.js?v=3.7" defer></script>
     <script>
         // Flush any stale browser cache & service workers
         if ('serviceWorker' in navigator) {

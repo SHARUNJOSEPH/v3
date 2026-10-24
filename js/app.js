@@ -611,9 +611,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                     // Ensure transform/overlay are in sync
                                     applyCanvasTransform();
                                     redrawDrawingOverlay();
-                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
-                        window.PixelMap3D.rebuild();
-                    }
+                    try {
+                                        const cfg = window.PixelMap3D && typeof window.PixelMap3D.getConfig === 'function'
+                                            ? window.PixelMap3D.getConfig()
+                                            : null;
+                                        if (cfg && cfg.testPattern === 'live' &&
+                                            typeof window.PixelMap3D.rebuild === 'function') {
+                                            window.PixelMap3D.rebuild();
+                                        }
+                                    } catch { /* 3D optional */ }
                                 } catch (err) {
                                     console.warn('Drop-to-edit failed:', err);
                                 }
@@ -3715,9 +3721,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         applyCanvasTransform();
                     }
                     redrawDrawingOverlay();
-                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
-                        window.PixelMap3D.rebuild();
-                    }
+                    // Only push a 3D mesh rebuild when Live PixelMap is the active screen source.
+                    // Saved/pattern modes ignore live canvas churn; stage3d also signature-skips duplicates.
+                    try {
+                        const cfg = window.PixelMap3D && typeof window.PixelMap3D.getConfig === 'function'
+                            ? window.PixelMap3D.getConfig()
+                            : null;
+                        if (cfg && cfg.testPattern === 'live' &&
+                            window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
+                            window.PixelMap3D.rebuild();
+                        }
+                    } catch { /* 3D optional */ }
                 } catch (error) {
                     console.error("Error in updatePixelMap:", error);
                     showMessageBox("An unexpected error occurred while updating the pixel map.");
@@ -4531,13 +4545,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             e.stopPropagation();
                             disposeTooltip(item);
 
-                            // Temporarily hide selection rectangle for saving
+                            // Temporarily hide selection rectangle for saving (2D thumbnail only — no 3D rebuild)
                             const currentSelection = state.selectionRect;
                             state.selectionRect = null;
                             redrawDrawingOverlay();
-                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
-                        window.PixelMap3D.rebuild();
-                    }
 
                             // Combine PixelMap base and overlay
                             const combinedCanvas = document.createElement('canvas');
@@ -4550,9 +4561,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Restore selection rectangle
                             state.selectionRect = currentSelection;
                             redrawDrawingOverlay();
-                    if (window.PixelMap3D && typeof window.PixelMap3D.rebuild === 'function') {
-                        window.PixelMap3D.rebuild();
-                    }
 
                             // Build full image and thumbnail
                             const dataUrl = combinedCanvas.toDataURL('image/png');
@@ -5160,12 +5168,15 @@ const renameInput = document.createElement('input');
              */
             const deleteSavedCanvas = (canvasId) => {
                 const wasActive = state.currentCanvasId === canvasId;
+                const wasStagePick = String(state.stage3dSelectedCanvasId) === String(canvasId);
                 state.savedCanvases = state.savedCanvases.filter(c => c.id !== canvasId);
                 if (wasActive) {
                     state.currentCanvasId = state.savedCanvases.length
                         ? state.savedCanvases[state.savedCanvases.length - 1].id
                         : null;
                 }
+                // Clear stale 3D picker id so refreshSavedCanvasSelect can re-bind (3D-05/06)
+                if (wasStagePick) state.stage3dSelectedCanvasId = null;
                 try { saveSavedCanvases?.(); } catch { }
                 renderSavedCanvases();
                 notifyStage3dSavedCanvasChanged();

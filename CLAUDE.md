@@ -13,6 +13,9 @@ Repo: `https://github.com/SHARUNJOSEPH/v3.git`. Active working branch is typical
 ```bash
 npm start                 # npx serve .  (static server, default port 3000)
 npx serve -l 3000 .       # explicit port (matches launch-app.bat)
+npm run lint              # ESLint + security plugin when installed; else scripts/security-lint.js
+npm run lint:security     # zero-dep security heuristics only
+npm run lint:eslint       # direct eslint CLI (requires npm install)
 ```
 
 Desktop launchers (Windows):
@@ -29,9 +32,9 @@ firebase deploy --only hosting --project "$FIREBASE_PROJECT_ID"
 firebase hosting:channel:deploy pr-<n> --project "$FIREBASE_PROJECT_ID"
 ```
 
-There is **no** test runner, bundler, TypeScript, or ESLint config yet. `TODO.md` tracks adding ESLint security lint and Firestore/Storage rules. Do not invent a test/lint workflow — document or add it explicitly if introduced.
+There is **no** test runner, bundler, or TypeScript. **Lint:** `eslint.config.mjs` + `eslint-plugin-security` (declared in `package.json`); `npm run lint` prefers local ESLint and falls back to `scripts/security-lint.js` if `node_modules/eslint` is missing. Scope is `js/stage3d.js`, `js/aptabase.js`, `js/app.js` (not `js/main.js` / vendor). Warn-first baseline on noisy rules for `app.js` is intentional — see `TODO.md` / Gate G4.
 
-Cache-bust query strings (`?v=3.4`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
+Cache-bust query strings (`?v=3.5`) on `css/style.css`, `js/aptabase.js`, `js/stage3d.js`, `js/app.js` must be bumped together when those files change and you need clients to pick up the new build.
 
 ## Architecture
 
@@ -116,5 +119,5 @@ Squad plan: `docs/TEAM-CHARTER-AND-EXECUTION-PLAN.md` (Waves 0–5, Gates G1–G
 
 - [x] P0-1 Firebase compat SDKs vendored + loaded from `index.html`.
 - [x] P0-2 `firestore.rules` + `storage.rules` authored and wired in `firebase.json` (deploy still required — see `docs/P0-2-RULES-DEPLOY.md`).
-- [ ] Introduce ESLint + security plugin.
+- [x] Introduce ESLint + security plugin (`eslint.config.mjs`, `npm run lint`; full `npm install` may still be needed on a networked host).
 - [ ] Optional (Phase C): 3D dropdown to pick any saved canvas without loading it into the editor; multi-object walls from one saved layout.

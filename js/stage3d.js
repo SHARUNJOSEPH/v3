@@ -12,6 +12,10 @@
     let screenTexture, screenMaterial;
     let animationFrameId;
     let isInitialized = false;
+    /** SpotLight targets are parented to the scene (not lightsGroup) — track to avoid orphans. */
+    let spotlightTargets = [];
+    /** Signature of last full mesh rebuild — skips redundant scene.remove spam (3D-11). */
+    let lastRebuildSig = '';
 
     // Default 3D Stage Configuration
     const config = {
@@ -27,7 +31,9 @@
         ambientGlow: 1.05,
         // 'saved' = active CanvasMap saved layout (default); 'live' = PixelMap canvas fallback
         testPattern: 'saved',
-        autoRotate: false
+        autoRotate: false,
+        // false = LED screen only (no floor/truss/fog/spotlights) — product default
+        showEnvironment: false
     };
 
     let lastFrameKey = '';
@@ -52,8 +58,6 @@
         // 1. Scene
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a0c10);
-        // Lighter fog so distant / small LED walls stay readable
-        scene.fog = new THREE.FogExp2(0x0a0c10, 0.012);
 
         // 2. Camera
         camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
@@ -85,15 +89,13 @@
             controls = new THREE.OrbitControls(camera, canvasElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.maxPolarAngle = Math.PI / 2 - 0.01; // don't go below floor
             controls.minDistance = 2;
             controls.maxDistance = 35;
             controls.target.set(0, 1.8, 0);
         }
 
-        // 5. Build Environment
-        buildStageEnvironment();
-        buildLighting();
+        // 5. Environment (optional) + LED wall
+        applyEnvironmentMode(!!config.showEnvironment);
         rebuildScreens();
 
         // 6. Animation Loop
@@ -133,9 +135,61 @@
         updateEngineeringSpecs();
     }
 
+    /**
+     * LED-only vs full stage environment.
+     * When off: no floor/truss/fog/spotlights/ground-support legs — only the LED wall.
+     */
+    function applyEnvironmentMode(show) {
+        config.showEnvironment = !!show;
+
+        if (!scene) return;
+
+        if (config.showEnvironment) {
+            scene.background = new THREE.Color(0x0a0c10);
+            scene.fog = new THREE.FogExp2(0x0a0c10, 0.012);
+            if (controls) controls.maxPolarAngle = Math.PI / 2 - 0.01;
+            buildStageEnvironment();
+            buildLighting();
+        } else {
+            scene.fog = null;
+            scene.background = new THREE.Color(0x111318);
+            if (controls) controls.maxPolarAngle = Math.PI; // free orbit around LED only
+
+            if (stageDeck) {
+                scene.remove(stageDeck);
+                disposeObject3D(stageDeck);
+                stageDeck = null;
+            }
+            if (trussGroup) {
+                scene.remove(trussGroup);
+                disposeObject3D(trussGroup);
+                trussGroup = null;
+            }
+            if (lightsGroup) {
+                scene.remove(lightsGroup);
+                disposeObject3D(lightsGroup);
+                lightsGroup = null;
+            }
+            clearSpotlightTargets();
+            // Soft fill so unlit LED still reads if ambientGlow is low
+            lightsGroup = new THREE.Group();
+            lightsGroup.add(new THREE.AmbientLight(0xffffff, 0.35));
+            scene.add(lightsGroup);
+        }
+
+        const envExtras = document.getElementById('stage3dEnvExtras');
+        if (envExtras) envExtras.style.display = config.showEnvironment ? '' : 'none';
+        const envToggle = document.getElementById('stage3dShowEnvironmentToggle');
+        if (envToggle) envToggle.checked = config.showEnvironment;
+    }
+
     function buildStageEnvironment() {
         if (!scene) return;
-        if (stageDeck) scene.remove(stageDeck);
+        if (stageDeck) {
+            scene.remove(stageDeck);
+            disposeObject3D(stageDeck);
+            stageDeck = null;
+        }
 
         const deckGroup = new THREE.Group();
 
@@ -185,7 +239,11 @@
 
     function buildOverheadTruss() {
         if (!scene) return;
-        if (trussGroup) scene.remove(trussGroup);
+        if (trussGroup) {
+            scene.remove(trussGroup);
+            disposeObject3D(trussGroup);
+            trussGroup = null;
+        }
 
         trussGroup = new THREE.Group();
         const trussMat = new THREE.MeshStandardMaterial({
@@ -227,7 +285,12 @@
 
     function buildLighting() {
         if (!scene) return;
-        if (lightsGroup) scene.remove(lightsGroup);
+        if (lightsGroup) {
+            scene.remove(lightsGroup);
+            disposeObject3D(lightsGroup);
+            lightsGroup = null;
+        }
+        clearSpotlightTargets();
 
         lightsGroup = new THREE.Group();
 
@@ -247,7 +310,7 @@
         // Moving Spotlights
         if (config.spotlights) {
             const spotPositions = [-6, -2, 2, 6];
-            spotPositions.forEach((x, i) => {
+            spotPositions.forEach((x) => {
                 const spot = new THREE.SpotLight(new THREE.Color(config.spotlightColor), 2.2);
                 spot.position.set(x, 6.7, -0.4);
                 spot.angle = Math.PI / 7;
@@ -258,6 +321,7 @@
                 const target = new THREE.Object3D();
                 target.position.set(x * 0.7, 0, 4);
                 scene.add(target);
+                spotlightTargets.push(target);
                 spot.target = target;
 
                 lightsGroup.add(spot);
@@ -296,6 +360,47 @@
         }
         screenTexture = null;
         savedTextureCacheKey = '';
+    }
+
+    /**
+     * Dispose geometries/materials under a removed Object3D so rebuilds don't leak GPU memory.
+     * Shared screenTexture is left alone (managed by disposeScreenTexture / getScreenTexture).
+     */
+    function disposeObject3D(root) {
+        if (!root) return;
+        root.traverse((obj) => {
+            if (obj.geometry && typeof obj.geometry.dispose === 'function') {
+                try { obj.geometry.dispose(); } catch (_) { /* ignore */ }
+            }
+            const mats = obj.material
+                ? (Array.isArray(obj.material) ? obj.material : [obj.material])
+                : [];
+            mats.forEach((m) => {
+                if (!m || typeof m.dispose !== 'function') return;
+                // Don't dispose the global shared screenTexture here — getScreenTexture owns it
+                if (m.map && screenTexture && m.map === screenTexture) {
+                    try {
+                        m.map = null;
+                        m.dispose();
+                    } catch (_) { /* ignore */ }
+                    return;
+                }
+                // Dispose individual texture if attached
+                if (m.map && typeof m.map.dispose === 'function') {
+                    try { m.map.dispose(); } catch (_) { /* ignore */ }
+                }
+                try { m.dispose(); } catch (_) { /* ignore */ }
+            });
+        });
+    }
+
+    function clearSpotlightTargets() {
+        spotlightTargets.forEach((t) => {
+            if (t && scene) {
+                try { scene.remove(t); } catch (_) { /* ignore */ }
+            }
+        });
+        spotlightTargets = [];
     }
 
     function getActiveSavedCanvas() {
@@ -372,7 +477,8 @@
 
     /**
      * Physical size + pixel resolution for the 3D wall.
-     * Prefer active saved CanvasMap object details; fall back to live PixelMap state.
+     * Ingests saved CanvasMap layouts or active workspace screens in CanvasMap;
+     * falls back to live PixelMap state.
      */
     function resolveScreenMetrics() {
         const appState = window.state || {};
@@ -383,64 +489,130 @@
             resH: 0,
             cols: 8,
             rows: 5,
-            source: 'default'
+            source: 'default',
+            isMultiScreen: false,
+            screens: [],
+            spanX_meters: 4,
+            spanY_meters: 2.5,
+            layoutCenterX: 0,
+            layoutCenterY: 0,
+            metersPerPixel: 0.5 / 128
         };
 
+        let objects = [];
         if (config.testPattern === 'saved') {
             const saved = getActiveSavedCanvas();
-            const objects = Array.isArray(saved?.objects) ? saved.objects : [];
-            if (objects.length) {
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                let metersPerPx = null;
-                let sumPanelsW = 0, sumPanelsH = 0;
+            if (saved && Array.isArray(saved.objects) && saved.objects.length > 0) {
+                objects = saved.objects;
+            } else if (Array.isArray(appState.canvasMapObjects) && appState.canvasMapObjects.length > 0) {
+                // Fallback: active workspace screens placed in CanvasMap
+                objects = appState.canvasMapObjects;
+            }
+        }
 
-                objects.forEach((obj) => {
-                    const x = Number(obj.x) || 0;
-                    const y = Number(obj.y) || 0;
-                    const w = Number(obj.width) || 0;
-                    const h = Number(obj.height) || 0;
-                    minX = Math.min(minX, x);
-                    minY = Math.min(minY, y);
-                    maxX = Math.max(maxX, x + w);
-                    maxY = Math.max(maxY, y + h);
+        if (objects.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            let sumMetersW = 0, sumPixelW = 0;
+            let sumPanelsW = 0, sumPanelsH = 0;
 
-                    const d = obj.details || {};
-                    const aw = Number(d.actualWidth);
-                    const ah = Number(d.actualHeight);
-                    const rw = Number(d.resWidth) || w;
-                    const rh = Number(d.resHeight) || h;
-                    if (Number.isFinite(aw) && aw > 0 && rw > 0) {
-                        const mpp = aw / rw;
-                        if (!metersPerPx) metersPerPx = mpp;
-                    } else if (Number.isFinite(ah) && ah > 0 && rh > 0) {
-                        const mpp = ah / rh;
-                        if (!metersPerPx) metersPerPx = mpp;
+            objects.forEach((obj) => {
+                const x = Number(obj.x) || 0;
+                const y = Number(obj.y) || 0;
+                const w = Number(obj.width) || 1;
+                const h = Number(obj.height) || 1;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x + w);
+                maxY = Math.max(maxY, y + h);
+
+                const d = obj.details || {};
+                const aw = Number(d.actualWidth);
+                const rw = Number(d.resWidth) || w;
+                if (Number.isFinite(aw) && aw > 0 && rw > 0) {
+                    sumMetersW += aw;
+                    sumPixelW += w;
+                }
+                if (Number.isFinite(Number(d.panelsWidth))) sumPanelsW += Number(d.panelsWidth);
+                if (Number.isFinite(Number(d.panelsHeight))) sumPanelsH = Math.max(sumPanelsH, Number(d.panelsHeight));
+            });
+
+            const layoutPixelSpan = Math.max(1, maxX - minX);
+            const layoutPixelHeight = Math.max(1, maxY - minY);
+            const layoutCenterPixelX = (minX + maxX) / 2;
+            const layoutCenterPixelY = (minY + maxY) / 2;
+
+            const pW = Number(appState.panelWidth) || 0.5;
+            const pH = Number(appState.panelHeight) || 0.5;
+            const defaultMpp = pW / 128;
+            const mppGlobal = sumPixelW > 0 ? (sumMetersW / sumPixelW) : defaultMpp;
+
+            const stageDeckY = config.riggingMode === 'flown' ? (Number(config.flownHeight) || 1.5) : 0.15;
+
+            // Transform each screen
+            const transformedScreens = objects.map((obj, index) => {
+                const xPx = Number(obj.x) || 0;
+                const yPx = Number(obj.y) || 0;
+                const wPx = Number(obj.width) || 1;
+                const hPx = Number(obj.height) || 1;
+                const d = obj.details || {};
+
+                const wM = Number(d.actualWidth) > 0 ? Number(d.actualWidth) : wPx * mppGlobal;
+                const hM = Number(d.actualHeight) > 0 ? Number(d.actualHeight) : hPx * mppGlobal;
+
+                const centerPxX = xPx + wPx / 2;
+                const deltaPxX = centerPxX - layoutCenterPixelX;
+                const xMeters = deltaPxX * mppGlobal;
+
+                // Grounded on Stage Deck: the lowest screen sits on stage deck.
+                // Relative vertical positioning from 2D CanvasMap:
+                const relY = Math.max(0, (maxY - (yPx + hPx)) * mppGlobal);
+                const yMeters = stageDeckY + hM / 2 + relY;
+
+                const cols = Number(d.panelsWidth) || Math.max(1, Math.round(wM / pW));
+                const rows = Number(d.panelsHeight) || Math.max(1, Math.round(hM / pH));
+
+                // Z-staggering to prevent coplanar z-fighting if screens overlap horizontally
+                let zMeters = 0;
+                for (let j = 0; j < index; j++) {
+                    const prev = objects[j];
+                    const prevXPx = Number(prev.x) || 0;
+                    const prevWPx = Number(prev.width) || 1;
+                    const overlapsX = !(xPx + wPx <= prevXPx || xPx >= prevXPx + prevWPx);
+                    if (overlapsX) {
+                        zMeters = 0.35 * ((index % 3) + 1);
+                        break;
                     }
-                    if (Number.isFinite(Number(d.panelsWidth))) sumPanelsW += Number(d.panelsWidth);
-                    if (Number.isFinite(Number(d.panelsHeight))) sumPanelsH = Math.max(sumPanelsH, Number(d.panelsHeight));
-                });
-
-                const pxW = Math.max(1, maxX - minX);
-                const pxH = Math.max(1, maxY - minY);
-                result.resW = Math.round(pxW);
-                result.resH = Math.round(pxH);
-
-                if (metersPerPx && metersPerPx > 0) {
-                    result.widthM = pxW * metersPerPx;
-                    result.heightM = pxH * metersPerPx;
-                } else if (objects.length === 1 && objects[0].details) {
-                    const d = objects[0].details;
-                    if (Number(d.actualWidth) > 0) result.widthM = Number(d.actualWidth);
-                    if (Number(d.actualHeight) > 0) result.heightM = Number(d.actualHeight);
                 }
 
-                const pW = Number(appState.panelWidth) || 0.5;
-                const pH = Number(appState.panelHeight) || 0.5;
-                result.cols = sumPanelsW > 0 ? sumPanelsW : Math.max(1, Math.round(result.widthM / pW));
-                result.rows = sumPanelsH > 0 ? sumPanelsH : Math.max(1, Math.round(result.heightM / pH));
-                result.source = 'saved';
-                return result;
-            }
+                return {
+                    obj,
+                    index,
+                    x_meters: xMeters,
+                    y_meters: yMeters,
+                    z_meters: zMeters,
+                    width_meters: wM,
+                    height_meters: hM,
+                    cols,
+                    rows,
+                    relY
+                };
+            });
+
+            result.screens = transformedScreens;
+            result.isMultiScreen = transformedScreens.length > 1;
+            result.spanX_meters = layoutPixelSpan * mppGlobal;
+            result.spanY_meters = layoutPixelHeight * mppGlobal;
+            result.widthM = result.spanX_meters;
+            result.heightM = result.spanY_meters;
+            result.resW = Math.round(layoutPixelSpan);
+            result.resH = Math.round(layoutPixelHeight);
+            result.cols = sumPanelsW > 0 ? sumPanelsW : Math.max(1, Math.round(result.widthM / pW));
+            result.rows = sumPanelsH > 0 ? sumPanelsH : Math.max(1, Math.round(result.heightM / pH));
+            result.metersPerPixel = mppGlobal;
+            result.layoutCenterX = layoutCenterPixelX;
+            result.layoutCenterY = layoutCenterPixelY;
+            result.source = 'saved';
+            return result;
         }
 
         // Live PixelMap / fallbacks
@@ -481,6 +653,115 @@
             ctx.fillText(line, offCanvas.width / 2, offCanvas.height / 2 + (i - (lines.length - 1) / 2) * 40);
         });
         return applyTextureColorSpace(new THREE.CanvasTexture(offCanvas));
+    }
+
+    function drawScreenPlaceholder(ctx, w, h, name, resW, resH, index, totalScreens, cols, rows) {
+        ctx.fillStyle = '#080c14';
+        ctx.fillRect(0, 0, w, h);
+
+        // Technical Grid representing physical LED panels
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        const gridCols = Number(cols) || 8;
+        const gridRows = Number(rows) || 5;
+        for (let c = 0; c <= gridCols; c++) {
+            const x = Math.round((c / gridCols) * w);
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let r = 0; r <= gridRows; r++) {
+            const y = Math.round((r / gridRows) * h);
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+
+        // Inner glowing border
+        ctx.strokeStyle = '#00d4ff';
+        ctx.lineWidth = Math.max(2, Math.min(6, Math.round(w / 180)));
+        ctx.strokeRect(8, 8, w - 16, h - 16);
+
+        // Professional Tech Badge in center
+        const badgeW = Math.min(w * 0.85, 340);
+        const badgeH = Math.min(h * 0.55, 120);
+        const bx = (w - badgeW) / 2;
+        const by = (h - badgeH) / 2;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.fillRect(bx, by, badgeW, badgeH);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(bx, by, badgeW, badgeH);
+
+        // Title
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = `bold ${Math.max(14, Math.round(badgeH * 0.28))}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(name).toUpperCase(), w / 2, by + badgeH * 0.35);
+
+        // Subtitle (Resolution + Panel count)
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `${Math.max(11, Math.round(badgeH * 0.18))}px sans-serif`;
+        ctx.fillText(`${resW} × ${resH} px • ${gridCols}×${gridRows} panels`, w / 2, by + badgeH * 0.68);
+    }
+
+    function createIndividualScreenTexture(obj, index, totalScreens, pattern) {
+        const d = obj.details || {};
+        const resW = Number(d.resWidth) || Number(obj.width) || 1920;
+        const resH = Number(d.resHeight) || Number(obj.height) || 1080;
+        const name = obj.name || `Screen ${index + 1}`;
+
+        const maxDim = 1024;
+        const scale = Math.min(1, maxDim / resW, maxDim / resH);
+        const texW = Math.max(128, Math.round(resW * scale));
+        const texH = Math.max(128, Math.round(resH * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = texW;
+        canvas.height = texH;
+        const ctx = canvas.getContext('2d');
+
+        if (pattern === 'colorbars') {
+            const colors = ['#ffffff', '#ffff00', '#00ffff', '#00ff00', '#ff00ff', '#ff0000', '#0000ff', '#000000'];
+            const barW = texW / colors.length;
+            colors.forEach((col, i) => {
+                ctx.fillStyle = col;
+                ctx.fillRect(i * barW, 0, barW, texH);
+            });
+            const capH = Math.max(28, Math.round(texH * 0.12));
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(0, texH - capH, texW, capH);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${Math.max(12, Math.round(capH * 0.55))}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${name.toUpperCase()} (${index + 1}/${totalScreens}) | ${resW}×${resH}`, texW / 2, texH - capH / 2);
+        } else if (pattern === 'white') {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, texW, texH);
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, texW, texH);
+        } else if (pattern === 'saved' && obj._stageImg && obj._stageImg.complete && obj._stageImg.naturalWidth) {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, texW, texH);
+            ctx.drawImage(obj._stageImg, 0, 0, texW, texH);
+        } else if (pattern === 'saved' && obj.dataUrl) {
+            if (!obj._stageImgLoading) {
+                obj._stageImgLoading = true;
+                const img = new Image();
+                img.onload = () => {
+                    obj._stageImg = img;
+                    obj._stageImgLoading = false;
+                    lastRebuildSig = '';
+                    if (isInitialized) rebuildScreens();
+                };
+                img.onerror = () => { obj._stageImgLoading = false; };
+                img.src = obj.dataUrl;
+            }
+            drawScreenPlaceholder(ctx, texW, texH, name, resW, resH, index, totalScreens, d.panelsWidth, d.panelsHeight);
+        } else {
+            drawScreenPlaceholder(ctx, texW, texH, name, resW, resH, index, totalScreens, d.panelsWidth, d.panelsHeight);
+        }
+
+        return applyTextureColorSpace(new THREE.CanvasTexture(canvas));
     }
 
     function compositeSavedCanvasTexture(saved) {
@@ -626,10 +907,6 @@
         // has initialized the Three.js scene — no-op until init3DStage() runs.
         if (!scene) return;
 
-        if (screenGroup) scene.remove(screenGroup);
-
-        screenGroup = new THREE.Group();
-
         const metrics = resolveScreenMetrics();
         let screenWidthMeters = metrics.widthM;
         let screenHeightMeters = metrics.heightM;
@@ -638,10 +915,92 @@
 
         const panelCols = Math.max(1, metrics.cols || 8);
         const panelRows = Math.max(1, metrics.rows || 5);
+        const curveDeg = Number(config.curveAngle) || 0;
+        const glow = Math.max(0.2, Math.min(1.5, Number(config.ambientGlow) || 1));
+
+        // Skip identical rebuilds — updatePixelMap hammers PixelMap3D.rebuild() (3D-11)
+        // Live mode always refreshes texture.needsUpdate in the animate loop; still allow
+        // a cheap early-out when dimensions/config haven't changed and texture is cached.
+        const rebuildSig = [
+            screenWidthMeters.toFixed(3),
+            screenHeightMeters.toFixed(3),
+            panelCols,
+            panelRows,
+            curveDeg,
+            config.curveDirection,
+            config.riggingMode,
+            String(config.flownHeight),
+            config.sideWings,
+            config.testPattern,
+            config.showEnvironment ? '1' : '0',
+            glow.toFixed(2),
+            metrics.source,
+            savedTextureCacheKey || '',
+            (window.state && window.state.stage3dSelectedCanvasId) || '',
+            (window.state && window.state.currentCanvasId) || '',
+            metrics.isMultiScreen ? ('multi:' + metrics.screens.length) : 'single',
+            metrics.screens.map(s => `${s.x_meters.toFixed(2)},${s.y_meters.toFixed(2)},${s.width_meters.toFixed(2)},${s.height_meters.toFixed(2)}`).join(';')
+        ].join('|');
+
+        if (rebuildSig === lastRebuildSig && screenGroup) {
+            // Live PixelMap pixels refresh via screenTexture.needsUpdate in animate()
+            updateEngineeringSpecs(metrics);
+            return;
+        }
+
+        // Tear down previous meshes BEFORE replacing the shared CanvasTexture (3D-11)
+        if (screenGroup) {
+            scene.remove(screenGroup);
+            disposeObject3D(screenGroup);
+            screenGroup = null;
+        }
+
+        lastRebuildSig = rebuildSig;
+        screenGroup = new THREE.Group();
+
+        // Calculate Y position (Ground support vs Flown)
+        const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
+        const centerY = baseY + screenHeightMeters / 2;
+
+        if (metrics.isMultiScreen) {
+            try {
+                metrics.screens.forEach((sc, idx) => {
+                    const screenSubGroup = new THREE.Group();
+                    screenSubGroup.name = `Screen_${idx}_${sc.obj.id || idx}`;
+                    screenSubGroup.position.set(sc.x_meters, sc.y_meters, sc.z_meters);
+
+                    const screenTex = createIndividualScreenTexture(sc.obj, idx, metrics.screens.length, config.testPattern);
+                    const screenMat = new THREE.MeshBasicMaterial({
+                        map: screenTex,
+                        color: new THREE.Color(glow, glow, glow),
+                        toneMapped: false
+                    });
+
+                    // Each individual screen gets front panel + rear casing + ground support
+                    const screenMesh = createScreenPanelMesh(
+                        sc.width_meters,
+                        sc.height_meters,
+                        screenMat,
+                        sc.cols,
+                        sc.rows,
+                        config.riggingMode === 'ground'
+                    );
+                    screenSubGroup.add(screenMesh);
+                    screenGroup.add(screenSubGroup);
+                });
+            } catch (err) {
+                console.warn('PixelMap3D multi-screen generation error:', err);
+            }
+
+            scene.add(screenGroup);
+            updateEngineeringSpecs(metrics);
+            frameCameraToScreen(metrics.spanX_meters, metrics.spanY_meters, baseY + metrics.spanY_meters / 2, false);
+            return;
+        }
 
         const tex = getScreenTexture();
+
         // Unlit LED face — matches source canvas colors (Standard + map+emissive was washing them out)
-        const glow = Math.max(0.2, Math.min(1.5, Number(config.ambientGlow) || 1));
         const mat = new THREE.MeshBasicMaterial({
             map: tex,
             color: new THREE.Color(glow, glow, glow),
@@ -649,47 +1008,54 @@
         });
         screenMaterial = mat;
 
-        // Calculate Y position (Ground support vs Flown)
-        const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
-        const centerY = baseY + screenHeightMeters / 2;
+        // Build Main Screen (Flat vs Curved) — catch curve math so UI never throws (3D-11)
+        try {
+            if (curveDeg === 0) {
+                const screenMesh = createScreenPanelMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows);
+                screenMesh.position.set(0, centerY, 0);
+                screenGroup.add(screenMesh);
+            } else {
+                const curvedMesh = createCurvedWallMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows, curveDeg, config.curveDirection);
+                curvedMesh.position.set(0, centerY, 0);
+                screenGroup.add(curvedMesh);
+            }
 
-        // Build Main Screen (Flat vs Curved)
-        const curveDeg = Number(config.curveAngle) || 0;
+            // Build Side Wings if enabled
+            if (config.sideWings === 'wings') {
+                const wingW = Math.max(1.5, screenWidthMeters * 0.35);
+                const wingH = screenHeightMeters * 0.85;
+                const wingAngleRad = (config.wingAngle * Math.PI) / 180;
+                const wingX = screenWidthMeters / 2 + (wingW / 2) * Math.cos(wingAngleRad) + 0.3;
+                const wingZ = (wingW / 2) * Math.sin(wingAngleRad) + 0.2;
 
-        if (curveDeg === 0) {
-            const screenMesh = createScreenPanelMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows);
-            screenMesh.position.set(0, centerY, 0);
-            screenGroup.add(screenMesh);
-        } else {
-            const curvedMesh = createCurvedWallMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows, curveDeg, config.curveDirection);
-            curvedMesh.position.set(0, centerY, 0);
-            screenGroup.add(curvedMesh);
-        }
+                // Wings / DJ booth: LED faces only — no ground stacks (main wall owns support)
+                const leftWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
+                leftWing.position.set(-wingX, centerY, wingZ);
+                leftWing.rotation.y = wingAngleRad;
+                screenGroup.add(leftWing);
 
-        // Build Side Wings if enabled
-        if (config.sideWings === 'wings') {
-            const wingW = Math.max(1.5, screenWidthMeters * 0.35);
-            const wingH = screenHeightMeters * 0.85;
-            const wingAngleRad = (config.wingAngle * Math.PI) / 180;
-            const wingX = screenWidthMeters / 2 + (wingW / 2) * Math.cos(wingAngleRad) + 0.3;
-            const wingZ = (wingW / 2) * Math.sin(wingAngleRad) + 0.2;
-
-            // Wings / DJ booth: LED faces only — no ground stacks (main wall owns support)
-            const leftWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
-            leftWing.position.set(-wingX, centerY, wingZ);
-            leftWing.rotation.y = wingAngleRad;
-            screenGroup.add(leftWing);
-
-            const rightWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
-            rightWing.position.set(wingX, centerY, wingZ);
-            rightWing.rotation.y = -wingAngleRad;
-            screenGroup.add(rightWing);
-        } else if (config.sideWings === 'dj') {
-            const djW = Math.min(2.5, screenWidthMeters * 0.6);
-            const djH = 1.0;
-            const djScreen = createScreenPanelMesh(djW, djH, mat, 4, 2, false);
-            djScreen.position.set(0, 0.6, 2.5);
-            screenGroup.add(djScreen);
+                const rightWing = createScreenPanelMesh(wingW, wingH, mat, 3, panelRows, false);
+                rightWing.position.set(wingX, centerY, wingZ);
+                rightWing.rotation.y = -wingAngleRad;
+                screenGroup.add(rightWing);
+            } else if (config.sideWings === 'dj') {
+                const djW = Math.min(2.5, screenWidthMeters * 0.6);
+                const djH = 1.0;
+                const djScreen = createScreenPanelMesh(djW, djH, mat, 4, 2, false);
+                djScreen.position.set(0, 0.6, 2.5);
+                screenGroup.add(djScreen);
+            }
+        } catch (err) {
+            console.warn('PixelMap3D rebuildScreens curve/mesh error — falling back to flat:', err);
+            // Clear partial group and fall back to a simple flat panel
+            while (screenGroup.children.length) {
+                const child = screenGroup.children[0];
+                screenGroup.remove(child);
+                disposeObject3D(child);
+            }
+            const fallback = createScreenPanelMesh(screenWidthMeters, screenHeightMeters, mat, panelCols, panelRows);
+            fallback.position.set(0, centerY, 0);
+            screenGroup.add(fallback);
         }
 
         scene.add(screenGroup);
@@ -819,7 +1185,7 @@
         group.add(frameMesh);
 
         // Ground support sits behind the LED face (never intersects z>=0)
-        if (withSupport && config.riggingMode === 'ground') {
+        if (withSupport && config.showEnvironment && config.riggingMode === 'ground') {
             group.add(createGroundSupportLocal(width, height));
         }
 
@@ -838,14 +1204,32 @@
      */
     function createCurvedWallMesh(width, height, material, cols, rows, angleDeg, direction) {
         const group = new THREE.Group();
-        const totalAngleRad = Math.max(0.001, (angleDeg * Math.PI) / 180);
+        // Defensive: NaN/negative/tiny angles must not throw or produce Inf radius (3D-11)
+        const safeDeg = Math.max(0, Math.min(45, Number(angleDeg) || 0));
+        if (!(safeDeg > 0.05) || !(width > 0) || !(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
+            // Degenerate → treat as flat panel (caller normally routes θ===0 here already)
+            return createScreenPanelMesh(
+                Number.isFinite(width) && width > 0 ? width : 4,
+                Number.isFinite(height) && height > 0 ? height : 2.5,
+                material,
+                cols,
+                rows
+            );
+        }
+        const totalAngleRad = Math.max(0.001, (safeDeg * Math.PI) / 180);
         const isConvex = direction === 'convex';
 
         // Fine facets for a smooth ribbon; at least one per cabinet column
-        const segs = Math.max(cols || 1, Math.ceil(angleDeg / 2.5), 20);
+        const segs = Math.max(cols || 1, Math.ceil(safeDeg / 2.5), 20);
         const radius = width / totalAngleRad;
+        if (!Number.isFinite(radius) || radius <= 0) {
+            return createScreenPanelMesh(width, height, material, cols, rows);
+        }
         const angleStep = totalAngleRad / segs;
         const chord = 2 * radius * Math.sin(angleStep / 2);
+        if (!Number.isFinite(chord) || chord <= 0) {
+            return createScreenPanelMesh(width, height, material, cols, rows);
+        }
 
         const backMat = new THREE.MeshStandardMaterial({ color: 0x14171c, metalness: 0.8, roughness: 0.4 });
 
@@ -907,8 +1291,8 @@
             group.add(backMesh);
         }
 
-        // Ground support at curve ends — uprights/feet stay behind the local face
-        if (config.riggingMode === 'ground') {
+        // Ground support at curve ends — only when full stage environment is on
+        if (config.showEnvironment && config.riggingMode === 'ground') {
             const steel = new THREE.MeshStandardMaterial({ color: 0x2c333c, metalness: 0.78, roughness: 0.32 });
             const baseMat = new THREE.MeshStandardMaterial({ color: 0x1a1e24, metalness: 0.7, roughness: 0.4 });
             const faceClearance = 0.10;
@@ -956,8 +1340,8 @@
         if (!controls || !camera) return;
 
         const metrics = resolveScreenMetrics();
-        let screenW = Number(metrics.widthM) || 4;
-        let screenH = Number(metrics.heightM) || 2.5;
+        let screenW = Number(metrics.spanX_meters || metrics.widthM) || 4;
+        let screenH = Number(metrics.spanY_meters || metrics.heightM) || 2.5;
         if (screenW <= 0 || isNaN(screenW)) screenW = 4;
         if (screenH <= 0 || isNaN(screenH)) screenH = 2.5;
         const baseY = config.riggingMode === 'flown' ? config.flownHeight : 0.15;
@@ -990,8 +1374,55 @@
         controls.update();
     }
 
-    function updateEngineeringSpecs() {
-        const metrics = resolveScreenMetrics();
+    function updateEngineeringSpecs(metricsOverride) {
+        const metrics = metricsOverride || resolveScreenMetrics();
+        const setEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        if (metrics.isMultiScreen && metrics.screens.length > 0) {
+            let totalPanels = 0;
+            let totalAreaM2 = 0;
+            let totalPixels = 0;
+            let totalPorts = 0;
+            let totalCabinets = 0;
+
+            metrics.screens.forEach(sc => {
+                const d = sc.obj.details || {};
+                const wM = sc.width_meters;
+                const hM = sc.height_meters;
+                const area = wM * hM;
+                totalAreaM2 += area;
+                const cols = sc.cols;
+                const rows = sc.rows;
+                const cabs = Number(d.totalPanels) || (cols * rows);
+                totalCabinets += cabs;
+
+                const resW = Number(d.resWidth) || Math.round(wM * 256);
+                const resH = Number(d.resHeight) || Math.round(hM * 256);
+                const px = resW * resH;
+                totalPixels += px;
+                totalPorts += Math.max(1, Math.ceil(px / 650000));
+            });
+
+            const areaSqFt = totalAreaM2 * 10.7639;
+            const maxWatts = Math.round(totalAreaM2 * 600);
+            const avgWatts = Math.round(totalAreaM2 * 240);
+            const amps220 = (maxWatts / 220).toFixed(1);
+            const amps110 = (maxWatts / 110).toFixed(1);
+            const totalWeightKg = Math.round(totalCabinets * 8);
+            const totalWeightLbs = Math.round(totalWeightKg * 2.20462);
+
+            setEl('spec3dResolution', `${metrics.screens.length} Screens | ${metrics.resW} × ${metrics.resH} px (${(totalPixels / 1000000).toFixed(2)} MP)`);
+            setEl('spec3dArea', `${totalAreaM2.toFixed(2)} m² (${areaSqFt.toFixed(1)} sq ft)`);
+            setEl('spec3dCabinets', `${totalCabinets} cabinets across ${metrics.screens.length} screens`);
+            setEl('spec3dPower', `${(maxWatts / 1000).toFixed(2)} kW Max (${amps220}A @ 220V | ${amps110}A @ 110V)`);
+            setEl('spec3dDataPorts', `${totalPorts} Ports (1G RJ45 @ 650k px/port)`);
+            setEl('spec3dWeight', `${totalWeightKg} kg (${totalWeightLbs} lbs)`);
+            return;
+        }
+
         let screenW = metrics.widthM;
         let screenH = metrics.heightM;
         if (screenW <= 0) screenW = 4;
@@ -1021,12 +1452,6 @@
         // Weight estimation (~32kg per m2 or ~8kg per 500x500 cabinet)
         const totalWeightKg = Math.round(totalCabinets * 8);
         const totalWeightLbs = Math.round(totalWeightKg * 2.20462);
-
-        // Populate spec DOM elements
-        const setEl = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val;
-        };
 
         setEl('spec3dResolution', `${resW} × ${resH} px (${(totalPixels / 1000000).toFixed(2)} MP)`);
         setEl('spec3dArea', `${areaM2.toFixed(2)} m² (${areaSqFt.toFixed(1)} sq ft)`);
@@ -1121,6 +1546,16 @@
             });
         }
 
+        // LED-only vs full stage environment (default: LED only)
+        const envToggle = document.getElementById('stage3dShowEnvironmentToggle');
+        if (envToggle) {
+            envToggle.checked = !!config.showEnvironment;
+            envToggle.addEventListener('change', (e) => {
+                window.PixelMap3D.setConfig('showEnvironment', e.target.checked);
+            });
+        }
+        applyEnvironmentMode(!!config.showEnvironment);
+
         // Texture / Test Pattern — keep select in sync with config default ('saved')
         const textureSelect = document.getElementById('stage3dTextureSelect');
         if (textureSelect) {
@@ -1147,6 +1582,7 @@
                     if (textureSelect) textureSelect.value = 'saved';
                 }
                 savedTextureCacheKey = '';
+                lastRebuildSig = '';
                 rebuildScreens();
             });
         }
@@ -1238,24 +1674,44 @@
         /** Call after CanvasMap save/load/delete so picker + texture + size refresh. */
         notifySavedCanvasChanged: () => {
             savedTextureCacheKey = '';
+            lastRebuildSig = ''; // force mesh+texture refresh
             refreshSavedCanvasSelect();
             if (isInitialized) rebuildScreens();
         },
         refreshSavedCanvasSelect,
         setConfig: (key, value) => {
             config[key] = value;
-            if (key === 'deckStyle') buildStageEnvironment();
-            if (key === 'spotlights' || key === 'spotlightColor') buildLighting();
-            if (key === 'testPattern') {
-                savedTextureCacheKey = '';
-                refreshSavedCanvasSelect();
-            }
-            if (key === 'ambientGlow' && screenMaterial && screenMaterial.isMeshBasicMaterial) {
-                const glow = Math.max(0.2, Math.min(1.5, Number(value) || 1));
-                screenMaterial.color.setRGB(glow, glow, glow);
+            if (key === 'showEnvironment') {
+                lastRebuildSig = '';
+                applyEnvironmentMode(!!value);
+                rebuildScreens();
                 return;
             }
-            if (key === 'curveAngle' || key === 'curveDirection' || key === 'riggingMode' || key === 'flownHeight' || key === 'sideWings' || key === 'testPattern' || key === 'ambientGlow') {
+            if (key === 'deckStyle') {
+                if (config.showEnvironment) buildStageEnvironment();
+                return;
+            }
+            if (key === 'spotlights' || key === 'spotlightColor') {
+                if (config.showEnvironment) buildLighting();
+                return;
+            }
+            if (key === 'testPattern') {
+                savedTextureCacheKey = '';
+                lastRebuildSig = '';
+                refreshSavedCanvasSelect();
+            }
+            if (key === 'ambientGlow') {
+                if (screenMaterial && screenMaterial.isMeshBasicMaterial) {
+                    const glow = Math.max(0.2, Math.min(1.5, Number(value) || 1));
+                    screenMaterial.color.setRGB(glow, glow, glow);
+                    return; // in-place — no mesh rebuild
+                }
+                lastRebuildSig = '';
+                rebuildScreens();
+                return;
+            }
+            if (key === 'curveAngle' || key === 'curveDirection' || key === 'riggingMode' || key === 'flownHeight' || key === 'sideWings' || key === 'testPattern') {
+                lastRebuildSig = '';
                 rebuildScreens();
             }
         },

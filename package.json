@@ -3,9 +3,14 @@
   "version": "1.0.0",
   "description": "Local server for v3 app",
   "scripts": {
-    "start": "npx serve ."
+    "start": "npx serve .",
+    "lint": "node scripts/run-lint.js",
+    "lint:security": "node scripts/security-lint.js",
+    "lint:eslint": "eslint js/stage3d.js js/aptabase.js js/app.js"
   },
   "devDependencies": {
+    "eslint": "^9.15.0",
+    "eslint-plugin-security": "^3.0.1",
     "serve": "^14.2.1"
   }
 }

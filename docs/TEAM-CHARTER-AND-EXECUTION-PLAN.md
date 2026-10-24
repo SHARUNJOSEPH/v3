@@ -261,7 +261,7 @@ firebase deploy --only firestore:rules,storage
 **Target ready date:** when Gates G1–G5 green (Wave 1 in progress)  
 **Escalation:** product owner / repo admin
 
-**Wave status:** Wave 0 complete → Wave 1: **P0-1 done** + **P0-2 rules authored/wired** → **deploy rules to project**, then Wave 2 (3D QA) / Wave 3 (lint)
+**Wave status:** Wave 0 complete → Wave 1: **P0-1 done** + **P0-2 rules authored/wired** → **deploy rules to project**; Wave 2 (3D QA checklist) / Wave 3 (lint) in progress. Live scoreboard: [`docs/GATE-STATUS.md`](./GATE-STATUS.md). G3 matrix procedures: [`docs/QA-3D-MATRIX-CHECKLIST.md`](./QA-3D-MATRIX-CHECKLIST.md).
 
 ---
 

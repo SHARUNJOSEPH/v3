@@ -21,7 +21,14 @@
 - [x] Convex curve fold/flip: separate concave/convex pose math (no shared sign on angle+Z); bump `?v=` to 3.1.
 - [x] P0-1 Restore Firebase compat 10.12.2 under `js/vendor/` + `index.html` load order (`?v=3.2`); fetched via `scripts/fetch-firebase-vendor.ps1`.
 - [x] P0-2 Author `firestore.rules` + `storage.rules` and wire in `firebase.json` (see `docs/P0-2-RULES-DEPLOY.md`). **Deploy to project still required** (`firebase deploy --only firestore:rules,storage`).
-- [ ] Introduce automated security-focused linting via ESLint security plugin.
+- [x] Introduce automated security-focused linting via ESLint security plugin (P1-1 / Wave 3).
+  - Config: `eslint.config.mjs` (flat, browser globals + `eslint-plugin-security`).
+  - Scripts: `npm run lint` → `scripts/run-lint.js` (ESLint when installed; else zero-dep `scripts/security-lint.js`).
+  - Also: `npm run lint:security`, `npm run lint:eslint`.
+  - Declared `devDependencies`: `eslint`, `eslint-plugin-security` (install blocked in this session by registry egress allowlist — run `npm install` on a networked host).
+  - Gate G4 baseline: **0 errors** on `js/stage3d.js` / `js/aptabase.js` / `js/app.js`; `innerHTML` / object-injection style findings stay **warn**. No product-logic rewrites.
 - [ ] Optional: archive/delete unused `js/main.js` and stale `public/` Firebase starter once confirmed safe.
-- [x] Phase C (partial): 3D dropdown to pick any saved canvas without loading it into the editor (`stage3dSelectedCanvasId`); picker pinned to top of 3D sidebar and always visible (`?v=3.4`).
-- [ ] Optional: multi-object walls from one saved layout (separate screens on stage).
+- [x] Phase C (partial): 3D dropdown to pick any saved canvas without loading it into the editor (`stage3dSelectedCanvasId`); picker pinned to top of 3D sidebar and always visible.
+- [x] 3D LED-only default: hide floor/truss/fog/spotlights/ground legs; “Show stage environment” toggle; bump `?v=` to 3.5.
+- [x] Wave 2 harden (3D-11): dispose screenGroup/env on rebuild; clear orphan SpotLight targets; rebuild signature skip; gate `updatePixelMap`→3D rebuild to live mode only; defensive `createCurvedWallMesh` θ/NaN guards; clear stale `stage3dSelectedCanvasId` on delete; bump `?v=` to 3.6.
+- [x] Multi-object walls from CanvasMap / saved layout (separate 3D screens on stage positioned by 2D coordinates with individual textures, ground support stands, and aggregate AV engineering telemetry); bump `?v=` to 3.7.
