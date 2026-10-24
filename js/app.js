@@ -1223,7 +1223,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return function(...args) {
                     const context = this;
                     clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), delay);
+                    timeout = setTimeout(() => {
+                        Promise.resolve().then(() => func.apply(context, args));
+                    }, delay);
                 };
             };
 
@@ -9355,33 +9357,31 @@ const renameInput = document.createElement('input');
         const pixelMapTab = document.getElementById('pixelmap-tab');
         if (pixelMapTab) {
             pixelMapTab.addEventListener('shown.bs.tab', () => {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     updatePixelMap();
                     fitPixelMapToScreen();
-                }, 50);
+                });
             });
         }
         const canvasMapTabBtn = document.getElementById('canvasmap-tab');
         if (canvasMapTabBtn) {
             canvasMapTabBtn.addEventListener('shown.bs.tab', () => {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     resizeCanvasMap(true);
                     if (typeof redrawCanvasMapObjects === 'function') redrawCanvasMapObjects();
                     if (state.canvasMapRulerEnabled && typeof drawRulers === 'function') drawRulers();
-                }, 50);
+                });
             });
         }
         const stage3dTab = document.getElementById('stage3d-tab');
         if (stage3dTab) {
             stage3dTab.addEventListener('shown.bs.tab', () => {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     if (window.PixelMap3D) {
                         try { window.PixelMap3D.refreshSavedCanvasSelect?.(); } catch { }
                         window.PixelMap3D.init();
-                        window.PixelMap3D.rebuild();
-                        window.PixelMap3D.resize();
                     }
-                }, 60);
+                });
             });
         }
 

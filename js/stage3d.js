@@ -74,8 +74,7 @@
         // Mild tone map for the stage environment; LED face uses unlit BasicMaterial
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.enabled = false;
 
         canvasElement = renderer.domElement;
         canvasElement.style.width = '100%';
@@ -133,6 +132,7 @@
 
             renderer.render(scene, camera);
         };
+        try { renderer.compile(scene, camera); } catch (_) { }
         animate();
 
         isInitialized = true;
